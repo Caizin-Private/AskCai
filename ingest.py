@@ -1,98 +1,175 @@
 import os
-from fastapi import FastAPI, Request, Response
-from fastapi.staticfiles import StaticFiles
+import uuid
+import time
+from urllib.parse import quote
+from dotenv import load_dotenv
+from pypdf import PdfReader
+from openai import AzureOpenAI
+from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
 
-from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings
-from botbuilder.schema import Activity
+load_dotenv()
 
-from teams_bot import on_message_activity
-from teams_bot import send_suggested_questions
-from rag import ask_policy_question
+# ==========================
+# ENV CONFIG
+# ==========================
+SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
+SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
+INDEX_NAME = os.getenv("AZURE_SEARCH_INDEX")
 
-APP_ID = os.getenv("MicrosoftAppId")
-APP_PASSWORD = os.getenv("MicrosoftAppPassword")
-TENANT_ID = os.getenv("MicrosoftAppTenantId")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
 
-settings = BotFrameworkAdapterSettings(
-    app_id=APP_ID,
-    app_password=APP_PASSWORD,
-    channel_auth_tenant=TENANT_ID
+DATA_FOLDER = "data"
+
+# ==========================
+# CLIENTS
+# ==========================
+search_client = SearchClient(
+    endpoint=SEARCH_ENDPOINT,
+    index_name=INDEX_NAME,
+    credential=AzureKeyCredential(SEARCH_KEY),
 )
 
-adapter = BotFrameworkAdapter(settings)
-app = FastAPI(title="Caizin Policy RAG Bot")
+azure_client = AzureOpenAI(
+    api_key=AZURE_OPENAI_API_KEY,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    api_version="2024-02-15-preview"
+)
 
-if os.path.isdir("static"):
-    app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+# ==========================
+# EMBEDDINGS
+# ==========================
+def get_embeddings_batch(text_list):
+    if not isinstance(text_list, list):
+        text_list = [text_list]
 
-@app.post("/api/messages")
-async def messages(req: Request):
-
-    if req.headers.get("content-length") == "0":
-        return Response(status_code=400)
-
-    try:
-        body = await req.json()
-    except Exception:
-        return Response(status_code=400)
-
-    activity = Activity().deserialize(body)
-    auth_header = req.headers.get("Authorization", "")
-
-    async def turn_handler(turn_context):
-
-        activity_type = turn_context.activity.type
-
-        # 1️⃣ Conversation started / Bot added
-        if activity_type == "conversationUpdate":
-            members_added = turn_context.activity.members_added or []
-
-            for member in members_added:
-                if member.id != turn_context.activity.recipient.id:
-                    await send_suggested_questions(turn_context)
-                    return
-
-        # 2️⃣ User sent a message
-        elif activity_type == "message":
-
-            user_text = (turn_context.activity.text or "").strip().lower()
-
-            # Greeting triggers menu
-            if user_text in ["hi", "hello", "hey", "start", "menu"]:
-                await send_suggested_questions(turn_context)
-                return
-
-            # Otherwise → RAG / tool routing
-            await on_message_activity(turn_context)
-            return
-
-        # 3️⃣ Ignore everything else safely
-        else:
-            return
-
-    invoke_response = await adapter.process_activity(
-        activity,
-        auth_header,
-        turn_handler
+    response = azure_client.embeddings.create(
+        model=AZURE_OPENAI_DEPLOYMENT,
+        input=text_list
     )
 
-    if invoke_response:
-        return Response(
-            content=invoke_response.body,
-            status_code=invoke_response.status,
-            media_type="application/json"
-        )
-
-    return Response(status_code=201)
+    return [item.embedding for item in response.data]
 
 
-@app.post("/ask")
-async def ask(req: Request):
-    body = await req.json()
-    return {"answer": ask_policy_question(body.get("question"))}
+# ==========================
+# FILE READERS
+# ==========================
+def read_pdf(path):
+    reader = PdfReader(path)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() or ""
+    return text
+
+
+def read_txt(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+# ==========================
+# CHUNKING
+# ==========================
+def chunk_text(text, chunk_size=1500, overlap=300):
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap
+    return chunks
+
+
+# ==========================
+# CLEAR INDEX (SAFE FULL WIPE)
+# ==========================
+def clear_index():
+    print("🧹 Clearing existing index...")
+
+    while True:
+        results = search_client.search(search_text="*", top=1000)
+        ids = [{"id": doc["id"]} for doc in results]
+
+        if not ids:
+            break
+
+        search_client.delete_documents(ids)
+        print(f"🗑 Deleted {len(ids)} documents")
+        time.sleep(0.5)
+
+    print("✅ Index cleared successfully.\n")
+
+
+# ==========================
+# INGEST FILE
+# ==========================
+def ingest_file(file_path):
+    print(f"📄 Processing: {file_path}")
+
+    if file_path.endswith(".pdf"):
+        text = read_pdf(file_path)
+    elif file_path.endswith(".txt"):
+        text = read_txt(file_path)
+    else:
+        return
+
+    chunks = chunk_text(text)
+    print(f"🔹 Total chunks: {len(chunks)}")
+
+    filename = os.path.basename(file_path)
+    policy_name = os.path.splitext(filename)[0].strip()
+
+    STORAGE_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT")
+    BLOB_CONTAINER = "policy-pdfs"
+
+    encoded_filename = quote(filename)
+    policy_url = f"https://{STORAGE_ACCOUNT}.blob.core.windows.net/{BLOB_CONTAINER}/{encoded_filename}"
+
+    documents = []
+    EMBED_BATCH_SIZE = 5
+
+    for i in range(0, len(chunks), EMBED_BATCH_SIZE):
+        batch_chunks = chunks[i:i + EMBED_BATCH_SIZE]
+        embeddings = get_embeddings_batch(batch_chunks)
+
+        for chunk, embedding in zip(batch_chunks, embeddings):
+            documents.append({
+                "id": str(uuid.uuid4()),
+                "content": chunk,
+                "department": filename,
+                "policy_name": policy_name,
+                "policy_url": policy_url,
+                "embedding": embedding
+            })
+
+        time.sleep(1)
+
+    AZURE_BATCH_SIZE = 10
+
+    for i in range(0, len(documents), AZURE_BATCH_SIZE):
+        batch = documents[i:i + AZURE_BATCH_SIZE]
+        search_client.upload_documents(batch)
+        print(f"⬆ Uploaded Azure batch {i//AZURE_BATCH_SIZE + 1}")
+        time.sleep(0.5)
+
+    print(f"✅ Uploaded {len(documents)} chunks total\n")
+
+
+# ==========================
+# MAIN
+# ==========================
+def ingest_all():
+    clear_index()
+
+    for root, _, files in os.walk(DATA_FOLDER):
+        for file in files:
+            if file.endswith(".pdf") or file.endswith(".txt"):
+                ingest_file(os.path.join(root, file))
+
+    print("\n🎉 All documents ingested successfully!")
 
 
 if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    ingest_all()
