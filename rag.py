@@ -239,7 +239,7 @@ def ask_policy_question(question: str, employee_email: str = ""):
     answer = generate_answer(question,docs)
     if sources:
         answer += "\n\n---\n📎 Sources:\n"
-        for policy_name, policy_url in sources.items()[:2]:
+        for policy_name, policy_url in list(sources.items())[:2]:
             answer += f"- {policy_name}: {policy_url}\n"
 
     # Add styled disclaimer (Option 2 formatting)
