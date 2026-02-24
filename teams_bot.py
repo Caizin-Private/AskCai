@@ -184,183 +184,77 @@ async def send_apply_leave_form(turn_context: TurnContext):
 # =========================
 async def send_suggested_questions(turn_context: TurnContext):
 
-    card_json = {
-        "type": "AdaptiveCard",
-        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-        "version": "1.4",
-        "body": [
-            {
-                "type": "TextBlock",
-                "text": "📘 Caizin Policy Assistant",
-                "size": "Large",
-                "weight": "Bolder",
-                "color": "Accent"
-            },
-            {
-                "type": "TextBlock",
-                "text": "Please select a policy topic:",
-                "wrap": True,
-                "spacing": "Small"
-            },
-
-            # Row 1
-            {
-                "type": "ColumnSet",
-                "spacing": "Medium",
-                "columns": [
-                    {
-                        "type": "Column",
-                        "width": "stretch",
-                        "items": [
-                            {
-                                "type": "ActionSet",
-                                "actions": [
-                                    {
-                                        "type": "Action.Submit",
-                                        "title": "My Leave Balance",
-                                        "data": {"text": "What is my leave balance?"}
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "type": "Column",
-                        "width": "stretch",
-                        "items": [
-                            {
-                                "type": "ActionSet",
-                                "actions": [
-                                    {
-                                        "type": "Action.Submit",
-                                        "title": "📝 Apply Leave",
-                                        "data": {"text": "__open_apply_leave_form__"}
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            },
-
-            # Row 2
-            {
-                "type": "ColumnSet",
-                "spacing": "Small",
-                "columns": [
-                    {
-                        "type": "Column",
-                        "width": "stretch",
-                        "items": [
-                            {
-                                "type": "ActionSet",
-                                "actions": [
-                                    {
-                                        "type": "Action.Submit",
-                                        "title": "Leaves",
-                                        "data": {"text": "Tell me about leave policy"}
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "type": "Column",
-                        "width": "stretch",
-                        "items": [
-                            {
-                                "type": "ActionSet",
-                                "actions": [
-                                    {
-                                        "type": "Action.Submit",
-                                        "title": "Fitness Policy",
-                                        "data": {"text": "Tell me about fitness reimbursement policy"}
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            },
-
-            # Row 3
-            {
-                "type": "ColumnSet",
-                "spacing": "Small",
-                "columns": [
-                    {
-                        "type": "Column",
-                        "width": "stretch",
-                        "items": [
-                            {
-                                "type": "ActionSet",
-                                "actions": [
-                                    {
-                                        "type": "Action.Submit",
-                                        "title": "Travel Policy",
-                                        "data": {"text": "Tell me about travel policy"}
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "type": "Column",
-                        "width": "stretch",
-                        "items": [
-                            {
-                                "type": "ActionSet",
-                                "actions": [
-                                    {
-                                        "type": "Action.Submit",
-                                        "title": "Referral Policy",
-                                        "data": {"text": "Tell me about referral policy"}
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            },
-
-            # Row 4
-            {
-                "type": "ColumnSet",
-                "spacing": "Small",
-                "columns": [
-                    {
-                        "type": "Column",
-                        "width": "stretch",
-                        "items": [
-                            {
-                                "type": "ActionSet",
-                                "actions": [
-                                    {
-                                        "type": "Action.Submit",
-                                        "title": "POSH Policy",
-                                        "data": {"text": "Tell me about POSH policy"}
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "type": "Column",
-                        "width": "stretch"
-                    }
-                ]
-            }
+    # Card 1 – Leave Actions
+    card1 = HeroCard(
+        title="📘 Caizin Policy Assistant",
+        text="Leave & HR Actions:",
+        buttons=[
+            CardAction(
+                type=ActionTypes.im_back,
+                title="My Leave Balance",
+                value="What is my leave balance?"
+            ),
+            CardAction(
+                type=ActionTypes.im_back,
+                title="📝 Apply Leave",
+                value=APPLY_LEAVE_TRIGGER
+            ),
+            CardAction(
+                type=ActionTypes.im_back,
+                title="Leave Policy",
+                value="Tell me about leave policy"
+            ),
         ]
-    }
-
-    attachment = Attachment(
-        content_type="application/vnd.microsoft.card.adaptive",
-        content=card_json
     )
 
-    reply = Activity(
-        type="message",
-        attachments=[attachment]
+    # Card 2 – Other Policies
+    card2 = HeroCard(
+        title="📂 Other Policies",
+        text="Select a topic:",
+        buttons=[
+            CardAction(
+                type=ActionTypes.im_back,
+                title="Fitness Policy",
+                value="Tell me about fitness reimbursement policy"
+            ),
+            CardAction(
+                type=ActionTypes.im_back,
+                title="Travel Policy",
+                value="Tell me about travel policy"
+            ),
+            CardAction(
+                type=ActionTypes.im_back,
+                title="Referral Policy",
+                value="Tell me about referral policy"
+            ),
+            CardAction(
+                type=ActionTypes.im_back,
+                title="POSH Policy",
+                value="Tell me about POSH policy"
+            ),
+        ]
     )
 
-    await turn_context.send_activity(reply)
+    await turn_context.send_activity(
+        Activity(
+            type="message",
+            attachments=[
+                Attachment(
+                    content_type="application/vnd.microsoft.card.hero",
+                    content=card1
+                )
+            ]
+        )
+    )
+
+    await turn_context.send_activity(
+        Activity(
+            type="message",
+            attachments=[
+                Attachment(
+                    content_type="application/vnd.microsoft.card.hero",
+                    content=card2
+                )
+            ]
+        )
+    )

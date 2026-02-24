@@ -239,12 +239,12 @@ def ask_policy_question(question: str, employee_email: str = ""):
     answer = generate_answer(question,docs)
     if sources:
         answer += "\n\n---\n📎 Sources:\n"
-        for policy_name, policy_url in sources.items():
+        for policy_name, policy_url in sources.items()[:2]:
             answer += f"- {policy_name}: {policy_url}\n"
 
     # Add styled disclaimer (Option 2 formatting)
     answer += (
-        "\n---"
+        "\n---\n"
         "_For final confirmation and official applicability, "
         "please verify the policy details with HR._"
     )
