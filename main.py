@@ -61,7 +61,8 @@ async def messages(req: Request):
 
             # ── Cancel button ────────────────────────────────────────────
             if action == "apply_leave_cancel":
-                await turn_context.send_activity("Leave application cancelled.")
+                await turn_context.send_activity("❌ Leave application cancelled.")
+                await send_suggested_questions(turn_context)
                 return
 
             # ── Submit button ────────────────────────────────────────────
