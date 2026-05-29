@@ -13,6 +13,8 @@ python-dotenv
 requests
 pypdf
 
-mistralai
 numpy
 aiohttp
+anthropic
+boto3
+pdfplumber
