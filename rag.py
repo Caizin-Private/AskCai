@@ -10,7 +10,7 @@ from azure.core.credentials import AzureKeyCredential
 load_dotenv()
 
 # =========================
-# CONFIG
+# CONFIG  (unchanged)
 # =========================
 SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 SEARCH_KEY      = os.getenv("AZURE_SEARCH_KEY")
@@ -25,7 +25,7 @@ ANTHROPIC_SECRET_NAME = os.getenv("ANTHROPIC_SECRET_NAME", "caizin/anthropic-api
 AWS_REGION            = os.getenv("AWS_REGION")  # boto3 falls back to instance metadata if None
 
 # =========================
-# CLIENTS
+# CLIENTS  (lazy — created on first use so module import never blocks)
 # =========================
 _search_client    = None
 _azure_client     = None
@@ -76,7 +76,7 @@ def _get_anthropic_client():
     return _anthropic_client
 
 # =========================
-# EMBEDDING
+# EMBEDDING  (unchanged)
 # =========================
 def get_query_embedding(text):
     response = _get_azure_client().embeddings.create(
@@ -86,7 +86,7 @@ def get_query_embedding(text):
     return response.data[0].embedding
 
 # =========================
-# HYBRID SEARCH
+# HYBRID SEARCH  (unchanged)
 # =========================
 def search_documents(query: str):
     query_embedding = get_query_embedding(query)
@@ -198,7 +198,7 @@ def list_all_policies():
     return "\n".join(lines)
 
 # =========================
-# MISTRAL GENERATION
+# MISTRAL GENERATION  (unchanged)
 # =========================
 SYSTEM_PROMPT = """You are an internal Caizin company policy assistant.
 
@@ -252,7 +252,13 @@ Question:
     return answer, used_policies
 
 # =========================
-# MAIN ENTRY
+# MISTRAL FUNCTION CALLING ROUTER  (new)
+#
+# Mistral reads the user's question + tool descriptions and decides:
+#   - Which Zoho tool to call (get_leave_balance / apply_leave)
+#   - OR return nothing → fall through to RAG
+#
+# To add a new tool: only edit tool_registry.py. This function never changes.
 # =========================
 def ask_policy_question(question: str):
     # Classify intent — handles any phrasing, no keyword lists needed
@@ -303,6 +309,13 @@ def ask_policy_question(question: str):
             "_For final confirmation and official applicability, "
             "please verify the policy details with HR._"
         )
+
+    # Add styled disclaimer (Option 2 formatting)
+    answer += (
+        "\n---\n"
+        "_For final confirmation and official applicability, "
+        "please verify the policy details with HR._"
+    )
 
     return answer
 

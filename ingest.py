@@ -136,13 +136,12 @@ def ingest_file(file_path):
 
         for chunk, embedding in zip(batch_chunks, embeddings):
             documents.append({
-                "id": str(uuid.uuid4()),  # unchanged logic
+                "id": str(uuid.uuid4()),
                 "content": chunk,
                 "department": filename,
                 "policy_name": policy_name,
                 "policy_url": policy_url,
                 "embedding": embedding
-                
             })
 
         time.sleep(1)
@@ -162,7 +161,7 @@ def ingest_file(file_path):
 # MAIN
 # ==========================
 def ingest_all():
-    clear_index()  # 🔥 ensures old embeddings are removed
+    clear_index()
 
     for root, _, files in os.walk(DATA_FOLDER):
         for file in files:
