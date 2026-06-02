@@ -342,13 +342,6 @@ def ask_policy_question(question: str, employee_email: str = ""):
             "please verify the policy details with HR._"
         )
 
-    # Add styled disclaimer (Option 2 formatting)
-    answer += (
-        "\n---\n"
-        "_For final confirmation and official applicability, "
-        "please verify the policy details with HR._"
-    )
-
     return answer
 
 

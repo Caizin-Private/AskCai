@@ -46,7 +46,7 @@ def handle_get_leave_balance(args: dict, employee_email: str) -> str:
         logger.info(f"[balance] employee_id: {emp_id}")
 
         # GET /time/leavebalance returns ALL employees; filter by id
-        data = keka_get("/time/leavebalance")
+        data = keka_get("/time/leavebalance", {"pageNumber": 1, "pageSize": 100})
         all_records = data.get("data", [])
 
         emp_record = next(
