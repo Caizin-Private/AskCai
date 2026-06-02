@@ -4,7 +4,7 @@ Single source of truth for all tools.
 To add a new tool: add to TOOL_DEFINITIONS + TOOL_HANDLERS only.
 """
 
-from zoho.leave import *
+from keka.leave import *
 
 TOOL_DEFINITIONS = [
 
