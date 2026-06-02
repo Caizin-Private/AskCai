@@ -68,7 +68,7 @@ async def messages(req: Request):
             # ── Submit button ────────────────────────────────────────────
             if action == "apply_leave_submit":
                 from teams_bot import _get_employee_email
-                from zoho.leave import handle_apply_leave
+                from keka.leave import handle_apply_leave
                 from botbuilder.schema import Activity as _Activity, ActivityTypes as _AT
 
                 # Show typing indicator
