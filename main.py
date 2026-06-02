@@ -82,18 +82,8 @@ async def messages(req: Request):
                 to_date_raw    = form_data.get("to_date", "")
                 reason         = form_data.get("reason", "")
 
-                # Adaptive Card returns dates as YYYY-MM-DD; convert to DD-MMM-YYYY
-                def fmt_date(d: str) -> str:
-                    if not d:
-                        return d
-                    try:
-                        from datetime import datetime
-                        return datetime.strptime(d, "%Y-%m-%d").strftime("%d-%b-%Y")
-                    except ValueError:
-                        return d  # already formatted or unknown
-
-                from_date = fmt_date(from_date_raw)
-                to_date   = fmt_date(to_date_raw)
+                from_date = from_date_raw
+                to_date   = to_date_raw
 
                 if not from_date or not to_date:
                     await turn_context.send_activity(

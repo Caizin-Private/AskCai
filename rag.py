@@ -2,6 +2,7 @@ import os
 import json
 import anthropic
 from dotenv import load_dotenv
+from tool_registry import TOOL_DEFINITIONS, TOOL_HANDLERS
 from openai import AzureOpenAI
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
@@ -260,7 +261,7 @@ Question:
 #
 # To add a new tool: only edit tool_registry.py. This function never changes.
 # =========================
-def ask_policy_question(question: str):
+def ask_policy_question(question: str, employee_email: str = ""):
     # Classify intent — handles any phrasing, no keyword lists needed
     intent = _classify_intent(question)
 
@@ -272,7 +273,38 @@ def ask_policy_question(question: str):
     if intent == "list_policies":
         return list_all_policies()
 
-    # 3. RAG pipeline
+    # 3. Tool-use pass — let Claude decide if this needs a live Keka action
+    messages = [{"role": "user", "content": question}]
+    response = _get_anthropic_client().messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=1024,
+        tools=TOOL_DEFINITIONS,
+        messages=messages,
+    )
+
+    if response.stop_reason == "tool_use":
+        while response.stop_reason == "tool_use":
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    handler = TOOL_HANDLERS.get(block.name)
+                    result = handler(block.input, employee_email) if handler else f"Unknown tool: {block.name}"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result,
+                    })
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": tool_results})
+            response = _get_anthropic_client().messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=1024,
+                tools=TOOL_DEFINITIONS,
+                messages=messages,
+            )
+        return next((b.text for b in response.content if b.type == "text"), "")
+
+    # 4. RAG pipeline — no tool matched, answer from policy documents
     docs, all_sources, chunk_sources = search_documents(question)
     answer, used_policies = generate_answer(question, docs, chunk_sources)
 
