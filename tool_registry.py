@@ -51,11 +51,11 @@ TOOL_DEFINITIONS = [
                     },
                     "from_date": {
                         "type": "string",
-                        "description": "Leave start date in dd-MMM-yyyy format, e.g. '10-Mar-2026'.",
+                        "description": "Leave start date in yyyy-MM-dd format, e.g. '2026-03-10'.",
                     },
                     "to_date": {
                         "type": "string",
-                        "description": "Leave end date in dd-MMM-yyyy format, e.g. '12-Mar-2026'.",
+                        "description": "Leave end date in yyyy-MM-dd format, e.g. '2026-03-12'.",
                     },
                     "reason": {
                         "type": "string",
@@ -86,15 +86,15 @@ TOOL_DEFINITIONS = [
                     "from_date": {
                         "type": "string",
                         "description": (
-                            "Start of date range to fetch leaves from, in dd-MMM-yyyy format. "
-                            "Defaults to 01-Jan of current year if not provided."
+                            "Start of date range to fetch leaves from, in yyyy-MM-dd format. "
+                            "Defaults to start of current year if not provided."
                         ),
                     },
                     "to_date": {
                         "type": "string",
                         "description": (
-                            "End of date range to fetch leaves till, in dd-MMM-yyyy format. "
-                            "Defaults to 31-Dec of current year if not provided."
+                            "End of date range to fetch leaves till, in yyyy-MM-dd format. "
+                            "Defaults to end of current year if not provided."
                         ),
                     },
                 },
@@ -120,11 +120,11 @@ TOOL_DEFINITIONS = [
                 "properties": {
                     "from_date": {
                         "type": "string",
-                        "description": "Start date of the leave to cancel, in dd-MMM-yyyy format.",
+                        "description": "Start date of the leave to cancel, in yyyy-MM-dd format, e.g. '2026-03-10'.",
                     },
                     "to_date": {
                         "type": "string",
-                        "description": "End date of the leave to cancel, in dd-MMM-yyyy format.",
+                        "description": "End date of the leave to cancel, in yyyy-MM-dd format, e.g. '2026-03-12'.",
                     },
                 },
                 "required": ["from_date", "to_date"],

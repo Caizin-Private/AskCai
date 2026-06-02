@@ -180,9 +180,18 @@ def handle_get_leave_requests(args: dict, employee_email: str) -> str:
         emp_id = get_employee_id(employee_email)
 
         year  = datetime.now().year
-        # Keka query params use dd-MM-yyyy format (confirmed from Postman example)
-        s_raw = args.get("from_date", f"01-01-{year}")   # dd-MM-yyyy
-        e_raw = args.get("to_date",   f"31-12-{year}")   # dd-MM-yyyy
+
+        def to_keka_param(d: str, default: str) -> str:
+            if not d:
+                return default
+            try:
+                return datetime.strptime(d, "%Y-%m-%d").strftime("%d-%m-%Y")
+            except ValueError:
+                return d
+
+        # Keka GET query params require dd-MM-yyyy; convert from yyyy-MM-dd input
+        s_raw = to_keka_param(args.get("from_date", ""), f"01-01-{year}")
+        e_raw = to_keka_param(args.get("to_date",   ""), f"31-12-{year}")
 
         data = keka_get("/time/leaverequests", {"from": s_raw, "to": e_raw})
         all_records = data.get("data", [])
