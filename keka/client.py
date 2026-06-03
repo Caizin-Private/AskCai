@@ -13,6 +13,9 @@ import os
 import time
 import logging
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,11 @@ def get_access_token() -> str:
             "client_id":     KEKA_CLIENT_ID,
             "client_secret": KEKA_CLIENT_SECRET,
             "api_key":       KEKA_API_KEY,
+        },
+        headers={
+            "Accept":       "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent":   "PostmanRuntime/7.43.0",
         },
         timeout=10,
     )

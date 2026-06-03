@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # Environments
-venv/
+/venv/
 ENV/
 env/
 .env
@@ -24,3 +24,4 @@ artifacts/auth-notes.md
 artifacts/system-notes.md
 
 KEKA_SETUP.md
+KEKA_FLOW.md
