@@ -521,7 +521,6 @@ Casual Leave, Sick Leave, Earned Leave, Compensatory Off, Maternity Leave, Pater
 
 | Issue | Severity | Status |
 |---|---|---|
-| **Date format mismatch** — `tool_registry.py` describes dates as `dd-MMM-yyyy` but handlers expect `yyyy-MM-dd`. Natural-language leave apply/cancel will fail date parsing. Adaptive Card path is unaffected. | High | Open — fix: update tool descriptions to use `yyyy-MM-dd` |
 | **Keka API field names unverified** — `email`, `id`, `succeeded`, `availableBalance`, `leaveTypeId` etc. are assumed from Postman collection, not validated against live API | High | Open — requires end-to-end test against live Keka |
 | **Cancel mechanism unverified** — `DELETE /time/leaverequests/{id}` assumed; may require a PATCH to a status field | Medium | Open |
 | **No HTTP retries** — transient 5xx errors surface as error messages to users | Low | Open |
