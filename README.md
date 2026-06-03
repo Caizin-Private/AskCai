@@ -1,7 +1,6 @@
 # Caizin HR Assistant Bot
 
 A Microsoft Teams bot that gives Caizin employees instant, self-service access to HR policy answers and leave management — without leaving Teams or logging into an external portal.
-
 ---
 
 ## Table of Contents
