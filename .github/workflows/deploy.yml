@@ -1,38 +1,25 @@
-name: Deploy to Azure App Service
+name: Deploy to EC2
 
 on:
   push:
-    branches: [version1.0]
-
-permissions:
-  id-token: write   # required for OIDC token request
-  contents: read
+    branches: [Keka-Integration]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Azure Login via OIDC
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          package: .
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/${{ secrets.EC2_USER }}/Caizin-HR-Bot
+            git fetch origin
+            git checkout Keka-Integration
+            git pull origin Keka-Integration
+            source venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart caizin-hr-bot
