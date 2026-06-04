@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "keka": {
+      "type": "http",
+      "url": "https://developers.keka.com/mcp"
+    }
+  }
+}
