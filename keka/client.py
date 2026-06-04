@@ -111,16 +111,23 @@ def keka_delete(path: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def get_employee_id(email: str) -> str:
-    """Resolve employee work email → Keka employee UUID via direct search."""
+    """Resolve employee work email → Keka employee UUID via paginated search."""
     key = email.lower().strip()
     if key in _employee_cache:
         return _employee_cache[key]
 
-    data = keka_post("/hris/employees/search", {"workEmail": key})
-    emp = data.get("data")
-    if not emp or not emp.get("id"):
-        raise ValueError(f"No Keka employee found for email: {email}")
+    page = 1
+    while True:
+        data = keka_get("/hris/employees", {"pageNumber": page, "pageSize": 100})
+        employees = data.get("data", [])
+        for emp in employees:
+            emp_email = (emp.get("email") or "").lower().strip()
+            if emp_email == key:
+                _employee_cache[key] = emp["id"]
+                logger.info(f"[keka] resolved {email} → {emp['id']}")
+                return emp["id"]
+        if not data.get("nextPage"):
+            break
+        page += 1
 
-    _employee_cache[key] = emp["id"]
-    logger.info(f"[keka] resolved {email} → {emp['id']}")
-    return emp["id"]
+    raise ValueError(f"No Keka employee found for email: {email}")
