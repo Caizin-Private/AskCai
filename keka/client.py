@@ -111,32 +111,16 @@ def keka_delete(path: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def get_employee_id(email: str) -> str:
-    """
-    Resolve employee work email → Keka employee UUID.
-
-    Keka does not expose a direct email-filter query param on the employees
-    endpoint, so we paginate through GET /hris/employees until we find a match.
-    Results are cached in _employee_cache for the lifetime of the process.
-    """
+    """Resolve employee work email → Keka employee UUID via direct search."""
     key = email.lower().strip()
     if key in _employee_cache:
         return _employee_cache[key]
 
-    page = 1
-    while True:
-        data = keka_get("/hris/employees", {"pageNumber": page, "pageSize": 100})
-        employees = data.get("data", [])
+    data = keka_post("/hris/employees/search", {"workEmail": key})
+    emp = data.get("data")
+    if not emp or not emp.get("id"):
+        raise ValueError(f"No Keka employee found for email: {email}")
 
-        for emp in employees:
-            emp_email = (emp.get("email") or "").lower().strip()
-            if emp_email == key:
-                _employee_cache[key] = emp["id"]
-                logger.info(f"[keka] resolved {email} → {emp['id']}")
-                return emp["id"]
-
-        # Stop when there is no next page
-        if not data.get("nextPage"):
-            break
-        page += 1
-
-    raise ValueError(f"No Keka employee found for email: {email}")
+    _employee_cache[key] = emp["id"]
+    logger.info(f"[keka] resolved {email} → {emp['id']}")
+    return emp["id"]

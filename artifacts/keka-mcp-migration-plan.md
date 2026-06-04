@@ -396,6 +396,67 @@ Remove the `recruiter@caizin.com` override and let each employee's own Teams ide
 
 ---
 
+## Phase 5 — Consistent Response Formatting (Short Fix)
+
+### Goal
+The LLM should produce the same format every time for the same question. For example, "get my leave balance" should always return a markdown table — never a bullet list, never plain prose.
+
+### Why
+Claude's default temperature is 1 (random). The same question can return a table one time and a paragraph the next. Setting `temperature=0` on every Claude call in the tool-use path forces deterministic, reproducible output.
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `rag.py` | Add `temperature=0` to all three `messages.create` calls inside `ask_policy_question` |
+
+### Diff summary
+
+**`rag.py`** — three call sites inside `ask_policy_question`:
+
+```python
+# 1. Initial tool-routing call (line ~281)
+response = _get_anthropic_client().messages.create(
+    model=CLAUDE_MODEL,
+    max_tokens=1024,
+    temperature=0,        # ← add
+    tools=TOOL_DEFINITIONS,
+    messages=messages,
+)
+
+# 2. Tool-use loop continuation call (line ~299)
+response = _get_anthropic_client().messages.create(
+    model=CLAUDE_MODEL,
+    max_tokens=1024,
+    temperature=0,        # ← add
+    tools=TOOL_DEFINITIONS,
+    messages=messages,
+)
+
+# 3. RAG generation call in generate_answer() (line ~244)
+response = _get_anthropic_client().messages.create(
+    model=CLAUDE_MODEL,
+    max_tokens=1024,
+    temperature=0,        # ← add
+    system=SYSTEM_PROMPT,
+    messages=[{"role": "user", "content": user_message}],
+)
+```
+
+> **Note:** The intent classifier call already uses `temperature=0` — no change needed there.
+
+### How to test
+
+1. Ask "get my leave balance" three times in a row in Teams
+   - Expected: identical markdown table format each time (matching the screenshot)
+2. Ask "show my leave history" twice
+   - Expected: same structure both times
+
+### Rollback
+Remove the `temperature=0` lines — no functional impact, just reverts to non-deterministic formatting.
+
+---
+
 ## Summary
 
 | Phase | Files changed | Risk | Independent test |
@@ -405,6 +466,7 @@ Remove the `recruiter@caizin.com` override and let each employee's own Teams ide
 | 2 — Employee search | `keka/client.py` (`get_employee_id` only) | Low | Single lookup in logs |
 | 3 — MCP transport | `keka/client.py` (HTTP helpers only) | Medium | All 4 ops via MCP |
 | 4 — Production cutover | `rag.py`, `main.py` | Low (tested code) | Your own balance appears |
+| 5 — Consistent formatting | `rag.py` (temperature=0) | None | Same table every time |
 
 ### Keka MCP endpoints used
 
