@@ -91,7 +91,9 @@ async def messages(req: Request):
                     )
                     return
 
-                employee_email = _get_employee_email(turn_context)
+                # Phase 1 testing override — swap back to _get_employee_email(turn_context) for production
+                from keka.client import TEST_EMPLOYEE_EMAIL
+                employee_email = TEST_EMPLOYEE_EMAIL
 
                 args = {
                     "leave_type_name": leave_type,

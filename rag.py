@@ -262,6 +262,7 @@ Question:
 # To add a new tool: only edit tool_registry.py. This function never changes.
 # =========================
 def ask_policy_question(question: str, employee_email: str = ""):
+    from keka.client import TEST_EMPLOYEE_EMAIL
     # Classify intent — handles any phrasing, no keyword lists needed
     intent = _classify_intent(question)
 
@@ -272,6 +273,8 @@ def ask_policy_question(question: str, employee_email: str = ""):
     # 2. List all policies — bypass RAG, fetch directly from index
     if intent == "list_policies":
         return list_all_policies()
+
+    employee_email = TEST_EMPLOYEE_EMAIL  # use test account during testing
 
     # 3. Tool-use pass — let Claude decide if this needs a live Keka action
     messages = [{"role": "user", "content": question}]

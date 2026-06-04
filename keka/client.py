@@ -24,6 +24,7 @@ KEKA_TOKEN_URL     = os.getenv("KEKA_TOKEN_URL",      "https://login.keka.com/co
 KEKA_CLIENT_ID     = os.getenv("KEKA_CLIENT_ID",      "")
 KEKA_CLIENT_SECRET = os.getenv("KEKA_CLIENT_SECRET",  "")
 KEKA_API_KEY       = os.getenv("KEKA_API_KEY",        "")
+TEST_EMPLOYEE_EMAIL = os.getenv("KEKA_TEST_EMAIL", "recruiter@caizin.com")
 
 _token_cache    = {"access_token": None, "expires_at": 0.0}
 _employee_cache = {}   # email (lower) → employee UUID
