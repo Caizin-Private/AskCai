@@ -2,7 +2,6 @@ import os
 import json
 import anthropic
 from dotenv import load_dotenv
-from tool_registry import TOOL_DEFINITIONS, TOOL_HANDLERS
 from openai import AzureOpenAI
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
@@ -129,12 +128,13 @@ def search_documents(query: str):
 # =========================
 def _classify_intent(question: str) -> str:
     """
-    Ask Claude to classify the user's intent into one of three categories:
-      - 'greeting'       : casual message with no policy question
-      - 'list_policies'  : user wants to see all/available policies
-      - 'rag'            : specific policy question that needs RAG
+    Classify intent into one of four categories:
+      - 'greeting'    : casual small talk
+      - 'list_policies': user wants to see all available policies
+      - 'hr_action'   : live HRMS action (leave balance, apply/view/cancel leave)
+      - 'rag'         : policy knowledge question
 
-    Falls back to 'rag' on any error so the pipeline always continues.
+    Falls back to 'rag' on any error.
     """
     try:
         response = _get_anthropic_client().messages.create(
@@ -149,16 +149,22 @@ def _classify_intent(question: str) -> str:
                     "(e.g. hi, hello, good morning, thanks, bye)\n"
                     "- \"list_policies\" — user wants to see all or available company policies "
                     "(e.g. list all policies, what policies do you have, show me all docs)\n"
-                    "- \"rag\" — any specific question about a policy, leave, benefit, or HR topic\n\n"
+                    "- \"hr_action\" — a live HR system action: checking leave balance, "
+                    "applying/cancelling leave, viewing leave requests or history "
+                    "(e.g. 'what is my leave balance', 'apply casual leave from June 10 to 12', "
+                    "'show my leaves', 'cancel my leave')\n"
+                    "- \"rag\" — a knowledge question about policy rules, eligibility, or entitlements "
+                    "(e.g. 'what is the leave policy', 'how many sick days am I entitled to', "
+                    "'tell me about travel policy')\n\n"
                     "IMPORTANT: If the message contains BOTH a greeting AND a policy question "
-                    "(e.g. 'good morning, what is the leave policy?'), classify as \"rag\".\n\n"
+                    "classify as the non-greeting category.\n\n"
                     f"Message: {question}\n\n"
                     "Reply with only the single category word."
                 )
             }],
         )
         intent = next((b.text for b in response.content if b.type == "text"), "").strip().lower()
-        return intent if intent in ("greeting", "list_policies", "rag") else "rag"
+        return intent if intent in ("greeting", "list_policies", "hr_action", "rag") else "rag"
     except Exception as e:
         print(f"[intent] classifier failed, defaulting to rag: {e}")
         return "rag"
@@ -253,61 +259,29 @@ Question:
     return answer, used_policies
 
 # =========================
-# MISTRAL FUNCTION CALLING ROUTER  (new)
-#
-# Mistral reads the user's question + tool descriptions and decides:
-#   - Which Zoho tool to call (get_leave_balance / apply_leave)
-#   - OR return nothing → fall through to RAG
-#
-# To add a new tool: only edit tool_registry.py. This function never changes.
+# MAIN QUERY ROUTER
 # =========================
-def ask_policy_question(question: str, employee_email: str = ""):
+async def ask_policy_question(question: str, employee_email: str = ""):
     from keka.client import TEST_EMPLOYEE_EMAIL
-    # Classify intent — handles any phrasing, no keyword lists needed
+    from keka.mcp_agent import ask_keka_mcp
+
     intent = _classify_intent(question)
 
-    # 1. Greeting — no RAG, no links, no disclaimer
+    # 1. Greeting
     if intent == "greeting":
         return "Good day! 👋 How can I help you with Caizin's policies today?"
 
-    # 2. List all policies — bypass RAG, fetch directly from index
+    # 2. List all policies
     if intent == "list_policies":
         return list_all_policies()
 
-    employee_email = TEST_EMPLOYEE_EMAIL  # use test account during testing
+    employee_email = TEST_EMPLOYEE_EMAIL  # use test account during Phase 1 testing
 
-    # 3. Tool-use pass — let Claude decide if this needs a live Keka action
-    messages = [{"role": "user", "content": question}]
-    response = _get_anthropic_client().messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=1024,
-        tools=TOOL_DEFINITIONS,
-        messages=messages,
-    )
+    # 3. Live HR action — delegate to Claude + Keka MCP connector (fully async)
+    if intent == "hr_action":
+        return await ask_keka_mcp(question, employee_email, _get_anthropic_api_key())
 
-    if response.stop_reason == "tool_use":
-        while response.stop_reason == "tool_use":
-            tool_results = []
-            for block in response.content:
-                if block.type == "tool_use":
-                    handler = TOOL_HANDLERS.get(block.name)
-                    result = handler(block.input, employee_email) if handler else f"Unknown tool: {block.name}"
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result,
-                    })
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({"role": "user", "content": tool_results})
-            response = _get_anthropic_client().messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=1024,
-                tools=TOOL_DEFINITIONS,
-                messages=messages,
-            )
-        return next((b.text for b in response.content if b.type == "text"), "")
-
-    # 4. RAG pipeline — no tool matched, answer from policy documents
+    # 4. RAG pipeline — policy knowledge question
     docs, all_sources, chunk_sources = search_documents(question)
     answer, used_policies = generate_answer(question, docs, chunk_sources)
 
@@ -349,6 +323,7 @@ def ask_policy_question(question: str, employee_email: str = ""):
 
 
 if __name__ == "__main__":
+    import asyncio
     question = input("Ask a policy question: ")
     print("\nAnswer:\n")
-    print(ask_policy_question(question))
+    print(asyncio.run(ask_policy_question(question)))

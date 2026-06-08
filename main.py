@@ -67,23 +67,14 @@ async def messages(req: Request):
 
             # ── Submit button ────────────────────────────────────────────
             if action == "apply_leave_submit":
-                from teams_bot import _get_employee_email
-                from keka.leave import handle_apply_leave
-                from botbuilder.schema import Activity as _Activity, ActivityTypes as _AT
-
-                # Show typing indicator
                 await turn_context.send_activity(
                     Activity(type=ActivityTypes.typing)
                 )
 
-                # Extract form values
                 leave_type = form_data.get("leave_type", "Casual Leave")
-                from_date_raw  = form_data.get("from_date", "")
-                to_date_raw    = form_data.get("to_date", "")
-                reason         = form_data.get("reason", "")
-
-                from_date = from_date_raw
-                to_date   = to_date_raw
+                from_date  = form_data.get("from_date", "")
+                to_date    = form_data.get("to_date", "")
+                reason     = form_data.get("reason", "")
 
                 if not from_date or not to_date:
                     await turn_context.send_activity(
@@ -91,18 +82,16 @@ async def messages(req: Request):
                     )
                     return
 
-                # Phase 1 testing override — swap back to _get_employee_email(turn_context) for production
                 from keka.client import TEST_EMPLOYEE_EMAIL
+                from keka.mcp_agent import ask_keka_mcp
+                from rag import _get_anthropic_api_key
+
                 employee_email = TEST_EMPLOYEE_EMAIL
-
-                args = {
-                    "leave_type_name": leave_type,
-                    "from_date":       from_date,
-                    "to_date":         to_date,
-                    "reason":          reason,
-                }
-
-                result = handle_apply_leave(args, employee_email)
+                query = (
+                    f"Apply {leave_type} from {from_date} to {to_date}. "
+                    f"Reason: {reason or 'Not specified'}."
+                )
+                result = await ask_keka_mcp(query, employee_email, _get_anthropic_api_key())
                 await turn_context.send_activity(result)
                 return
 
@@ -149,7 +138,7 @@ async def messages(req: Request):
 @app.post("/ask")
 async def ask(req: Request):
     body = await req.json()
-    return {"answer": ask_policy_question(body.get("question"))}
+    return {"answer": await ask_policy_question(body.get("question"))}
 
 
 if __name__ == "__main__":

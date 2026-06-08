@@ -78,7 +78,7 @@ async def on_message_activity(turn_context: TurnContext):
     employee_email = _get_employee_email(turn_context)
     logger.info(f"[bot] question='{user_text}' | email='{employee_email}'")
 
-    answer = ask_policy_question(user_text, employee_email=employee_email)
+    answer = await ask_policy_question(user_text, employee_email=employee_email)
     await turn_context.send_activity(answer)
 
 
