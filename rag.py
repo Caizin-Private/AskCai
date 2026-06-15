@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import anthropic
@@ -324,6 +325,10 @@ async def ask_policy_question(question: str, employee_email: str = ""):
 
 if __name__ == "__main__":
     import asyncio
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     question = input("Ask a policy question: ")
     print("\nAnswer:\n")
     print(asyncio.run(ask_policy_question(question)))
