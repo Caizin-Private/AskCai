@@ -2,12 +2,15 @@ import json
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 from fastapi import FastAPI, Request, Response
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+logger = logging.getLogger(__name__)
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings
@@ -18,6 +21,10 @@ from teams_bot import (
     build_dummy_attendance_card, build_attendance_ack_card,
 )
 from rag import ask_policy_question
+from conv_refs import save_ref, get_all_refs
+from features import is_pilot
+from teams_bot import _get_employee_email
+from attendance_log import log_attendance, get_attendance_log
 
 APP_ID = os.getenv("MicrosoftAppId")
 APP_PASSWORD = os.getenv("MicrosoftAppPassword")
@@ -34,6 +41,57 @@ app = FastAPI(title="Caizin Policy RAG Bot")
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+
+
+# =============================================================
+# M4 — Proactive attendance card via APScheduler
+# =============================================================
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from botbuilder.schema import ConversationReference
+
+scheduler = AsyncIOScheduler(timezone="Asia/Kolkata")
+
+
+async def _send_attendance_card_to_all():
+    refs = get_all_refs()
+    logger.info(f"[scheduler] sending attendance card to {len(refs)} pilot(s)")
+    for email, ref_dict in refs.items():
+        try:
+            ref = ConversationReference().deserialize(ref_dict)
+
+            async def _callback(tc, email=email):
+                await tc.send_activity(Activity(
+                    type="message",
+                    attachments=[Attachment(
+                        content_type="application/vnd.microsoft.card.adaptive",
+                        content=build_dummy_attendance_card(),
+                    )]
+                ))
+                logger.info(f"[scheduler] sent attendance card to {email}")
+
+            await adapter.continue_conversation(ref, _callback, APP_ID)
+        except Exception as e:
+            logger.error(f"[scheduler] failed for {email}: {e}")
+
+
+scheduler.add_job(
+    _send_attendance_card_to_all,
+    CronTrigger(hour=9, minute=0, timezone="Asia/Kolkata"),
+    id="daily_attendance_card",
+    replace_existing=True,
+)
+
+
+@app.on_event("startup")
+async def startup():
+    scheduler.start()
+    logger.info("[scheduler] APScheduler started — attendance card at 09:00 IST")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    scheduler.shutdown(wait=False)
 
 @app.post("/api/messages")
 async def messages(req: Request):
@@ -59,6 +117,9 @@ async def messages(req: Request):
 
             for member in members_added:
                 if member.id != turn_context.activity.recipient.id:
+                    email = _get_employee_email(turn_context)
+                    if is_pilot(email):
+                        save_ref(email, turn_context)
                     await send_suggested_questions(turn_context)
                     # SPIKE M2: send dummy attendance card to verify Action.Execute works under isNotificationOnly
                     await turn_context.send_activity(Activity(
@@ -114,6 +175,9 @@ async def messages(req: Request):
 
         # 3️⃣ User sent a regular text message
         elif activity_type == "message":
+            email = _get_employee_email(turn_context)
+            if is_pilot(email):
+                save_ref(email, turn_context)
 
             user_text = (turn_context.activity.text or "").strip()
             user_text_lower = user_text.lower()
@@ -161,6 +225,11 @@ async def messages(req: Request):
                         },
                     )
                 ))
+                # Persist attendance choice for the Report pop-up
+                email = _get_employee_email(turn_context)
+                name  = (turn_context.activity.from_property.name or email) if turn_context.activity.from_property else email
+                ts    = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+                log_attendance(email, name, status, ts)
             return
 
         # 5️⃣ Ignore everything else safely
@@ -186,7 +255,26 @@ async def messages(req: Request):
 @app.post("/ask")
 async def ask(req: Request):
     body = await req.json()
-    return {"answer": await ask_policy_question(body.get("question"))}
+    return {"answer": await ask_policy_question(
+        body.get("question", ""),
+        policy_only=bool(body.get("policy_only", False)),
+    )}
+
+
+@app.get("/tabs/report-data")
+async def report_data():
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content={"entries": get_attendance_log()})
+
+
+@app.get("/tabs/home")
+async def tab_home():
+    return FileResponse(os.path.join("static", "home.html"))
+
+
+@app.get("/tabs/askcai")
+async def tab_askcai():
+    return FileResponse(os.path.join("static", "askcai.html"))
 
 
 if __name__ == "__main__":

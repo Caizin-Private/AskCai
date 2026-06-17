@@ -262,7 +262,7 @@ Question:
 # =========================
 # MAIN QUERY ROUTER
 # =========================
-async def ask_policy_question(question: str, employee_email: str = ""):
+async def ask_policy_question(question: str, employee_email: str = "", policy_only: bool = False):
     from keka.client import TEST_EMPLOYEE_EMAIL
     from keka.mcp_agent import ask_keka_mcp
 
@@ -278,8 +278,8 @@ async def ask_policy_question(question: str, employee_email: str = ""):
 
     employee_email = TEST_EMPLOYEE_EMAIL  # use test account during Phase 1 testing
 
-    # 3. Live HR action — delegate to Claude + Keka MCP connector (fully async)
-    if intent == "hr_action":
+    # 3. Live HR action — skip when policy_only=True (AskCAI tab serves policy docs only)
+    if intent == "hr_action" and not policy_only:
         return await ask_keka_mcp(question, employee_email, _get_anthropic_api_key())
 
     # 4. RAG pipeline — policy knowledge question
