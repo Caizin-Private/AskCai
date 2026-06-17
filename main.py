@@ -175,7 +175,7 @@ async def messages(req: Request):
 
     if invoke_response:
         return Response(
-            content=invoke_response.body,
+            content=json.dumps(invoke_response.body),
             status_code=invoke_response.status,
             media_type="application/json"
         )
