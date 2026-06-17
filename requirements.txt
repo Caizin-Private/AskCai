@@ -18,3 +18,4 @@ aiohttp
 anthropic
 boto3
 pdfplumber
+apscheduler

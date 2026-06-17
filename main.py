@@ -11,9 +11,12 @@ logging.basicConfig(
 from fastapi.staticfiles import StaticFiles
 
 from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings
-from botbuilder.schema import Activity, ActivityTypes
+from botbuilder.schema import Activity, ActivityTypes, Attachment, InvokeResponse
 
-from teams_bot import on_message_activity, send_suggested_questions, send_apply_leave_form, APPLY_LEAVE_TRIGGER
+from teams_bot import (
+    on_message_activity, send_suggested_questions, send_apply_leave_form, APPLY_LEAVE_TRIGGER,
+    build_dummy_attendance_card, build_attendance_ack_card,
+)
 from rag import ask_policy_question
 
 APP_ID = os.getenv("MicrosoftAppId")
@@ -57,6 +60,14 @@ async def messages(req: Request):
             for member in members_added:
                 if member.id != turn_context.activity.recipient.id:
                     await send_suggested_questions(turn_context)
+                    # SPIKE M2: send dummy attendance card to verify Action.Execute works under isNotificationOnly
+                    await turn_context.send_activity(Activity(
+                        type="message",
+                        attachments=[Attachment(
+                            content_type="application/vnd.microsoft.card.adaptive",
+                            content=build_dummy_attendance_card(),
+                        )]
+                    ))
                     return
 
         # 2️⃣ Adaptive Card submit (Action.Submit fires this)
@@ -112,6 +123,17 @@ async def messages(req: Request):
                 await send_suggested_questions(turn_context)
                 return
 
+            # SPIKE M2: type "spike" to re-send the dummy attendance card on demand
+            if user_text_lower == "spike":
+                await turn_context.send_activity(Activity(
+                    type="message",
+                    attachments=[Attachment(
+                        content_type="application/vnd.microsoft.card.adaptive",
+                        content=build_dummy_attendance_card(),
+                    )]
+                ))
+                return
+
             # Apply Leave button on welcome card → show the form
             if user_text.strip() == APPLY_LEAVE_TRIGGER:
                 await send_apply_leave_form(turn_context)
@@ -121,7 +143,27 @@ async def messages(req: Request):
             await on_message_activity(turn_context)
             return
 
-        # 4️⃣ Ignore everything else safely
+        # 4️⃣ Action.Execute invoke (Adaptive Card button tap)
+        elif activity_type == "invoke" and (turn_context.activity.name or "").lower() == "adaptivecard/action":
+            value  = turn_context.activity.value or {}
+            action = value.get("action", {})
+            if action.get("verb") == "dummy_attendance":
+                status = action.get("data", {}).get("status", "unknown")
+                ack = build_attendance_ack_card(status)
+                await turn_context.send_activity(Activity(
+                    type=ActivityTypes.invoke_response,
+                    value=InvokeResponse(
+                        status=200,
+                        body={
+                            "statusCode": 200,
+                            "type": "application/vnd.microsoft.card.adaptive",
+                            "value": ack,
+                        },
+                    )
+                ))
+            return
+
+        # 5️⃣ Ignore everything else safely
         else:
             return
 

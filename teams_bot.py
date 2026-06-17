@@ -258,3 +258,65 @@ async def send_suggested_questions(turn_context: TurnContext):
             ]
         )
     )
+
+
+# =========================
+# DUMMY ATTENDANCE CARD  (Phase 1 — no DB writes)
+# =========================
+def build_dummy_attendance_card(name: str = "there") -> dict:
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": f"Hey {name}, where are you working from today?",
+                "weight": "Bolder",
+                "size": "Medium",
+                "wrap": True,
+            },
+            {
+                "type": "TextBlock",
+                "text": "Tap an option — attendance will be recorded when live.",
+                "wrap": True,
+                "isSubtle": True,
+            },
+        ],
+        "actions": [
+            {"type": "Action.Execute", "title": "In Office",   "verb": "dummy_attendance", "data": {"status": "office"}},
+            {"type": "Action.Execute", "title": "WFH",         "verb": "dummy_attendance", "data": {"status": "wfh"}},
+            {"type": "Action.Execute", "title": "On Leave",    "verb": "dummy_attendance", "data": {"status": "leave"}},
+            {"type": "Action.Execute", "title": "Client Site", "verb": "dummy_attendance", "data": {"status": "client_site"}},
+        ],
+    }
+
+
+def build_attendance_ack_card(status: str) -> dict:
+    labels = {
+        "office":      "In Office",
+        "wfh":         "WFH",
+        "leave":       "On Leave",
+        "client_site": "Client Site",
+    }
+    display = labels.get(status, status.replace("_", " ").title())
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": f"Attendance recorded: **{display}** ✓",
+                "weight": "Bolder",
+                "color": "Good",
+                "wrap": True,
+            },
+            {
+                "type": "TextBlock",
+                "text": "_(Test only — nothing written to the database yet.)_",
+                "isSubtle": True,
+                "wrap": True,
+            },
+        ],
+    }
