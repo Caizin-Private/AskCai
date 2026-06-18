@@ -136,14 +136,16 @@
     ]);
 
     microsoftTeams.app.initialize().then(() => {
-      microsoftTeams.app.getContext().then((ctx) => {
-        const email = (ctx.user && ctx.user.userPrincipalName || "").toLowerCase();
-        if (PILOT_ALLOWLIST.has(email)) {
-          showChat();
-        } else {
-          showGate();
-        }
-      });
+      microsoftTeams.app.notifyAppLoaded();
+      microsoftTeams.app.notifySuccess();
+      return microsoftTeams.app.getContext();
+    }).then((ctx) => {
+      const email = (ctx.user && ctx.user.userPrincipalName || "").toLowerCase();
+      if (PILOT_ALLOWLIST.has(email)) {
+        showChat();
+      } else {
+        showGate();
+      }
     }).catch(() => {
       // Outside Teams (local dev) — show chat for testing
       showChat();
