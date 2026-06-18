@@ -120,8 +120,7 @@ async def messages(req: Request):
                     email = _get_employee_email(turn_context)
                     if is_pilot(email):
                         save_ref(email, turn_context)
-                    await send_suggested_questions(turn_context)
-                    # SPIKE M2: send dummy attendance card to verify Action.Execute works under isNotificationOnly
+                    # Chat is notification-only — send attendance card only, no policy buttons
                     await turn_context.send_activity(Activity(
                         type="message",
                         attachments=[Attachment(
@@ -182,12 +181,7 @@ async def messages(req: Request):
             user_text = (turn_context.activity.text or "").strip()
             user_text_lower = user_text.lower()
 
-            # Greeting triggers menu
-            if user_text_lower in ["hi", "hello", "hey", "start", "menu"]:
-                await send_suggested_questions(turn_context)
-                return
-
-            # SPIKE M2: type "spike" to re-send the dummy attendance card on demand
+            # "spike" — re-send attendance card on demand for testing
             if user_text_lower == "spike":
                 await turn_context.send_activity(Activity(
                     type="message",
@@ -198,13 +192,7 @@ async def messages(req: Request):
                 ))
                 return
 
-            # Apply Leave button on welcome card → show the form
-            if user_text.strip() == APPLY_LEAVE_TRIGGER:
-                await send_apply_leave_form(turn_context)
-                return
-
-            # Otherwise → RAG / tool routing
-            await on_message_activity(turn_context)
+            # Bot is notification-only — ignore all other text
             return
 
         # 4️⃣ Action.Execute invoke (Adaptive Card button tap)
