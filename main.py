@@ -17,6 +17,7 @@ from teams_bot import (
     on_message_activity, send_suggested_questions, send_apply_leave_form, APPLY_LEAVE_TRIGGER,
     build_dummy_attendance_card, build_attendance_ack_card,
 )
+from shared.teams_client import build_dashboard_card
 from rag import ask_policy_question
 
 APP_ID = os.getenv("MicrosoftAppId")
@@ -147,7 +148,9 @@ async def messages(req: Request):
         elif activity_type == "invoke" and (turn_context.activity.name or "").lower() == "adaptivecard/action":
             value  = turn_context.activity.value or {}
             action = value.get("action", {})
-            if action.get("verb") == "dummy_attendance":
+            verb   = action.get("verb")
+
+            if verb == "dummy_attendance":
                 status = action.get("data", {}).get("status", "unknown")
                 ack = build_attendance_ack_card(status)
                 await turn_context.send_activity(Activity(
@@ -161,6 +164,42 @@ async def messages(req: Request):
                         },
                     )
                 ))
+
+            elif verb == "view_dashboard":
+                from datetime import datetime, timezone, timedelta
+                IST   = timezone(timedelta(hours=5, minutes=30))
+                today = datetime.now(IST).strftime("%Y-%m-%d")
+                title = f"Attendance — {datetime.strptime(today, '%Y-%m-%d').strftime('%d %b %Y')}"
+                # TODO: replace with real DB calls
+                # from shared import db_client as db
+                # records   = db.query_attendance_by_date(today)
+                # employees = db.get_all_active_employees()
+                records   = []
+                employees = []
+                card = build_dashboard_card(records, employees, today)
+                await turn_context.send_activity(Activity(
+                    type=ActivityTypes.invoke_response,
+                    value=InvokeResponse(
+                        status=200,
+                        body={
+                            "statusCode": 200,
+                            "type": "application/vnd.microsoft.activity.taskInfo",
+                            "value": {
+                                "type": "continue",
+                                "value": {
+                                    "title": title,
+                                    "height": "large",
+                                    "width": "large",
+                                    "card": {
+                                        "contentType": "application/vnd.microsoft.card.adaptive",
+                                        "content": card,
+                                    },
+                                },
+                            },
+                        },
+                    )
+                ))
+
             return
 
         # 5️⃣ Ignore everything else safely
