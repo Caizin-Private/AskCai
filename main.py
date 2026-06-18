@@ -267,14 +267,21 @@ async def report_data():
     return JSONResponse(content={"entries": get_attendance_log()})
 
 
+_TAB_CSP = "frame-ancestors teams.microsoft.com *.teams.microsoft.com *.skype.com"
+
+
 @app.get("/tabs/home")
 async def tab_home():
-    return FileResponse(os.path.join("static", "home.html"))
+    r = FileResponse(os.path.join("static", "home.html"))
+    r.headers["Content-Security-Policy"] = _TAB_CSP
+    return r
 
 
 @app.get("/tabs/askcai")
 async def tab_askcai():
-    return FileResponse(os.path.join("static", "askcai.html"))
+    r = FileResponse(os.path.join("static", "askcai.html"))
+    r.headers["Content-Security-Policy"] = _TAB_CSP
+    return r
 
 
 if __name__ == "__main__":
