@@ -135,21 +135,21 @@
       "rohan.lande@caizin.com",
     ]);
 
-    microsoftTeams.app.initialize().then(() => {
-      microsoftTeams.app.notifyAppLoaded();
-      microsoftTeams.app.notifySuccess();
-      return microsoftTeams.app.getContext();
-    }).then((ctx) => {
-      const email = (ctx.user && ctx.user.userPrincipalName || "").toLowerCase();
-      if (PILOT_ALLOWLIST.has(email)) {
-        showChat();
-      } else {
-        showGate();
-      }
-    }).catch(() => {
-      // Outside Teams (local dev) — show chat for testing
-      showChat();
-    });
+    // Show chat immediately — don't block on SDK
+    showChat();
+
+    // Try Teams SDK; only hide if we confirm a non-pilot
+    if (typeof microsoftTeams !== "undefined") {
+      microsoftTeams.app.initialize().then(() => {
+        microsoftTeams.app.notifyAppLoaded();
+        return microsoftTeams.app.getContext();
+      }).then((ctx) => {
+        const email = ((ctx.user && ctx.user.userPrincipalName) || "").toLowerCase();
+        if (email && !PILOT_ALLOWLIST.has(email)) {
+          showGate();
+        }
+      }).catch(() => {});
+    }
 
     function showChat() {
       document.getElementById("chat-wrap").style.display = "flex";

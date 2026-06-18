@@ -285,26 +285,24 @@
       "rohan.lande@caizin.com",
     ]);
 
-    microsoftTeams.app.initialize().then(() => {
-      microsoftTeams.app.notifyAppLoaded();
-      microsoftTeams.app.notifySuccess();
-      return microsoftTeams.app.getContext();
-    }).then((ctx) => {
-      userEmail = (ctx.user && ctx.user.userPrincipalName || "").toLowerCase();
-      if (PILOT_ALLOWLIST.has(userEmail)) {
-        document.getElementById("fab-bar").style.display = "flex";
-        document.getElementById("pilot-content").style.display = "block";
-        document.getElementById("gate-msg").style.display = "none";
-      } else {
-        document.getElementById("fab-bar").style.display = "none";
-        document.getElementById("pilot-content").style.display = "none";
-        document.getElementById("gate-msg").style.display = "block";
-      }
-    }).catch(() => {
-      // Outside Teams (local dev) — show content for testing
-      document.getElementById("fab-bar").style.display = "flex";
-      document.getElementById("pilot-content").style.display = "block";
-    });
+    // Show content immediately — don't block on SDK
+    document.getElementById("fab-bar").style.display = "flex";
+    document.getElementById("pilot-content").style.display = "block";
+
+    // Try Teams SDK; only hide if we confirm a non-pilot
+    if (typeof microsoftTeams !== "undefined") {
+      microsoftTeams.app.initialize().then(() => {
+        microsoftTeams.app.notifyAppLoaded();
+        return microsoftTeams.app.getContext();
+      }).then((ctx) => {
+        userEmail = ((ctx.user && ctx.user.userPrincipalName) || "").toLowerCase();
+        if (userEmail && !PILOT_ALLOWLIST.has(userEmail)) {
+          document.getElementById("fab-bar").style.display = "none";
+          document.getElementById("pilot-content").style.display = "none";
+          document.getElementById("gate-msg").style.display = "block";
+        }
+      }).catch(() => {});
+    }
 
     function openLeaveDialog() {
       document.getElementById("leave-status").textContent = "";
