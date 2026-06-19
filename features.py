@@ -4,6 +4,7 @@ PILOT_ALLOWLIST = {
     "maitreyee.joshi@caizin.com",
     "yash.nikam@caizin.com",
     "rohan.lande@caizin.com",
+    "nikhil.negi@caizin.com",
 }
 
 # Feature flags — set env var to "0" to disable for all users
