@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Caizin HrOps</title>
+  <script src="https://unpkg.com/@microsoft/teams-js@2.22.0/dist/MicrosoftTeams.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f3f2f1;
+      color: #323130;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Main content area ── */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 20px 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .content h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; }
+    .content p  { color: #605e5c; font-size: 0.95rem; }
+
+    /* Non-pilot gate message */
+    #gate-msg { display: none; }
+
+    /* ── Floating action bar ── */
+    .fab-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #ffffff;
+      border-top: 1px solid #edebe9;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 10px 12px 14px;
+      gap: 8px;
+      z-index: 100;
+    }
+
+    .fab-bar button {
+      flex: 1;
+      padding: 10px 6px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .fab-bar button:active { opacity: 0.75; }
+
+    .btn-leave   { background: #0078d4; color: #fff; }
+    .btn-balance { background: #107c10; color: #fff; }
+    .btn-report  { background: #8764b8; color: #fff; }
+
+    /* ── Leave balance inline result ── */
+    #balance-result {
+      display: none;
+      margin-top: 20px;
+      background: #fff;
+      border: 1px solid #edebe9;
+      border-radius: 10px;
+      padding: 16px;
+      max-width: 480px;
+      width: 100%;
+      text-align: left;
+      white-space: pre-wrap;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    /* ── Apply Leave dialog ── */
+    dialog {
+      border: none;
+      border-radius: 12px;
+      padding: 0;
+      width: min(480px, 94vw);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+    dialog::backdrop { background: rgba(0,0,0,0.4); }
+
+    .dialog-inner { padding: 24px; }
+    .dialog-inner h2 { font-size: 1.1rem; margin-bottom: 16px; }
+
+    .field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 0.82rem; font-weight: 600; color: #323130; }
+
+    .field select,
+    .field input[type="date"],
+    .field textarea {
+      padding: 8px 10px;
+      border: 1px solid #c8c6c4;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: #faf9f8;
+    }
+    .field textarea { resize: vertical; min-height: 64px; }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .dialog-actions button {
+      padding: 9px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-submit { background: #0078d4; color: #fff; }
+    .btn-cancel { background: #edebe9; color: #323130; }
+
+    #leave-status {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: #605e5c;
+      min-height: 20px;
+    }
+
+    /* ── Report dialog ── */
+    #report-dialog {
+      width: min(560px, 96vw);
+    }
+    #report-dialog .dialog-inner h2 { margin-bottom: 16px; }
+
+    #report-loading { color: #605e5c; font-size: 0.9rem; margin-bottom: 12px; }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .report-table th {
+      text-align: left;
+      padding: 8px 10px;
+      background: #f3f2f1;
+      border-bottom: 2px solid #edebe9;
+      font-weight: 600;
+      color: #605e5c;
+    }
+    .report-table td {
+      padding: 10px 10px;
+      border-bottom: 1px solid #edebe9;
+      vertical-align: middle;
+    }
+    .report-table tr:last-child td { border-bottom: none; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge-office      { background: #dff6dd; color: #107c10; }
+    .badge-wfh         { background: #deecf9; color: #0078d4; }
+    .badge-leave       { background: #fde7e9; color: #a4262c; }
+    .badge-client_site { background: #fff4ce; color: #7a5c00; }
+    .badge-unknown     { background: #f3f2f1; color: #605e5c; }
+
+    #report-empty { color: #605e5c; font-size: 0.9rem; text-align: center; padding: 16px 0; }
+
+    .report-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+    }
+    .report-footer small { color: #a19f9d; font-size: 0.78rem; }
+    .report-footer button {
+      padding: 9px 20px;
+      border: none;
+      border-radius: 6px;
+      background: #edebe9;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Main content -->
+  <div class="content">
+    <div id="pilot-content">
+      <h1>Good day! 👋</h1>
+      <p>Use the buttons below to manage your attendance and HR tasks.</p>
+      <div id="balance-result"></div>
+    </div>
+    <div id="gate-msg">
+      <h1>Access restricted</h1>
+      <p>This app is currently in pilot. Contact HR to request access.</p>
+    </div>
+  </div>
+
+  <!-- Floating action bar -->
+  <div class="fab-bar" id="fab-bar" style="display:none">
+    <button class="btn-leave"   onclick="openLeaveDialog()">📝 Apply Leave</button>
+    <button class="btn-balance" onclick="fetchLeaveBalance()">📊 Leave Balance</button>
+    <button class="btn-report"  onclick="openReport()">📈 Report</button>
+  </div>
+
+  <!-- Apply Leave dialog -->
+  <dialog id="leave-dialog">
+    <div class="dialog-inner">
+      <h2>📅 Apply for Leave</h2>
+      <div class="field">
+        <label for="leave-type">Leave Type</label>
+        <select id="leave-type">
+          <option value="Casual Leave">Casual Leave</option>
+          <option value="Sick Leave">Sick Leave</option>
+          <option value="Earned Leave">Earned Leave</option>
+          <option value="Compensatory Off">Compensatory Off</option>
+          <option value="Maternity Leave">Maternity Leave</option>
+          <option value="Paternity Leave">Paternity Leave</option>
+          <option value="Loss of Pay">Loss of Pay</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="from-date">From Date</label>
+        <input type="date" id="from-date" />
+      </div>
+      <div class="field">
+        <label for="to-date">To Date</label>
+        <input type="date" id="to-date" />
+      </div>
+      <div class="field">
+        <label for="leave-reason">Reason (optional)</label>
+        <textarea id="leave-reason" placeholder="e.g. Personal work"></textarea>
+      </div>
+      <div id="leave-status"></div>
+      <div class="dialog-actions">
+        <button class="btn-cancel" onclick="closeLeaveDialog()">Cancel</button>
+        <button class="btn-submit" onclick="submitLeave()">Apply</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Report dialog -->
+  <dialog id="report-dialog">
+    <div class="dialog-inner">
+      <h2>📈 Attendance Report</h2>
+      <div id="report-loading">Loading…</div>
+      <div id="report-empty" style="display:none">No responses recorded yet for today.</div>
+      <table class="report-table" id="report-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Status</th>
+            <th>Recorded at</th>
+          </tr>
+        </thead>
+        <tbody id="report-tbody"></tbody>
+      </table>
+      <div class="report-footer">
+        <small id="report-ts"></small>
+        <button onclick="document.getElementById('report-dialog').close()">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    const BOT_URL = window.location.origin;
+    let userEmail = "";
+
+    const PILOT_ALLOWLIST = new Set([
+      "maitreyee.joshi@caizin.com",
+      "yash.nikam@caizin.com",
+      "rohan.lande@caizin.com",
+    ]);
+
+    // Show content immediately — don't block on SDK
+    document.getElementById("fab-bar").style.display = "flex";
+    document.getElementById("pilot-content").style.display = "block";
+
+    // Try Teams SDK; only hide if we confirm a non-pilot
+    if (typeof microsoftTeams !== "undefined") {
+      microsoftTeams.app.initialize().then(() => {
+        microsoftTeams.app.notifyAppLoaded();
+        return microsoftTeams.app.getContext();
+      }).then((ctx) => {
+        userEmail = ((ctx.user && ctx.user.userPrincipalName) || "").toLowerCase();
+        if (userEmail && !PILOT_ALLOWLIST.has(userEmail)) {
+          document.getElementById("fab-bar").style.display = "none";
+          document.getElementById("pilot-content").style.display = "none";
+          document.getElementById("gate-msg").style.display = "block";
+        }
+      }).catch(() => {});
+    }
+
+    function openLeaveDialog() {
+      document.getElementById("leave-status").textContent = "";
+      document.getElementById("leave-dialog").showModal();
+    }
+
+    function closeLeaveDialog() {
+      document.getElementById("leave-dialog").close();
+    }
+
+    async function submitLeave() {
+      const leaveType = document.getElementById("leave-type").value;
+      const fromDate  = document.getElementById("from-date").value;
+      const toDate    = document.getElementById("to-date").value;
+      const reason    = document.getElementById("leave-reason").value.trim();
+      const status    = document.getElementById("leave-status");
+
+      if (!fromDate || !toDate) {
+        status.textContent = "⚠️ Please fill in both From and To dates.";
+        return;
+      }
+      if (toDate < fromDate) {
+        status.textContent = "⚠️ To Date cannot be before From Date.";
+        return;
+      }
+
+      status.textContent = "Submitting…";
+      // Phase 1: Keka wiring deferred — show confirmation message
+      await new Promise(r => setTimeout(r, 600));
+      status.textContent = "✅ Leave request noted. Keka wiring coming in Phase 2.";
+    }
+
+    async function fetchLeaveBalance() {
+      const resultEl = document.getElementById("balance-result");
+      resultEl.style.display = "block";
+      resultEl.textContent = "Fetching your leave balance…";
+      try {
+        const res = await fetch(`${BOT_URL}/ask`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: "What is my leave balance?", policy_only: true }),
+        });
+        const data = await res.json();
+        resultEl.textContent = data.answer || "No data returned.";
+      } catch (e) {
+        resultEl.textContent = "⚠️ Could not fetch leave balance. Please try again.";
+      }
+    }
+
+    const STATUS_CLASS = {
+      "In Office":   "badge-office",
+      "WFH":         "badge-wfh",
+      "On Leave":    "badge-leave",
+      "Client Site": "badge-client_site",
+    };
+
+    async function openReport() {
+      const dlg      = document.getElementById("report-dialog");
+      const loading  = document.getElementById("report-loading");
+      const empty    = document.getElementById("report-empty");
+      const table    = document.getElementById("report-table");
+      const tbody    = document.getElementById("report-tbody");
+      const ts       = document.getElementById("report-ts");
+
+      // Reset state
+      loading.style.display = "block";
+      empty.style.display   = "none";
+      table.style.display   = "none";
+      tbody.innerHTML       = "";
+      ts.textContent        = "";
+      dlg.showModal();
+
+      try {
+        const res  = await fetch(`${BOT_URL}/tabs/report-data`);
+        const data = await res.json();
+        const entries = data.entries || [];
+
+        loading.style.display = "none";
+        if (entries.length === 0) {
+          empty.style.display = "block";
+        } else {
+          entries.forEach(e => {
+            const badgeClass = STATUS_CLASS[e.status] || "badge-unknown";
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${e.name}</td>
+              <td><span class="status-badge ${badgeClass}">${e.status}</span></td>
+              <td>${e.timestamp}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+          table.style.display = "table";
+          ts.textContent = `Updated just now`;
+        }
+      } catch (err) {
+        loading.textContent = "⚠️ Could not load report. Please try again.";
+      }
+    }
+  </script>
+</body>
+</html>
