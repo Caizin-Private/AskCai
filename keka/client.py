@@ -25,9 +25,10 @@ KEKA_CLIENT_ID      = os.getenv("KEKA_CLIENT_ID",     "")
 KEKA_CLIENT_SECRET  = os.getenv("KEKA_CLIENT_SECRET", "")
 KEKA_API_KEY        = os.getenv("KEKA_API_KEY",       "")
 KEKA_MCP_URL        = "https://developers.keka.com/mcp"
-TEST_EMPLOYEE_EMAIL = os.getenv("KEKA_TEST_EMAIL",    "recruiter@caizin.com")
+TEST_EMPLOYEE_EMAIL = os.getenv("KEKA_TEST_EMAIL",    "nikhil.negi@caizin.com")
 
 _token_cache = {"access_token": None, "expires_at": 0.0}
+_employee_cache: dict[str, str] = {}  # email → employee id
 
 
 def get_access_token() -> str:
@@ -60,3 +61,31 @@ def get_access_token() -> str:
     _token_cache["expires_at"]   = now + data.get("expires_in", 86400)
     logger.info("[keka] access token refreshed")
     return _token_cache["access_token"]
+
+
+def get_employee_id(email: str) -> str | None:
+    """Return the Keka employee identifier for a given email, or None if not found.
+    Results are cached for the process lifetime (token refresh does not affect IDs)."""
+    if email in _employee_cache:
+        return _employee_cache[email]
+
+    token = get_access_token()
+    resp = requests.get(
+        f"{KEKA_BASE_URL}/hris/employees",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    employees = data if isinstance(data, list) else data.get("data", data.get("employees", []))
+    for emp in employees:
+        emp_email = emp.get("email") or emp.get("workEmail") or emp.get("businessEmail") or ""
+        if emp_email.lower() == email.lower():
+            eid = emp.get("id") or emp.get("employeeId") or emp.get("identifier")
+            if eid:
+                _employee_cache[email] = str(eid)
+                logger.info("[keka] resolved employee id=%s for %s", eid, email)
+                return str(eid)
+
+    logger.warning("[keka] employee not found for email=%s", email)
+    return None
