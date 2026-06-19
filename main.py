@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, Request, Response
 
 logging.basicConfig(
@@ -16,15 +16,21 @@ from fastapi.staticfiles import StaticFiles
 from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings
 from botbuilder.schema import Activity, ActivityTypes, Attachment, InvokeResponse
 
-from teams_bot import (
-    on_message_activity, send_suggested_questions, send_apply_leave_form, APPLY_LEAVE_TRIGGER,
-    build_dummy_attendance_card, build_attendance_ack_card,
-)
+from teams_bot import build_dummy_attendance_card, build_attendance_ack_card, _get_employee_email
+from shared.teams_client import build_dashboard_card
 from rag import ask_policy_question
-from conv_refs import save_ref, get_all_refs
+from conv_refs import save_ref
 from features import is_pilot
-from teams_bot import _get_employee_email
 from attendance_log import log_attendance, get_attendance_log
+
+# Maps attendance_log human-readable labels back to (db_status, employee_response)
+# so build_dashboard_card's _status_bucket() produces the correct bucket.
+_LOG_LABEL_TO_RECORD: dict[str, tuple[str, str | None]] = {
+    "In Office":   ("present",                None),
+    "WFH":         ("present",                "wfh"),
+    "On Leave":    ("pre_approved_leave",      None),
+    "Client Site": ("pre_applied_client_site", None),
+}
 
 APP_ID = os.getenv("MicrosoftAppId")
 APP_PASSWORD = os.getenv("MicrosoftAppPassword")
@@ -42,56 +48,6 @@ app = FastAPI(title="Caizin Policy RAG Bot")
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
-
-# =============================================================
-# M4 — Proactive attendance card via APScheduler
-# =============================================================
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-from botbuilder.schema import ConversationReference
-
-scheduler = AsyncIOScheduler(timezone="Asia/Kolkata")
-
-
-async def _send_attendance_card_to_all():
-    refs = get_all_refs()
-    logger.info(f"[scheduler] sending attendance card to {len(refs)} pilot(s)")
-    for email, ref_dict in refs.items():
-        try:
-            ref = ConversationReference().deserialize(ref_dict)
-
-            async def _callback(tc, email=email):
-                await tc.send_activity(Activity(
-                    type="message",
-                    attachments=[Attachment(
-                        content_type="application/vnd.microsoft.card.adaptive",
-                        content=build_dummy_attendance_card(),
-                    )]
-                ))
-                logger.info(f"[scheduler] sent attendance card to {email}")
-
-            await adapter.continue_conversation(ref, _callback, APP_ID)
-        except Exception as e:
-            logger.error(f"[scheduler] failed for {email}: {e}")
-
-
-scheduler.add_job(
-    _send_attendance_card_to_all,
-    CronTrigger(hour=9, minute=0, timezone="Asia/Kolkata"),
-    id="daily_attendance_card",
-    replace_existing=True,
-)
-
-
-@app.on_event("startup")
-async def startup():
-    scheduler.start()
-    logger.info("[scheduler] APScheduler started — attendance card at 09:00 IST")
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    scheduler.shutdown(wait=False)
 
 @app.post("/api/messages")
 async def messages(req: Request):
@@ -138,8 +94,6 @@ async def messages(req: Request):
 
             # ── Cancel button ────────────────────────────────────────────
             if action == "apply_leave_cancel":
-                await turn_context.send_activity("❌ Leave application cancelled.")
-                await send_suggested_questions(turn_context)
                 return
 
             # ── Submit button ────────────────────────────────────────────
@@ -199,7 +153,9 @@ async def messages(req: Request):
         elif activity_type == "invoke" and (turn_context.activity.name or "").lower() == "adaptivecard/action":
             value  = turn_context.activity.value or {}
             action = value.get("action", {})
-            if action.get("verb") == "dummy_attendance":
+            verb   = action.get("verb")
+
+            if verb == "dummy_attendance":
                 status = action.get("data", {}).get("status", "unknown")
                 ack = build_attendance_ack_card(status)
                 await turn_context.send_activity(Activity(
@@ -218,6 +174,50 @@ async def messages(req: Request):
                 name  = (turn_context.activity.from_property.name or email) if turn_context.activity.from_property else email
                 ts    = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
                 log_attendance(email, name, status, ts)
+
+            elif verb == "view_dashboard":
+                today = datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%Y-%m-%d")
+                display_date = datetime.strptime(today, "%Y-%m-%d").strftime("%d %b %Y")
+                entries = get_attendance_log()
+                # Convert attendance_log entries → records/employees for build_dashboard_card
+                records = [
+                    {
+                        "employee_id": e["email"],
+                        "status": _LOG_LABEL_TO_RECORD.get(e["status"], ("card_sent", None))[0],
+                        "employee_response": _LOG_LABEL_TO_RECORD.get(e["status"], ("card_sent", None))[1],
+                        "check_in_time": e.get("timestamp"),
+                    }
+                    for e in entries
+                ]
+                employees = [
+                    {"employee_id": e["email"], "name": e["name"]}
+                    for e in entries
+                ]
+                card = build_dashboard_card(records, employees, today)
+                await turn_context.send_activity(Activity(
+                    type=ActivityTypes.invoke_response,
+                    value=InvokeResponse(
+                        status=200,
+                        body={
+                            "statusCode": 200,
+                            "type": "application/vnd.microsoft.activity.taskInfo",
+                            "value": {
+                                "type": "continue",
+                                "value": {
+                                    "title": f"Attendance — {display_date}",
+                                    "height": "large",
+                                    "width": "large",
+                                    "card": {
+                                        "contentType": "application/vnd.microsoft.card.adaptive",
+                                        "content": card,
+                                    },
+                                },
+                            },
+                        },
+                    )
+                ))
+                logger.info(f"[TeamsBot] dashboard popup: {len(records)} records for {today}")
+
             return
 
         # 5️⃣ Ignore everything else safely
@@ -256,6 +256,48 @@ async def report_data():
 
 
 _TAB_CSP = "frame-ancestors teams.microsoft.com *.teams.microsoft.com *.skype.com"
+
+
+@app.get("/tabs/attendance-status")
+async def attendance_status(email: str = ""):
+    from fastapi.responses import JSONResponse
+    email = email.strip().lower()
+    if not email:
+        return JSONResponse(status_code=400, content={"error": "email required"})
+    if not is_pilot(email):
+        return JSONResponse(status_code=403, content={"error": "not in pilot"})
+    from insync_db import get_today_status
+    data = get_today_status(email)
+    r = JSONResponse(content=data)
+    r.headers["Content-Security-Policy"] = _TAB_CSP
+    return r
+
+
+@app.post("/tabs/record-attendance")
+async def record_attendance(req: Request):
+    from fastapi.responses import JSONResponse
+    body   = await req.json()
+    email  = (body.get("email")  or "").strip()
+    name   = (body.get("name")   or email).strip()
+    status = (body.get("status") or "unknown").strip()
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    log_attendance(email, name, status, ts)
+    # Write to tracker RDS only when TRACKER_ALLOW_EDITS=true
+    from insync_db import record_response
+    record_response(email, status)
+    return JSONResponse(content={"ok": True})
+
+
+@app.get("/tabs/tracker-dashboard")
+async def tracker_dashboard():
+    from fastapi.responses import JSONResponse
+    from insync_db import get_today_all_records
+    ist = timezone(timedelta(hours=5, minutes=30))
+    today = datetime.now(ist).strftime("%Y-%m-%d")
+    data = get_today_all_records()
+    r = JSONResponse(content={"entries": data, "date": today})
+    r.headers["Content-Security-Policy"] = _TAB_CSP
+    return r
 
 
 @app.get("/tabs/home")

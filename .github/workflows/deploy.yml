@@ -2,7 +2,9 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [keka-mcp-integration]
+    branches:
+      - keka-mcp-integration
+      - dashboard-integration
 
 jobs:
   deploy:
@@ -18,8 +20,8 @@ jobs:
           script: |
             cd /home/${{ secrets.EC2_USER }}/Caizin-HR-Bot
             git fetch origin
-            git checkout keka-mcp-integration
-            git pull origin keka-mcp-integration
+            git checkout ${{ github.ref_name }}
+            git pull origin ${{ github.ref_name }}
             source venv/bin/activate
             pip install -r requirements.txt
             sudo systemctl restart caizin-hr-bot

@@ -1,406 +1,665 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="default">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Caizin HrOps</title>
+  <title>InSync</title>
+  <!-- Teams JS SDK v2 -->
   <script src="https://unpkg.com/@microsoft/teams-js@2.22.0/dist/MicrosoftTeams.min.js"></script>
+  <!-- Theme pre-init before SDK resolves (eliminates flash) -->
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search).get("theme");
+      document.documentElement.setAttribute("data-theme",
+        p === "dark" ? "dark" : p === "contrast" ? "contrast" : "default");
+    })();
+  </script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: "Segoe UI", sans-serif;
-      background: #f3f2f1;
-      color: #323130;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
+    /* ── Fluent UI–aligned tokens for 3 Teams themes ─────────────────────── */
+    :root, [data-theme="default"] {
+      --bg:        #ffffff;
+      --bg-card:   #f5f5f5;
+      --bg-hover:  #ebebeb;
+      --text:      #242424;
+      --text2:     #424242;
+      --text3:     #616161;
+      --brand:     #0078d4;
+      --brand-bg:  #eff6fc;
+      --border:    #d1d1d1;
+      --border-s:  #e0e0e0;
+      --c-good:    #107c10;   /* AdaptiveCard "Good"    */
+      --c-accent:  #0078d4;   /* AdaptiveCard "Accent"  */
+      --c-warn:    #8a6914;   /* AdaptiveCard "Warning" */
+      --shadow:    0 2px 8px rgba(0,0,0,0.08);
+    }
+    [data-theme="dark"] {
+      --bg:        #292929;
+      --bg-card:   #3d3d3d;
+      --bg-hover:  #454545;
+      --text:      #ffffff;
+      --text2:     #d6d6d6;
+      --text3:     #adadad;
+      --brand:     #479ef5;
+      --brand-bg:  #0a2f5c;
+      --border:    #525252;
+      --border-s:  #3d3d3d;
+      --c-good:    #54b05a;
+      --c-accent:  #479ef5;
+      --c-warn:    #d6a014;
+      --shadow:    0 2px 8px rgba(0,0,0,0.3);
+    }
+    [data-theme="contrast"] {
+      --bg:        #000000;
+      --bg-card:   #0d0d0d;
+      --bg-hover:  #1f1f1f;
+      --text:      #ffffff;
+      --text2:     #ffffff;
+      --text3:     #ffffff;
+      --brand:     #1aebff;
+      --brand-bg:  #000000;
+      --border:    #ffffff;
+      --border-s:  #ffffff;
+      --c-good:    #00ff00;
+      --c-accent:  #1aebff;
+      --c-warn:    #ffff00;
+      --shadow:    none;
     }
 
-    /* ── Main content area ── */
-    .content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 24px 20px 100px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+    /* ── Reset ────────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: "Segoe UI", -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+      background: var(--bg);
+      color: var(--text);
+    }
+    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    /* ── Scrollable area ──────────────────────────────────────────────────── */
+    .content { flex: 1; overflow-y: auto; padding: 20px 16px 88px; }
+
+    /* ── Gate (non-pilot) ─────────────────────────────────────────────────── */
+    #gate-view {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%; text-align: center; gap: 8px;
+    }
+    #gate-view h1 { font-size: 1.1rem; }
+    #gate-view p  { color: var(--text3); font-size: 0.875rem; }
+
+    /* ── Main view ────────────────────────────────────────────────────────── */
+    #main-view { display: none; }
+
+    /* ── Greeting ─────────────────────────────────────────────────────────── */
+    .greeting     { margin-bottom: 20px; }
+    .greeting h1  { font-size: 1.25rem; font-weight: 600; }
+    .greeting .dt { font-size: 0.8rem; color: var(--text3); margin-top: 2px; }
+
+    /* ── Attendance card container ────────────────────────────────────────── */
+    .att-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-s);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    /* Title variants matching AdaptiveCard color semantics */
+    .ct          { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .ct.good     { color: var(--c-good); }
+    .ct.accent   { color: var(--c-accent); }
+    .ct.warn     { color: var(--c-warn); }
+    .ct.neutral  { color: var(--text); }
+    .ct.subtle   { color: var(--text3); }
+
+    .cs { font-size: 0.875rem; color: var(--text2); line-height: 1.55; }
+
+    /* ── Loading skeleton ─────────────────────────────────────────────────── */
+    .skel { display: flex; flex-direction: column; gap: 10px; }
+    .sl {
+      background: var(--bg-hover);
+      border-radius: 4px;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .sl.h20 { height: 20px; }
+    .sl.h14 { height: 14px; width: 75%; }
+    .sl.h12 { height: 12px; width: 50%; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity: 0.4; } }
+
+    /* ── Location buttons (pending / edit) ────────────────────────────────── */
+    .loc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+    .loc-btn {
+      padding: 10px 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
       text-align: center;
+      transition: background 0.12s, border-color 0.12s;
     }
+    .loc-btn:hover { background: var(--bg-hover); border-color: var(--brand); }
 
-    .content h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; }
-    .content p  { color: #605e5c; font-size: 0.95rem; }
+    /* ── Ghost / pill button ──────────────────────────────────────────────── */
+    .ghost-btn {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 6px 16px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: transparent;
+      color: var(--brand);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .ghost-btn:hover { background: var(--brand-bg); }
 
-    /* Non-pilot gate message */
-    #gate-msg { display: none; }
-
-    /* ── Floating action bar ── */
-    .fab-bar {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      background: #ffffff;
-      border-top: 1px solid #edebe9;
-      display: flex;
-      justify-content: space-around;
+    /* ── Quickstart bar ───────────────────────────────────────────────────── */
+    .qs-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 64px;
+      background: var(--bg);
+      border-top: 1px solid var(--border-s);
+      display: none;
       align-items: center;
-      padding: 10px 12px 14px;
+      justify-content: space-around;
+      padding: 10px 12px 12px;
       gap: 8px;
       z-index: 100;
     }
-
-    .fab-bar button {
+    .qs-btn {
       flex: 1;
-      padding: 10px 6px;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.82rem;
+      height: 36px;
+      border: 1.5px solid var(--brand);
+      border-radius: 20px;
+      background: transparent;
+      color: var(--brand);
+      font-size: 0.78rem;
       font-weight: 600;
       cursor: pointer;
-      transition: opacity 0.15s;
+      white-space: nowrap;
+      transition: background 0.12s, color 0.12s;
     }
-    .fab-bar button:active { opacity: 0.75; }
+    .qs-btn:hover { background: var(--brand); color: var(--bg); }
 
-    .btn-leave   { background: #0078d4; color: #fff; }
-    .btn-balance { background: #107c10; color: #fff; }
-    .btn-report  { background: #8764b8; color: #fff; }
-
-    /* ── Leave balance inline result ── */
-    #balance-result {
-      display: none;
-      margin-top: 20px;
-      background: #fff;
-      border: 1px solid #edebe9;
-      border-radius: 10px;
-      padding: 16px;
-      max-width: 480px;
-      width: 100%;
-      text-align: left;
-      white-space: pre-wrap;
-      font-size: 0.9rem;
-      line-height: 1.5;
+    /* ── Slide-up panel (Leave Balance) ───────────────────────────────────── */
+    .panel-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 200; align-items: flex-end;
     }
+    .panel-overlay.open { display: flex; }
+    .panel {
+      background: var(--bg);
+      border-radius: 16px 16px 0 0;
+      border-top: 1px solid var(--border-s);
+      width: 100%; max-height: 70vh; overflow-y: auto;
+      padding: 12px 20px 32px;
+    }
+    .ph { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 14px; }
+    .panel h2   { font-size: 1rem; font-weight: 600; margin-bottom: 10px; }
+    .panel-body { font-size: 0.875rem; color: var(--text2); line-height: 1.6; white-space: pre-wrap; }
 
-    /* ── Apply Leave dialog ── */
+    /* ── Dialogs ──────────────────────────────────────────────────────────── */
     dialog {
-      border: none;
-      border-radius: 12px;
-      padding: 0;
+      border: none; border-radius: 12px; padding: 0;
       width: min(480px, 94vw);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      background: var(--bg); color: var(--text);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
     }
-    dialog::backdrop { background: rgba(0,0,0,0.4); }
-
-    .dialog-inner { padding: 24px; }
-    .dialog-inner h2 { font-size: 1.1rem; margin-bottom: 16px; }
-
-    .field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; }
-    .field label { font-size: 0.82rem; font-weight: 600; color: #323130; }
-
+    dialog::backdrop  { background: rgba(0,0,0,0.45); }
+    .di               { padding: 24px; }
+    .di h2            { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
+    .field            { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+    .field label      { font-size: 0.78rem; font-weight: 600; color: var(--text3); }
     .field select,
     .field input[type="date"],
-    .field textarea {
+    .field textarea   {
       padding: 8px 10px;
-      border: 1px solid #c8c6c4;
+      border: 1px solid var(--border);
       border-radius: 6px;
-      font-size: 0.9rem;
+      font-size: 0.875rem;
       font-family: inherit;
-      background: #faf9f8;
+      background: var(--bg-card);
+      color: var(--text);
     }
-    .field textarea { resize: vertical; min-height: 64px; }
+    .field textarea   { resize: vertical; min-height: 64px; }
+    .da               { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .da button        { padding: 8px 20px; border: none; border-radius: 6px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+    .btn-p            { background: var(--brand); color: var(--bg); }
+    .btn-s            { background: var(--bg-hover); color: var(--text); }
+    #leave-status     { font-size: 0.8rem; color: var(--text3); min-height: 18px; margin-top: 8px; }
 
-    .dialog-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    .dialog-actions button {
-      padding: 9px 20px;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn-submit { background: #0078d4; color: #fff; }
-    .btn-cancel { background: #edebe9; color: #323130; }
-
-    #leave-status {
-      margin-top: 10px;
-      font-size: 0.85rem;
-      color: #605e5c;
-      min-height: 20px;
-    }
-
-    /* ── Report dialog ── */
-    #report-dialog {
-      width: min(560px, 96vw);
-    }
-    #report-dialog .dialog-inner h2 { margin-bottom: 16px; }
-
-    #report-loading { color: #605e5c; font-size: 0.9rem; margin-bottom: 12px; }
-
-    .report-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
-    }
-    .report-table th {
-      text-align: left;
-      padding: 8px 10px;
-      background: #f3f2f1;
-      border-bottom: 2px solid #edebe9;
-      font-weight: 600;
-      color: #605e5c;
-    }
-    .report-table td {
-      padding: 10px 10px;
-      border-bottom: 1px solid #edebe9;
-      vertical-align: middle;
-    }
-    .report-table tr:last-child td { border-bottom: none; }
-
-    .status-badge {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-    .badge-office      { background: #dff6dd; color: #107c10; }
-    .badge-wfh         { background: #deecf9; color: #0078d4; }
-    .badge-leave       { background: #fde7e9; color: #a4262c; }
-    .badge-client_site { background: #fff4ce; color: #7a5c00; }
-    .badge-unknown     { background: #f3f2f1; color: #605e5c; }
-
-    #report-empty { color: #605e5c; font-size: 0.9rem; text-align: center; padding: 16px 0; }
-
-    .report-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 16px;
-    }
-    .report-footer small { color: #a19f9d; font-size: 0.78rem; }
-    .report-footer button {
-      padding: 9px 20px;
-      border: none;
-      border-radius: 6px;
-      background: #edebe9;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
+    /* ── Dashboard dialog ─────────────────────────────────────────────────── */
+    #dash-dialog { width: min(560px, 96vw); }
+    .dt-wrap     { overflow-x: auto; }
+    .dt-tbl      { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .dt-tbl th   { text-align: left; padding: 8px 10px; background: var(--bg-card); border-bottom: 2px solid var(--border-s); font-weight: 600; color: var(--text3); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.4px; }
+    .dt-tbl td   { padding: 9px 10px; border-bottom: 1px solid var(--border-s); vertical-align: middle; }
+    .dt-tbl tr:last-child td { border-bottom: none; }
+    .chip        { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 600; border: 1px solid currentColor; }
   </style>
 </head>
 <body>
-
-  <!-- Main content -->
   <div class="content">
-    <div id="pilot-content">
-      <h1>Good day! 👋</h1>
-      <p>Use the buttons below to manage your attendance and HR tasks.</p>
-      <div id="balance-result"></div>
-    </div>
-    <div id="gate-msg">
+    <!-- Non-pilot gate -->
+    <div id="gate-view">
       <h1>Access restricted</h1>
       <p>This app is currently in pilot. Contact HR to request access.</p>
     </div>
+
+    <!-- Pilot main view -->
+    <div id="main-view">
+      <div class="greeting">
+        <h1 id="greet-h1">Good day!</h1>
+        <div class="dt" id="greet-dt"></div>
+      </div>
+      <div class="att-card">
+        <!-- Loading skeleton shown immediately -->
+        <div id="att-body">
+          <div class="skel">
+            <div class="sl h20"></div>
+            <div class="sl h14"></div>
+            <div class="sl h12"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Floating action bar -->
-  <div class="fab-bar" id="fab-bar" style="display:none">
-    <button class="btn-leave"   onclick="openLeaveDialog()">📝 Apply Leave</button>
-    <button class="btn-balance" onclick="fetchLeaveBalance()">📊 Leave Balance</button>
-    <button class="btn-report"  onclick="openReport()">📈 Report</button>
+  <!-- Fixed quickstart bar -->
+  <div class="qs-bar" id="qs-bar">
+    <button class="qs-btn" onclick="openBalance()">Leave Balance</button>
+    <button class="qs-btn" onclick="openLeave()">Apply Leave</button>
+    <button class="qs-btn" onclick="openDash()">Dashboard</button>
+  </div>
+
+  <!-- Leave Balance slide-up panel -->
+  <div class="panel-overlay" id="bal-panel" onclick="closePanelIfBg(event)">
+    <div class="panel">
+      <div class="ph"></div>
+      <h2>Leave Balance</h2>
+      <div class="panel-body" id="bal-body">Fetching your leave balance…</div>
+    </div>
   </div>
 
   <!-- Apply Leave dialog -->
   <dialog id="leave-dialog">
-    <div class="dialog-inner">
-      <h2>📅 Apply for Leave</h2>
+    <div class="di">
+      <h2>Apply for Leave</h2>
       <div class="field">
-        <label for="leave-type">Leave Type</label>
-        <select id="leave-type">
-          <option value="Casual Leave">Casual Leave</option>
-          <option value="Sick Leave">Sick Leave</option>
-          <option value="Earned Leave">Earned Leave</option>
-          <option value="Compensatory Off">Compensatory Off</option>
-          <option value="Maternity Leave">Maternity Leave</option>
-          <option value="Paternity Leave">Paternity Leave</option>
-          <option value="Loss of Pay">Loss of Pay</option>
+        <label for="l-type">Leave Type</label>
+        <select id="l-type">
+          <option>Casual Leave</option>
+          <option>Sick Leave</option>
+          <option>Earned Leave</option>
+          <option>Compensatory Off</option>
+          <option>Maternity Leave</option>
+          <option>Paternity Leave</option>
+          <option>Loss of Pay</option>
         </select>
       </div>
       <div class="field">
-        <label for="from-date">From Date</label>
-        <input type="date" id="from-date" />
+        <label for="l-from">From Date</label>
+        <input type="date" id="l-from" />
       </div>
       <div class="field">
-        <label for="to-date">To Date</label>
-        <input type="date" id="to-date" />
+        <label for="l-to">To Date</label>
+        <input type="date" id="l-to" />
       </div>
       <div class="field">
-        <label for="leave-reason">Reason (optional)</label>
-        <textarea id="leave-reason" placeholder="e.g. Personal work"></textarea>
+        <label for="l-reason">Reason (optional)</label>
+        <textarea id="l-reason" placeholder="e.g. Personal work"></textarea>
       </div>
       <div id="leave-status"></div>
-      <div class="dialog-actions">
-        <button class="btn-cancel" onclick="closeLeaveDialog()">Cancel</button>
-        <button class="btn-submit" onclick="submitLeave()">Apply</button>
+      <div class="da">
+        <button class="btn-s" onclick="document.getElementById('leave-dialog').close()">Cancel</button>
+        <button class="btn-p" onclick="submitLeave()">Apply</button>
       </div>
     </div>
   </dialog>
 
-  <!-- Report dialog -->
-  <dialog id="report-dialog">
-    <div class="dialog-inner">
-      <h2>📈 Attendance Report</h2>
-      <div id="report-loading">Loading…</div>
-      <div id="report-empty" style="display:none">No responses recorded yet for today.</div>
-      <table class="report-table" id="report-table" style="display:none">
-        <thead>
-          <tr>
-            <th>Employee</th>
-            <th>Status</th>
-            <th>Recorded at</th>
-          </tr>
-        </thead>
-        <tbody id="report-tbody"></tbody>
-      </table>
-      <div class="report-footer">
-        <small id="report-ts"></small>
-        <button onclick="document.getElementById('report-dialog').close()">Close</button>
+  <!-- Dashboard dialog -->
+  <dialog id="dash-dialog">
+    <div class="di">
+      <h2 id="dash-title">Today's Attendance</h2>
+      <div id="dash-body"></div>
+      <div class="da">
+        <button class="btn-s" onclick="document.getElementById('dash-dialog').close()">Close</button>
       </div>
     </div>
   </dialog>
 
   <script>
-    const BOT_URL = window.location.origin;
-    let userEmail = "";
+    "use strict";
 
-    const PILOT_ALLOWLIST = new Set([
+    /* ──────────────────────────────────────────────────────────────────────────
+     * SOT: Caizin_Attendance_Tracker/shared/teams_client.py
+     *   AUTO_COPY  → build_ack_card() auto_copy dict (exact strings)
+     *   BUCKET_CLR → _RESPONSE_COLOR + _AUTO_COLOR_KEY (mapped to CSS class)
+     * ──────────────────────────────────────────────────────────────────────── */
+
+    // Exact strings from build_ack_card() auto_copy / card_messages.json
+    var AUTO_COPY = {
+      auto_present:       { title: "Office",                     sub: "Hi {n}, your work location has been recorded as Office based on your gate scan." },
+      auto_wfh:           { title: "Work From Home",             sub: "Hi {n}, based on your Work From Home entry in Keka, your work location for today has been recorded." },
+      auto_client_site:   { title: "Client Location",            sub: "Hi {n}, based on your entry in Keka, your work location for today has been recorded as Client Location." },
+      auto_leave:         { title: "Leave",                      sub: "Hi {n}, based on your leave entry in Keka, your status for today has been recorded." },
+      auto_floater_leave: { title: "Floater Holiday",            sub: "Hi {n}, based on your floater holiday entry in Keka, your status for today has been recorded." },
+      auto_absent:        { title: "Work Location Not Recorded", sub: "Hi {n}, a work location has not been recorded for today. If you believe this is incorrect, please contact the HR team." },
+    };
+
+    // Maps bucket → AdaptiveCard color class (Good=green, Accent=blue, Warning=amber)
+    var BUCKET_CLR = {
+      "Office":          "good",
+      "WFH":             "accent",
+      "Client Location": "good",
+      "Leave":           "warn",
+      "Floater Holiday": "warn",
+      "Absent":          "neutral",
+      "Pending":         "subtle",
+    };
+    var AUTO_CLR = {
+      auto_present:       "good",
+      auto_wfh:           "accent",
+      auto_client_site:   "good",
+      auto_leave:         "warn",
+      auto_floater_leave: "warn",
+      auto_absent:        "neutral",
+    };
+    var CHIP_STYLE = {
+      "Office":          "color:var(--c-good)",
+      "WFH":             "color:var(--c-accent)",
+      "Client Location": "color:var(--c-good)",
+      "Leave":           "color:var(--c-warn)",
+      "Floater Holiday": "color:var(--c-warn)",
+      "Absent":          "color:var(--text3)",
+      "Pending":         "color:var(--text3)",
+    };
+
+    // Feature flag: pilot allowlist
+    var PILOT = new Set([
       "maitreyee.joshi@caizin.com",
       "yash.nikam@caizin.com",
       "rohan.lande@caizin.com",
       "nikhil.negi@caizin.com",
     ]);
 
-    // Show content immediately — don't block on SDK
-    document.getElementById("fab-bar").style.display = "flex";
-    document.getElementById("pilot-content").style.display = "block";
+    var BASE   = window.location.origin;
+    var uEmail = "";
+    var uName  = "";
+    var att    = null;  // last fetched attendance data
 
-    // Try Teams SDK; only hide if we confirm a non-pilot
-    if (typeof microsoftTeams !== "undefined") {
-      microsoftTeams.app.initialize().then(() => {
-        microsoftTeams.app.notifyAppLoaded();
-        return microsoftTeams.app.getContext();
-      }).then((ctx) => {
-        userEmail = ((ctx.user && ctx.user.userPrincipalName) || "").toLowerCase();
-        if (userEmail && !PILOT_ALLOWLIST.has(userEmail)) {
-          document.getElementById("fab-bar").style.display = "none";
-          document.getElementById("pilot-content").style.display = "none";
-          document.getElementById("gate-msg").style.display = "block";
-        }
-      }).catch(() => {});
+    /* ── Utils ───────────────────────────────────────────────────────────── */
+    function esc(v) {
+      return String(v || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     }
+    function repl(str, name) { return str.replace(/{n}/g, name || "there"); }
 
-    function openLeaveDialog() {
-      document.getElementById("leave-status").textContent = "";
-      document.getElementById("leave-dialog").showModal();
+    function todayFmt() {
+      // Matches tracker's strftime("%B %d, %Y") format
+      return new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     }
-
-    function closeLeaveDialog() {
-      document.getElementById("leave-dialog").close();
-    }
-
-    async function submitLeave() {
-      const leaveType = document.getElementById("leave-type").value;
-      const fromDate  = document.getElementById("from-date").value;
-      const toDate    = document.getElementById("to-date").value;
-      const reason    = document.getElementById("leave-reason").value.trim();
-      const status    = document.getElementById("leave-status");
-
-      if (!fromDate || !toDate) {
-        status.textContent = "⚠️ Please fill in both From and To dates.";
-        return;
-      }
-      if (toDate < fromDate) {
-        status.textContent = "⚠️ To Date cannot be before From Date.";
-        return;
-      }
-
-      status.textContent = "Submitting…";
-      // Phase 1: Keka wiring deferred — show confirmation message
-      await new Promise(r => setTimeout(r, 600));
-      status.textContent = "✅ Leave request noted. Keka wiring coming in Phase 2.";
-    }
-
-    async function fetchLeaveBalance() {
-      const resultEl = document.getElementById("balance-result");
-      resultEl.style.display = "block";
-      resultEl.textContent = "Fetching your leave balance…";
+    function fmtTime(iso) {
+      if (!iso) return null;
       try {
-        const res = await fetch(`${BOT_URL}/ask`, {
+        var d = new Date(iso);
+        return d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true });
+      } catch (e) { return null; }
+    }
+
+    /* ── Theme ───────────────────────────────────────────────────────────── */
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme",
+        t === "dark" ? "dark" : t === "contrast" ? "contrast" : "default");
+    }
+
+    /* ── Greeting ────────────────────────────────────────────────────────── */
+    function setGreeting(name) {
+      var h   = new Date().getHours();
+      var sal = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+      var fn  = (name || "there").split(" ")[0];
+      document.getElementById("greet-h1").textContent = sal + ", " + fn + "!";
+      document.getElementById("greet-dt").textContent = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+    }
+
+    /* ── Attendance render ───────────────────────────────────────────────── */
+    function skeleton() {
+      return '<div class="skel"><div class="sl h20"></div><div class="sl h14"></div><div class="sl h12"></div></div>';
+    }
+
+    function renderAtt(data) {
+      var body  = document.getElementById("att-body");
+      var first = ((data && data.name) || uName || "there").split(" ")[0];
+      var today = todayFmt();
+
+      if (!data || data.state === "loading") { body.innerHTML = skeleton(); return; }
+
+      if (data.state === "error") {
+        body.innerHTML =
+          '<p class="ct neutral">Unable to load</p>' +
+          '<p class="cs">Something went wrong. Please refresh and try again.</p>' +
+          '<button class="ghost-btn" onclick="loadAtt()">Retry</button>';
+        return;
+      }
+
+      if (data.state === "no_record") {
+        body.innerHTML =
+          '<p class="ct subtle">Attendance not recorded yet</p>' +
+          '<p class="cs">Your attendance card will be sent at 11:00 AM. Check back later.</p>';
+        return;
+      }
+
+      if (data.state === "pending") {
+        // card_messages.json: card.heading + card.subtitle_default
+        body.innerHTML =
+          '<p class="ct neutral">' + esc("Hi " + first + ", where are you working from today?") + '</p>' +
+          '<p class="cs">' + esc("Please select your work location for today.") + '</p>' +
+          '<div class="loc-grid">' +
+            ["Office","Home","Leave","Client Location"].map(function(lbl) {
+              return '<button class="loc-btn" onclick="submitLoc(\'' + lbl + '\')">' + esc(lbl) + '</button>';
+            }).join("") +
+          '</div>';
+        return;
+      }
+
+      if (data.state === "responded") {
+        var clr    = BUCKET_CLR[data.bucket] || "neutral";
+        var hdg    = today + " : " + (data.bucket || "");
+        var editBt = data.can_edit
+          ? '<button class="ghost-btn" onclick="showEdit()">Edit Status</button>'
+          : "";
+        // card_messages.json: ack.thank_you
+        body.innerHTML =
+          '<p class="ct ' + clr + '">' + esc(hdg) + '</p>' +
+          '<p class="cs">Thank you, ' + esc(first) + '. Your response has been recorded.</p>' +
+          editBt;
+        return;
+      }
+
+      if (data.state === "auto") {
+        var cp  = AUTO_COPY[data.sub] || { title: "Recorded", sub: "Your attendance has been recorded for today." };
+        var clr = AUTO_CLR[data.sub]  || "neutral";
+        var hdg = today + " : " + cp.title;
+        body.innerHTML =
+          '<p class="ct ' + clr + '">' + esc(hdg) + '</p>' +
+          '<p class="cs">' + esc(repl(cp.sub, first)) + '</p>';
+        return;
+      }
+
+      body.innerHTML = skeleton();
+    }
+
+    /* ── Edit Status flow (responded state) ──────────────────────────────── */
+    function showEdit() {
+      var body    = document.getElementById("att-body");
+      var first   = ((att && att.name) || uName || "there").split(" ")[0];
+      var curLbl  = (att && att.bucket) || "";
+      // card_messages.json options.heading
+      var heading = "Your current work location is set to " + curLbl + ". Would you like to update it?";
+      body.innerHTML =
+        '<p class="ct neutral">' + esc(heading) + '</p>' +
+        '<div class="loc-grid">' +
+          ["Office","Home","Leave","Client Location"].map(function(lbl) {
+            return '<button class="loc-btn" onclick="submitLoc(\'' + lbl + '\')">' + esc(lbl) + '</button>';
+          }).join("") +
+        '</div>' +
+        '<button class="ghost-btn" onclick="renderAtt(att)">Cancel</button>';
+    }
+
+    /* ── Submit location ─────────────────────────────────────────────────── */
+    async function submitLoc(label) {
+      document.getElementById("att-body").innerHTML = '<p class="cs">Recording your response…</p>';
+      try {
+        var res = await fetch(BASE + "/tabs/record-attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: uEmail, name: uName, status: label }),
+        });
+        if (!res.ok) throw new Error();
+        await loadAtt();
+      } catch (_) {
+        document.getElementById("att-body").innerHTML =
+          '<p class="cs">Could not record response. Please try again.</p>' +
+          '<button class="ghost-btn" onclick="loadAtt()">Retry</button>';
+      }
+    }
+
+    /* ── Attendance fetch ────────────────────────────────────────────────── */
+    async function loadAtt() {
+      renderAtt({ state: "loading" });
+      try {
+        var res = await fetch(BASE + "/tabs/attendance-status?email=" + encodeURIComponent(uEmail));
+        if (!res.ok) throw new Error();
+        att = await res.json();
+      } catch (_) {
+        att = { state: "error" };
+      }
+      renderAtt(att);
+    }
+
+    /* ── Leave Balance ───────────────────────────────────────────────────── */
+    async function openBalance() {
+      var panel = document.getElementById("bal-panel");
+      var body  = document.getElementById("bal-body");
+      body.textContent = "Fetching your leave balance…";
+      panel.classList.add("open");
+      try {
+        var res  = await fetch(BASE + "/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question: "What is my leave balance?", policy_only: true }),
         });
-        const data = await res.json();
-        resultEl.textContent = data.answer || "No data returned.";
-      } catch (e) {
-        resultEl.textContent = "⚠️ Could not fetch leave balance. Please try again.";
+        var data = await res.json();
+        body.textContent = data.answer || "No data returned.";
+      } catch (_) {
+        body.textContent = "Unable to fetch leave balance. Please try again.";
+      }
+    }
+    function closePanelIfBg(e) {
+      if (e.target === document.getElementById("bal-panel")) {
+        document.getElementById("bal-panel").classList.remove("open");
       }
     }
 
-    const STATUS_CLASS = {
-      "In Office":   "badge-office",
-      "WFH":         "badge-wfh",
-      "On Leave":    "badge-leave",
-      "Client Site": "badge-client_site",
-    };
-
-    async function openReport() {
-      const dlg      = document.getElementById("report-dialog");
-      const loading  = document.getElementById("report-loading");
-      const empty    = document.getElementById("report-empty");
-      const table    = document.getElementById("report-table");
-      const tbody    = document.getElementById("report-tbody");
-      const ts       = document.getElementById("report-ts");
-
-      // Reset state
-      loading.style.display = "block";
-      empty.style.display   = "none";
-      table.style.display   = "none";
-      tbody.innerHTML       = "";
-      ts.textContent        = "";
-      dlg.showModal();
-
+    /* ── Apply Leave ─────────────────────────────────────────────────────── */
+    function openLeave() {
+      document.getElementById("leave-status").textContent = "";
+      document.getElementById("leave-dialog").showModal();
+    }
+    async function submitLeave() {
+      var lt  = document.getElementById("l-type").value;
+      var fd  = document.getElementById("l-from").value;
+      var td  = document.getElementById("l-to").value;
+      var rsn = document.getElementById("l-reason").value.trim();
+      var st  = document.getElementById("leave-status");
+      if (!fd || !td) { st.textContent = "Please fill in both From and To dates."; return; }
+      if (td < fd)    { st.textContent = "To Date cannot be before From Date."; return; }
+      st.textContent = "Submitting…";
       try {
-        const res  = await fetch(`${BOT_URL}/tabs/report-data`);
-        const data = await res.json();
-        const entries = data.entries || [];
-
-        loading.style.display = "none";
-        if (entries.length === 0) {
-          empty.style.display = "block";
-        } else {
-          entries.forEach(e => {
-            const badgeClass = STATUS_CLASS[e.status] || "badge-unknown";
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${e.name}</td>
-              <td><span class="status-badge ${badgeClass}">${e.status}</span></td>
-              <td>${e.timestamp}</td>
-            `;
-            tbody.appendChild(tr);
-          });
-          table.style.display = "table";
-          ts.textContent = `Updated just now`;
-        }
-      } catch (err) {
-        loading.textContent = "⚠️ Could not load report. Please try again.";
+        var res  = await fetch(BASE + "/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question: "Apply " + lt + " from " + fd + " to " + td + ". Reason: " + (rsn || "Not specified") + ".",
+          }),
+        });
+        var data = await res.json();
+        st.textContent = data.answer || "Leave request submitted.";
+      } catch (_) {
+        st.textContent = "Could not submit. Please try again.";
       }
+    }
+
+    /* ── Dashboard (real tracker data) ──────────────────────────────────── */
+    async function openDash() {
+      var dlg   = document.getElementById("dash-dialog");
+      var body  = document.getElementById("dash-body");
+      var title = document.getElementById("dash-title");
+      title.textContent = "Today's Attendance";
+      body.innerHTML = '<p class="cs">Loading…</p>';
+      dlg.showModal();
+      try {
+        var res  = await fetch(BASE + "/tabs/tracker-dashboard");
+        var data = await res.json();
+        var rows = data.entries || [];
+        if (!rows.length) {
+          body.innerHTML = '<p class="cs">No attendance records found for today.</p>';
+          return;
+        }
+        body.innerHTML =
+          '<div class="dt-wrap"><table class="dt-tbl">' +
+          '<thead><tr><th>Employee</th><th>Status</th><th>Recorded at</th></tr></thead>' +
+          '<tbody>' +
+          rows.map(function(r) {
+            var style = CHIP_STYLE[r.bucket] || "color:var(--text3)";
+            var time  = r.response_time ? (fmtTime(r.response_time) || "—") : "—";
+            return '<tr>' +
+              '<td>' + esc(r.name) + '</td>' +
+              '<td><span class="chip" style="' + style + '">' + esc(r.bucket) + '</span></td>' +
+              '<td>' + esc(time) + '</td>' +
+              '</tr>';
+          }).join("") +
+          '</tbody></table></div>';
+      } catch (_) {
+        body.innerHTML = '<p class="cs">Unable to load report. Please try again.</p>';
+      }
+    }
+
+    /* ── Init ────────────────────────────────────────────────────────────── */
+    function showMain() {
+      document.getElementById("main-view").style.display = "block";
+      document.getElementById("qs-bar").style.display    = "flex";
+      setGreeting(uName);
+      loadAtt();
+    }
+    function showGate() {
+      document.getElementById("gate-view").style.display = "flex";
+    }
+
+    if (typeof microsoftTeams !== "undefined") {
+      microsoftTeams.app.initialize()
+        .then(function () {
+          microsoftTeams.app.notifyAppLoaded();
+          return microsoftTeams.app.getContext();
+        })
+        .then(function (ctx) {
+          uEmail = ((ctx.user && ctx.user.userPrincipalName) || "").toLowerCase();
+          uName  = (ctx.user && ctx.user.displayName)        || "";
+          var theme = (ctx.app && ctx.app.theme) || ctx.theme || "default";
+          applyTheme(theme);
+          try { microsoftTeams.app.registerOnThemeChangeHandler(applyTheme); } catch (_) {}
+          if (!uEmail || PILOT.has(uEmail)) { showMain(); } else { showGate(); }
+        })
+        .catch(function () { showMain(); });  // outside Teams — show for dev convenience
+    } else {
+      showMain();
     }
   </script>
 </body>
