@@ -258,6 +258,16 @@
       <h2>📈 Attendance Report</h2>
       <div id="report-loading">Loading…</div>
       <div id="report-empty" style="display:none">No responses recorded yet for today.</div>
+      <div id="report-filter" style="display:none; margin-bottom:12px;">
+        <select id="status-filter" onchange="applyFilter()" style="padding:6px 10px; border:1px solid #c8c6c4; border-radius:6px; font-size:0.85rem; font-family:inherit; background:#faf9f8;">
+          <option value="All">All Statuses</option>
+          <option value="In Office">In Office</option>
+          <option value="WFH">WFH</option>
+          <option value="On Leave">On Leave</option>
+          <option value="Client Site">Client Site</option>
+        </select>
+        <small id="filter-count" style="margin-left:10px; color:#605e5c;"></small>
+      </div>
       <table class="report-table" id="report-table" style="display:none">
         <thead>
           <tr>
@@ -360,43 +370,58 @@
       "Client Site": "badge-client_site",
     };
 
+    let _allEntries = [];
+
+    function applyFilter() {
+      const filter = document.getElementById("status-filter").value;
+      const tbody  = document.getElementById("report-tbody");
+      const count  = document.getElementById("filter-count");
+      tbody.innerHTML = "";
+      const filtered = filter === "All" ? _allEntries : _allEntries.filter(e => e.status === filter);
+      filtered.forEach(e => {
+        const badgeClass = STATUS_CLASS[e.status] || "badge-unknown";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${e.name}</td>
+          <td><span class="status-badge ${badgeClass}">${e.status}</span></td>
+          <td>${e.timestamp}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      count.textContent = `${filtered.length} of ${_allEntries.length}`;
+    }
+
     async function openReport() {
       const dlg      = document.getElementById("report-dialog");
       const loading  = document.getElementById("report-loading");
       const empty    = document.getElementById("report-empty");
+      const filter   = document.getElementById("report-filter");
       const table    = document.getElementById("report-table");
-      const tbody    = document.getElementById("report-tbody");
       const ts       = document.getElementById("report-ts");
 
       // Reset state
       loading.style.display = "block";
       empty.style.display   = "none";
+      filter.style.display  = "none";
       table.style.display   = "none";
-      tbody.innerHTML       = "";
       ts.textContent        = "";
+      document.getElementById("status-filter").value = "All";
+      _allEntries = [];
       dlg.showModal();
 
       try {
         const res  = await fetch(`${BOT_URL}/tabs/report-data`);
         const data = await res.json();
-        const entries = data.entries || [];
+        _allEntries = data.entries || [];
 
         loading.style.display = "none";
-        if (entries.length === 0) {
+        if (_allEntries.length === 0) {
           empty.style.display = "block";
         } else {
-          entries.forEach(e => {
-            const badgeClass = STATUS_CLASS[e.status] || "badge-unknown";
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${e.name}</td>
-              <td><span class="status-badge ${badgeClass}">${e.status}</span></td>
-              <td>${e.timestamp}</td>
-            `;
-            tbody.appendChild(tr);
-          });
-          table.style.display = "table";
-          ts.textContent = `Updated just now`;
+          filter.style.display = "block";
+          table.style.display  = "table";
+          ts.textContent       = "Updated just now";
+          applyFilter();
         }
       } catch (err) {
         loading.textContent = "⚠️ Could not load report. Please try again.";
