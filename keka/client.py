@@ -25,7 +25,7 @@ KEKA_CLIENT_ID      = os.getenv("KEKA_CLIENT_ID",     "")
 KEKA_CLIENT_SECRET  = os.getenv("KEKA_CLIENT_SECRET", "")
 KEKA_API_KEY        = os.getenv("KEKA_API_KEY",       "")
 KEKA_MCP_URL        = "https://developers.keka.com/mcp"
-TEST_EMPLOYEE_EMAIL = os.getenv("KEKA_TEST_EMAIL",    "nikhil.negi@caizin.com")
+TEST_EMPLOYEE_EMAIL = os.getenv("KEKA_TEST_EMAIL")
 
 _token_cache = {"access_token": None, "expires_at": 0.0}
 _employee_cache: dict[str, str] = {}  # email → employee id
@@ -70,22 +70,30 @@ def get_employee_id(email: str) -> str | None:
         return _employee_cache[email]
 
     token = get_access_token()
-    resp = requests.get(
-        f"{KEKA_BASE_URL}/hris/employees",
-        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
-        timeout=15,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    employees = data if isinstance(data, list) else data.get("data", data.get("employees", []))
-    for emp in employees:
-        emp_email = emp.get("email") or emp.get("workEmail") or emp.get("businessEmail") or ""
-        if emp_email.lower() == email.lower():
-            eid = emp.get("id") or emp.get("employeeId") or emp.get("identifier")
-            if eid:
-                _employee_cache[email] = str(eid)
-                logger.info("[keka] resolved employee id=%s for %s", eid, email)
-                return str(eid)
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    page = 1
+    while True:
+        resp = requests.get(
+            f"{KEKA_BASE_URL}/hris/employees",
+            params={"pageNumber": page, "pageSize": 200},
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        employees = data if isinstance(data, list) else data.get("data", [])
+        for emp in employees:
+            emp_email = emp.get("email") or emp.get("workEmail") or emp.get("businessEmail") or ""
+            if emp_email.lower() == email.lower():
+                eid = emp.get("id") or emp.get("employeeId") or emp.get("identifier")
+                if eid:
+                    _employee_cache[email] = str(eid)
+                    logger.info("[keka] resolved employee id=%s for %s", eid, email)
+                    return str(eid)
+        total_pages = data.get("totalPages", 1) if isinstance(data, dict) else 1
+        if page >= total_pages:
+            break
+        page += 1
 
     logger.warning("[keka] employee not found for email=%s", email)
     return None
