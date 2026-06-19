@@ -154,11 +154,31 @@
 
     /* Markdown inside bot bubbles */
     .bubble strong { font-weight: 700; }
+    .bubble em     { font-style: italic; }
     .bubble ul { padding-left: 18px; margin: 6px 0; }
     .bubble li { margin-bottom: 3px; }
     .bubble p  { margin-bottom: 6px; }
     .bubble p:last-child { margin-bottom: 0; }
     .bubble h4 { font-size: 0.875rem; font-weight: 700; margin: 8px 0 3px; }
+
+    /* Markdown tables */
+    .bubble table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 8px 0;
+      font-size: 0.82rem;
+    }
+    .bubble th, .bubble td {
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+      text-align: left;
+    }
+    .bubble th {
+      background: var(--bg-hover);
+      font-weight: 600;
+      color: var(--text2);
+    }
+    .bubble tr:nth-child(even) td { background: var(--bg-card); }
 
     /* ── Quickstart card ───────────────────────────────────────────────────── */
     .qs-card {
@@ -284,9 +304,43 @@
       var lines = text.split("\n");
       var html  = "";
       var inUl  = false;
+      var inTbl = false;
+      var tblHead = false;
+
+      function isTableRow(l) { return /^\|.+\|/.test(l.trim()); }
+      function isSeparator(l) { return /^\|[\s\-|:]+\|/.test(l.trim()); }
+
+      function renderTableRow(l, isHeader) {
+        var cells = l.trim().replace(/^\||\|$/g, "").split("|");
+        var tag   = isHeader ? "th" : "td";
+        return "<tr>" + cells.map(function(c) {
+          return "<" + tag + ">" + inlineMd(c.trim()) + "</" + tag + ">";
+        }).join("") + "</tr>";
+      }
 
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
+
+        // Table
+        if (isTableRow(line)) {
+          if (isSeparator(line)) {
+            // separator row — already handled (header row emitted as <th>)
+            continue;
+          }
+          if (!inTbl) {
+            if (inUl) { html += "</ul>"; inUl = false; }
+            html += "<table><thead>";
+            html += renderTableRow(line, true);
+            html += "</thead><tbody>";
+            inTbl = true;
+            tblHead = true;
+          } else {
+            html += renderTableRow(line, false);
+          }
+          continue;
+        }
+
+        if (inTbl) { html += "</tbody></table>"; inTbl = false; tblHead = false; }
 
         // Bullet
         if (/^[-*]\s+/.test(line)) {
@@ -297,17 +351,18 @@
 
         if (inUl) { html += "</ul>"; inUl = false; }
 
-        // Heading (### or ##)
+        // Heading
         var hMatch = line.match(/^#{1,4}\s+(.*)/);
         if (hMatch) { html += "<h4>" + inlineMd(hMatch[1]) + "</h4>"; continue; }
 
-        // Blank line → paragraph break (skip)
+        // Blank line
         if (!line.trim()) { continue; }
 
         html += "<p>" + inlineMd(line) + "</p>";
       }
 
-      if (inUl) html += "</ul>";
+      if (inUl)  html += "</ul>";
+      if (inTbl) html += "</tbody></table>";
       return html;
     }
 
