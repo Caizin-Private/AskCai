@@ -1,212 +1,515 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="default">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AskCai — Policy Q&A</title>
   <script src="https://unpkg.com/@microsoft/teams-js@2.22.0/dist/MicrosoftTeams.min.js"></script>
+  <!-- Theme pre-init before SDK resolves -->
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search).get("theme");
+      document.documentElement.setAttribute("data-theme",
+        p === "dark" ? "dark" : p === "contrast" ? "contrast" : "default");
+    })();
+  </script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: "Segoe UI", sans-serif;
-      background: #f3f2f1;
-      color: #323130;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
+    /* ── Fluent UI–aligned tokens (3 Teams themes) ─────────────────────── */
+    :root, [data-theme="default"] {
+      --bg:        #ffffff;
+      --bg-msg:    #f5f5f5;
+      --bg-user:   #0078d4;
+      --bg-card:   #f0f0f0;
+      --bg-hover:  #e8e8e8;
+      --text:      #242424;
+      --text2:     #424242;
+      --text3:     #616161;
+      --text-user: #ffffff;
+      --brand:     #0078d4;
+      --border:    #d1d1d1;
+      --border-s:  #e0e0e0;
+      --avatar-bg: #0078d4;
+      --avatar-fg: #ffffff;
+      --input-bg:  #f5f5f5;
+      --send-bg:   transparent;
+      --send-fg:   #0078d4;
+    }
+    [data-theme="dark"] {
+      --bg:        #292929;
+      --bg-msg:    #3d3d3d;
+      --bg-user:   #3a5a8a;
+      --bg-card:   #3d3d3d;
+      --bg-hover:  #454545;
+      --text:      #ffffff;
+      --text2:     #d6d6d6;
+      --text3:     #adadad;
+      --text-user: #ffffff;
+      --brand:     #479ef5;
+      --border:    #525252;
+      --border-s:  #3d3d3d;
+      --avatar-bg: #4f6bed;
+      --avatar-fg: #ffffff;
+      --input-bg:  #3d3d3d;
+      --send-bg:   transparent;
+      --send-fg:   #479ef5;
+    }
+    [data-theme="contrast"] {
+      --bg:        #000000;
+      --bg-msg:    #1f1f1f;
+      --bg-user:   #1f1f1f;
+      --bg-card:   #0d0d0d;
+      --bg-hover:  #2a2a2a;
+      --text:      #ffffff;
+      --text2:     #ffffff;
+      --text3:     #ffffff;
+      --text-user: #ffffff;
+      --brand:     #1aebff;
+      --border:    #ffffff;
+      --border-s:  #ffffff;
+      --avatar-bg: #1aebff;
+      --avatar-fg: #000000;
+      --input-bg:  #0d0d0d;
+      --send-bg:   transparent;
+      --send-fg:   #1aebff;
     }
 
-    /* ── Gate message (non-pilot) ── */
-    #gate-msg {
-      display: none;
-      flex: 1;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      text-align: center;
-      padding: 24px;
+    /* ── Reset ───────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: "Segoe UI", -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+      background: var(--bg);
+      color: var(--text);
     }
-    #gate-msg h1 { font-size: 1.2rem; margin-bottom: 8px; }
-    #gate-msg p  { color: #605e5c; font-size: 0.9rem; }
+    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    /* ── Chat area ── */
-    #chat-wrap {
-      display: none;
-      flex: 1;
-      flex-direction: column;
-      overflow: hidden;
+    /* ── Gate ──────────────────────────────────────────────────────────────── */
+    #gate-view {
+      display: none; flex: 1; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; gap: 8px;
     }
+    #gate-view h1 { font-size: 1.1rem; }
+    #gate-view p  { color: var(--text3); font-size: 0.875rem; }
 
+    /* ── Chat shell ────────────────────────────────────────────────────────── */
+    #chat-view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+
+    /* ── Message list ──────────────────────────────────────────────────────── */
     #messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      flex: 1; overflow-y: auto;
+      padding: 16px 12px 8px;
+      display: flex; flex-direction: column; gap: 4px;
     }
 
-    .msg {
-      max-width: 80%;
-      padding: 10px 14px;
+    /* ── Message row ───────────────────────────────────────────────────────── */
+    .row { display: flex; gap: 10px; margin-bottom: 6px; }
+    .row.user-row { flex-direction: row-reverse; }
+
+    /* Avatar */
+    .av {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--avatar-bg); color: var(--avatar-fg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700;
+      flex-shrink: 0; margin-top: 18px;
+    }
+
+    /* Bubble group (sender name + bubble) */
+    .bgroup { display: flex; flex-direction: column; max-width: 78%; }
+    .user-row .bgroup { align-items: flex-end; }
+
+    .sender-line {
+      font-size: 0.72rem; font-weight: 600;
+      color: var(--text3);
+      display: flex; gap: 8px; align-items: baseline;
+      margin-bottom: 3px; padding-left: 2px;
+    }
+    .user-row .sender-line { padding-left: 0; padding-right: 2px; }
+    .sender-line .ts { font-weight: 400; }
+
+    .bubble {
+      padding: 9px 13px;
       border-radius: 12px;
-      font-size: 0.9rem;
-      line-height: 1.5;
-      white-space: pre-wrap;
+      font-size: 0.875rem;
+      line-height: 1.55;
       word-break: break-word;
     }
-    .msg.user {
-      align-self: flex-end;
-      background: #0078d4;
-      color: #fff;
-      border-bottom-right-radius: 4px;
-    }
-    .msg.bot {
-      align-self: flex-start;
-      background: #ffffff;
-      border: 1px solid #edebe9;
+    .bubble.bot-bubble {
+      background: var(--bg-msg);
+      color: var(--text);
       border-bottom-left-radius: 4px;
     }
-    .msg.typing {
-      align-self: flex-start;
-      background: #ffffff;
-      border: 1px solid #edebe9;
-      color: #605e5c;
+    .bubble.user-bubble {
+      background: var(--bg-user);
+      color: var(--text-user);
+      border-bottom-right-radius: 4px;
+    }
+    .bubble.typing {
+      background: var(--bg-msg);
+      color: var(--text3);
       font-style: italic;
     }
 
-    /* ── Input bar ── */
-    .input-bar {
-      display: flex;
-      gap: 8px;
-      padding: 10px 12px 14px;
-      background: #ffffff;
-      border-top: 1px solid #edebe9;
+    /* Markdown inside bot bubbles */
+    .bubble strong { font-weight: 700; }
+    .bubble ul { padding-left: 18px; margin: 6px 0; }
+    .bubble li { margin-bottom: 3px; }
+    .bubble p  { margin-bottom: 6px; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble h4 { font-size: 0.875rem; font-weight: 700; margin: 8px 0 3px; }
+
+    /* ── Quickstart card ───────────────────────────────────────────────────── */
+    .qs-card {
+      background: var(--bg-msg);
+      border-radius: 12px;
+      border-bottom-left-radius: 4px;
+      padding: 12px 14px;
+      max-width: 340px;
+    }
+    .qs-card .card-title { font-weight: 700; font-size: 0.925rem; margin-bottom: 6px; }
+    .qs-card .card-sub   { font-size: 0.8rem; color: var(--text3); margin-bottom: 12px; }
+    .qs-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .qs-chip {
+      padding: 5px 12px;
+      border: 1.5px solid var(--brand);
+      border-radius: 20px;
+      background: transparent;
+      color: var(--brand);
+      font-size: 0.8rem; font-weight: 600;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+    .qs-chip:hover {
+      background: var(--brand);
+      color: var(--bg);
     }
 
+    /* ── Input bar ─────────────────────────────────────────────────────────── */
+    .input-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px 14px;
+      background: var(--bg);
+      border-top: 1px solid var(--border-s);
+    }
     .input-bar input {
       flex: 1;
-      padding: 10px 12px;
-      border: 1px solid #c8c6c4;
-      border-radius: 20px;
-      font-size: 0.9rem;
+      padding: 10px 14px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      font-size: 0.875rem;
       font-family: inherit;
+      color: var(--text);
       outline: none;
+      transition: border-color 0.12s;
     }
-    .input-bar input:focus { border-color: #0078d4; }
-
-    .input-bar button {
-      padding: 10px 16px;
-      background: #0078d4;
-      color: #fff;
-      border: none;
-      border-radius: 20px;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
+    .input-bar input::placeholder { color: var(--text3); }
+    .input-bar input:focus { border-color: var(--brand); }
+    .send-btn {
+      width: 36px; height: 36px; border: none; border-radius: 50%;
+      background: var(--send-bg); color: var(--send-fg);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+      transition: background 0.12s;
     }
-    .input-bar button:disabled { opacity: 0.5; cursor: default; }
+    .send-btn:hover { background: var(--bg-hover); }
+    .send-btn:disabled { opacity: 0.35; cursor: default; }
+    .send-btn svg { width: 18px; height: 18px; fill: currentColor; }
   </style>
 </head>
 <body>
 
-  <div id="gate-msg">
+  <!-- Gate -->
+  <div id="gate-view">
     <h1>Access restricted</h1>
-    <p>AskCAI is currently in pilot. Contact HR to request access.</p>
+    <p>AskCai is currently in pilot. Contact HR to request access.</p>
   </div>
 
-  <div id="chat-wrap">
-    <div id="messages">
-      <div class="msg bot">👋 Hi! I'm CAI, your HR policy assistant. Ask me anything about Caizin's policies.</div>
-    </div>
+  <!-- Chat -->
+  <div id="chat-view">
+    <div id="messages"></div>
     <div class="input-bar">
-      <input id="question-input" type="text" placeholder="Ask a policy question…" autocomplete="off" />
-      <button id="send-btn" onclick="sendQuestion()">Send</button>
+      <input id="q-input" type="text" placeholder="Type a message" autocomplete="off" />
+      <button class="send-btn" id="send-btn" onclick="sendQuestion()" title="Send">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
+        </svg>
+      </button>
     </div>
   </div>
 
   <script>
-    const BOT_URL = window.location.origin;
+    "use strict";
 
-    const PILOT_ALLOWLIST = new Set([
+    var BASE = window.location.origin;
+    var BOT_NAME = "Caizin HR Ops";
+    var BOT_INITIAL = "C";
+
+    var PILOT = new Set([
       "maitreyee.joshi@caizin.com",
       "yash.nikam@caizin.com",
       "rohan.lande@caizin.com",
       "nikhil.negi@caizin.com",
     ]);
 
-    // Show chat immediately — don't block on SDK
-    showChat();
+    var TOPICS = [
+      { label: "Leaves",          q: "Tell me about Caizin's leave policy." },
+      { label: "Fitness Policy",  q: "Tell me about the fitness policy." },
+      { label: "Travel Policy",   q: "Tell me about the travel policy." },
+      { label: "Referral Policy", q: "Tell me about the referral policy." },
+      { label: "POSH Policy",     q: "Tell me about the POSH policy." },
+    ];
 
-    // Try Teams SDK; only hide if we confirm a non-pilot
-    if (typeof microsoftTeams !== "undefined") {
-      microsoftTeams.app.initialize().then(() => {
-        microsoftTeams.app.notifyAppLoaded();
-        return microsoftTeams.app.getContext();
-      }).then((ctx) => {
-        const email = ((ctx.user && ctx.user.userPrincipalName) || "").toLowerCase();
-        if (email && !PILOT_ALLOWLIST.has(email)) {
-          showGate();
+    /* ── Theme ─────────────────────────────────────────────────────────────── */
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme",
+        t === "dark" ? "dark" : t === "contrast" ? "contrast" : "default");
+    }
+
+    /* ── Time ──────────────────────────────────────────────────────────────── */
+    function nowTime() {
+      return new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit", minute: "2-digit", hour12: false,
+      });
+    }
+
+    /* ── Simple markdown → HTML ─────────────────────────────────────────────
+     *  Handles: **bold**, ### headings, - bullets, blank-line paragraphs.
+     *  No external lib needed for the bot's typical output.
+     * ─────────────────────────────────────────────────────────────────────── */
+    function mdToHtml(text) {
+      var lines = text.split("\n");
+      var html  = "";
+      var inUl  = false;
+
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+
+        // Bullet
+        if (/^[-*]\s+/.test(line)) {
+          if (!inUl) { html += "<ul>"; inUl = true; }
+          html += "<li>" + inlineMd(line.replace(/^[-*]\s+/, "")) + "</li>";
+          continue;
         }
-      }).catch(() => {});
-    }
 
-    function showChat() {
-      document.getElementById("chat-wrap").style.display = "flex";
-      document.getElementById("gate-msg").style.display = "none";
-      document.getElementById("question-input").focus();
-    }
-    function showGate() {
-      document.getElementById("chat-wrap").style.display = "none";
-      document.getElementById("gate-msg").style.display = "flex";
-    }
+        if (inUl) { html += "</ul>"; inUl = false; }
 
-    document.getElementById("question-input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendQuestion();
+        // Heading (### or ##)
+        var hMatch = line.match(/^#{1,4}\s+(.*)/);
+        if (hMatch) { html += "<h4>" + inlineMd(hMatch[1]) + "</h4>"; continue; }
+
+        // Blank line → paragraph break (skip)
+        if (!line.trim()) { continue; }
+
+        html += "<p>" + inlineMd(line) + "</p>";
       }
-    });
 
-    function appendMsg(text, role) {
-      const el = document.createElement("div");
-      el.className = `msg ${role}`;
-      el.textContent = text;
-      const container = document.getElementById("messages");
-      container.appendChild(el);
-      container.scrollTop = container.scrollHeight;
-      return el;
+      if (inUl) html += "</ul>";
+      return html;
     }
 
-    async function sendQuestion() {
-      const input = document.getElementById("question-input");
-      const btn   = document.getElementById("send-btn");
-      const text  = input.value.trim();
-      if (!text) return;
+    function inlineMd(text) {
+      // **bold**
+      text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      // *italic*
+      text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
+      return text;
+    }
 
+    /* ── Build a message row ────────────────────────────────────────────────── */
+    function makeRow(role, htmlContent, isCard) {
+      var row     = document.createElement("div");
+      var bgroup  = document.createElement("div");
+      var sline   = document.createElement("div");
+      var bubble  = document.createElement("div");
+
+      row.className    = "row" + (role === "user" ? " user-row" : "");
+      bgroup.className = "bgroup";
+      sline.className  = "sender-line";
+
+      if (role === "bot") {
+        var av       = document.createElement("div");
+        av.className = "av";
+        av.textContent = BOT_INITIAL;
+        row.appendChild(av);
+
+        sline.innerHTML =
+          "<span>" + BOT_NAME + "</span><span class='ts'>" + nowTime() + "</span>";
+      } else {
+        sline.innerHTML = "<span class='ts'>" + nowTime() + "</span>";
+      }
+
+      if (isCard) {
+        bubble.appendChild(htmlContent);
+      } else {
+        bubble.className = "bubble " + (role === "bot" ? "bot-bubble" : "user-bubble");
+        bubble.innerHTML = htmlContent;
+      }
+
+      bgroup.appendChild(sline);
+      bgroup.appendChild(bubble);
+      row.appendChild(bgroup);
+      return row;
+    }
+
+    /* ── Append message ─────────────────────────────────────────────────────── */
+    var msgList = document.getElementById("messages");
+
+    function appendBot(htmlContent) {
+      var row = makeRow("bot", htmlContent, false);
+      msgList.appendChild(row);
+      msgList.scrollTop = msgList.scrollHeight;
+      return row;
+    }
+
+    function appendUser(text) {
+      var row = makeRow("user", esc(text), false);
+      msgList.appendChild(row);
+      msgList.scrollTop = msgList.scrollHeight;
+    }
+
+    function appendTyping() {
+      var row    = makeRow("bot", "Thinking…", false);
+      var bubble = row.querySelector(".bubble");
+      bubble.classList.add("typing");
+      bubble.classList.remove("bot-bubble");
+      msgList.appendChild(row);
+      msgList.scrollTop = msgList.scrollHeight;
+      return row;
+    }
+
+    function appendCard(cardEl) {
+      var row    = document.createElement("div");
+      var bgroup = document.createElement("div");
+      var sline  = document.createElement("div");
+      var av     = document.createElement("div");
+
+      row.className    = "row";
+      bgroup.className = "bgroup";
+      sline.className  = "sender-line";
+      av.className     = "av";
+      av.textContent   = BOT_INITIAL;
+
+      sline.innerHTML  = "<span>" + BOT_NAME + "</span><span class='ts'>" + nowTime() + "</span>";
+      bgroup.appendChild(sline);
+      bgroup.appendChild(cardEl);
+      row.appendChild(av);
+      row.appendChild(bgroup);
+      msgList.appendChild(row);
+      msgList.scrollTop = msgList.scrollHeight;
+    }
+
+    function esc(v) {
+      return String(v || "")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    /* ── Quickstart card ─────────────────────────────────────────────────────  */
+    function addGreeting() {
+      // Line 1: greeting message
+      appendBot(esc("Good day! 👋 How can I help you with Caizin's policies today?"));
+
+      // Line 2: topic picker card
+      var card  = document.createElement("div");
+      card.className = "qs-card";
+
+      var title = document.createElement("div");
+      title.className = "card-title";
+      title.textContent = "🤖 Caizin Policy Assistant";
+
+      var sub = document.createElement("div");
+      sub.className = "card-sub";
+      sub.textContent = "Please select a policy topic:";
+
+      var grid = document.createElement("div");
+      grid.className = "qs-grid";
+
+      TOPICS.forEach(function(t) {
+        var chip = document.createElement("button");
+        chip.className   = "qs-chip";
+        chip.textContent = t.label;
+        chip.onclick     = function() { fireQuestion(t.q); };
+        grid.appendChild(chip);
+      });
+
+      card.appendChild(title);
+      card.appendChild(sub);
+      card.appendChild(grid);
+      appendCard(card);
+    }
+
+    /* ── Send ────────────────────────────────────────────────────────────────── */
+    function fireQuestion(text) {
+      var input = document.getElementById("q-input");
+      var btn   = document.getElementById("send-btn");
       input.value = "";
       btn.disabled = true;
-      appendMsg(text, "user");
+      appendUser(text);
+      var typingRow = appendTyping();
 
-      const typingEl = appendMsg("Thinking…", "typing");
-
-      try {
-        const res = await fetch(`${BOT_URL}/ask`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: text, policy_only: true }),
-        });
-        const data = await res.json();
-        typingEl.remove();
-        appendMsg(data.answer || "Sorry, I couldn't find an answer.", "bot");
-      } catch (e) {
-        typingEl.remove();
-        appendMsg("⚠️ Network error. Please try again.", "bot");
-      } finally {
+      fetch(BASE + "/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: text, policy_only: true }),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        typingRow.remove();
+        appendBot(mdToHtml(data.answer || "Sorry, I couldn't find an answer to that."));
+      })
+      .catch(function() {
+        typingRow.remove();
+        appendBot(esc("⚠️ Network error. Please try again."));
+      })
+      .finally(function() {
         btn.disabled = false;
         input.focus();
-      }
+      });
+    }
+
+    function sendQuestion() {
+      var text = document.getElementById("q-input").value.trim();
+      if (!text) return;
+      fireQuestion(text);
+    }
+
+    /* ── Input listeners ─────────────────────────────────────────────────────── */
+    document.getElementById("q-input").addEventListener("keydown", function(e) {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
+    });
+
+    /* ── Init ────────────────────────────────────────────────────────────────── */
+    function showChat() {
+      document.getElementById("chat-view").style.display = "flex";
+      document.getElementById("gate-view").style.display = "none";
+      addGreeting();
+      document.getElementById("q-input").focus();
+    }
+    function showGate() {
+      document.getElementById("chat-view").style.display = "none";
+      document.getElementById("gate-view").style.display = "flex";
+    }
+
+    if (typeof microsoftTeams !== "undefined") {
+      microsoftTeams.app.initialize()
+        .then(function() {
+          microsoftTeams.app.notifyAppLoaded();
+          return microsoftTeams.app.getContext();
+        })
+        .then(function(ctx) {
+          var email = ((ctx.user && ctx.user.userPrincipalName) || "").toLowerCase();
+          var theme = (ctx.app && ctx.app.theme) || ctx.theme || "default";
+          applyTheme(theme);
+          try { microsoftTeams.app.registerOnThemeChangeHandler(applyTheme); } catch(_) {}
+          if (!email || PILOT.has(email)) { showChat(); } else { showGate(); }
+        })
+        .catch(function() { showChat(); });
+    } else {
+      showChat();
     }
   </script>
 </body>
