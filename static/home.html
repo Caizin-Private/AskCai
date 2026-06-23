@@ -238,6 +238,10 @@
 
     /* ── Dashboard dialog ─────────────────────────────────────────────────── */
     #dash-dialog { width: min(620px, 96vw); }
+    .dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .dash-header h2 { margin: 0; }
+    .dash-close  { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text3); line-height: 1; padding: 2px 6px; border-radius: 6px; }
+    .dash-close:hover { background: var(--bg-hover); color: var(--text); }
     .dt-filters  { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
     .dt-search   { flex: 1; min-width: 140px; padding: 7px 10px; border: 1px solid var(--border-s); border-radius: 8px; font-size: 0.85rem; background: var(--bg-card); color: var(--text); outline: none; }
     .dt-search:focus { border-color: var(--brand); }
@@ -334,11 +338,14 @@
   <!-- Dashboard dialog -->
   <dialog id="dash-dialog">
     <div class="di">
-      <h2 id="dash-title">Today's Attendance</h2>
+      <div class="dash-header">
+        <h2 id="dash-title">Today's Attendance</h2>
+        <button class="dash-close" onclick="document.getElementById('dash-dialog').close()" title="Close">✕</button>
+      </div>
       <div class="dt-filters">
         <input id="dash-search" class="dt-search" type="text" placeholder="Search by name…" oninput="renderDashTable()">
         <select id="dash-filter" class="dt-filter" onchange="renderDashTable()">
-          <option value="">All Statuses</option>
+          <option value="">Filter by status</option>
           <option value="Office">Office</option>
           <option value="WFH">WFH</option>
           <option value="Client Location">Client Location</option>
@@ -350,9 +357,6 @@
       </div>
       <div id="dash-count" class="dt-count"></div>
       <div id="dash-body"></div>
-      <div class="da">
-        <button class="btn-s" onclick="document.getElementById('dash-dialog').close()">Close</button>
-      </div>
     </div>
   </dialog>
 
