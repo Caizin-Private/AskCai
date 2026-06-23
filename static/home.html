@@ -237,7 +237,13 @@
     #leave-status     { font-size: 0.8rem; color: var(--text3); min-height: 18px; margin-top: 8px; }
 
     /* ── Dashboard dialog ─────────────────────────────────────────────────── */
-    #dash-dialog { width: min(560px, 96vw); }
+    #dash-dialog { width: min(620px, 96vw); }
+    .dt-filters  { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .dt-search   { flex: 1; min-width: 140px; padding: 7px 10px; border: 1px solid var(--border-s); border-radius: 8px; font-size: 0.85rem; background: var(--bg-card); color: var(--text); outline: none; }
+    .dt-search:focus { border-color: var(--brand); }
+    .dt-filter   { padding: 7px 12px; border: 1px solid var(--border-s); border-radius: 8px; font-size: 0.82rem; background: var(--bg-card); color: var(--text); cursor: pointer; outline: none; }
+    .dt-filter:focus { border-color: var(--brand); }
+    .dt-count    { font-size: 0.78rem; color: var(--text3); margin-bottom: 8px; }
     .dt-wrap     { overflow-x: auto; }
     .dt-tbl      { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .dt-tbl th   { text-align: left; padding: 8px 10px; background: var(--bg-card); border-bottom: 2px solid var(--border-s); font-weight: 600; color: var(--text3); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.4px; }
@@ -329,6 +335,20 @@
   <dialog id="dash-dialog">
     <div class="di">
       <h2 id="dash-title">Today's Attendance</h2>
+      <div class="dt-filters">
+        <input id="dash-search" class="dt-search" type="text" placeholder="Search by name…" oninput="renderDashTable()">
+        <select id="dash-filter" class="dt-filter" onchange="renderDashTable()">
+          <option value="">All Statuses</option>
+          <option value="Office">Office</option>
+          <option value="WFH">WFH</option>
+          <option value="Client Location">Client Location</option>
+          <option value="Leave">Leave</option>
+          <option value="Floater Holiday">Floater Holiday</option>
+          <option value="Absent">Absent</option>
+          <option value="Pending">Pending</option>
+        </select>
+      </div>
+      <div id="dash-count" class="dt-count"></div>
       <div id="dash-body"></div>
       <div class="da">
         <button class="btn-s" onclick="document.getElementById('dash-dialog').close()">Close</button>
@@ -598,40 +618,61 @@
     }
 
     /* ── Dashboard (real tracker data) ──────────────────────────────────── */
+    var _dashRows = [];
+
+    function renderDashTable() {
+      var body    = document.getElementById("dash-body");
+      var count   = document.getElementById("dash-count");
+      var search  = (document.getElementById("dash-search").value || "").toLowerCase();
+      var filter  = document.getElementById("dash-filter").value;
+      var visible = _dashRows.filter(function(r) {
+        var matchName   = !search || r.name.toLowerCase().indexOf(search) !== -1;
+        var matchStatus = !filter || r.bucket === filter;
+        return matchName && matchStatus;
+      });
+      count.textContent = visible.length + " of " + _dashRows.length + " employees";
+      if (!visible.length) {
+        body.innerHTML = '<p class="cs">No matching records.</p>';
+        return;
+      }
+      body.innerHTML =
+        '<div class="dt-wrap"><table class="dt-tbl">' +
+        '<thead><tr><th>Employee</th><th>Status</th></tr></thead>' +
+        '<tbody>' +
+        visible.map(function(r) {
+          var style = CHIP_STYLE[r.bucket] || "color:var(--text3)";
+          return '<tr>' +
+            '<td>' + esc(r.name) + '</td>' +
+            '<td><span class="chip" style="' + style + '">' + esc(r.bucket) + '</span></td>' +
+            '</tr>';
+        }).join("") +
+        '</tbody></table></div>';
+    }
+
     async function openDash() {
       var dlg   = document.getElementById("dash-dialog");
       var body  = document.getElementById("dash-body");
       var title = document.getElementById("dash-title");
       title.textContent = "Today's Attendance";
       body.innerHTML = '<p class="cs">Loading…</p>';
+      document.getElementById("dash-search").value = "";
+      document.getElementById("dash-filter").value = "";
+      document.getElementById("dash-count").textContent = "";
       dlg.showModal();
       try {
         var res  = await fetch(BASE + "/tabs/tracker-dashboard");
         var data = await res.json();
-        var rows = data.entries || [];
+        _dashRows = data.entries || [];
         if (data.date) {
           var d = new Date(data.date);
           var label = d.toLocaleDateString("en-IN", {day:"2-digit", month:"short", year:"numeric"});
           title.textContent = "Attendance — " + label;
         }
-        if (!rows.length) {
+        if (!_dashRows.length) {
           body.innerHTML = '<p class="cs">No attendance records found.</p>';
           return;
         }
-        body.innerHTML =
-          '<div class="dt-wrap"><table class="dt-tbl">' +
-          '<thead><tr><th>Employee</th><th>Status</th><th>Recorded at</th></tr></thead>' +
-          '<tbody>' +
-          rows.map(function(r) {
-            var style = CHIP_STYLE[r.bucket] || "color:var(--text3)";
-            var time  = r.response_time ? (fmtTime(r.response_time) || "—") : "—";
-            return '<tr>' +
-              '<td>' + esc(r.name) + '</td>' +
-              '<td><span class="chip" style="' + style + '">' + esc(r.bucket) + '</span></td>' +
-              '<td>' + esc(time) + '</td>' +
-              '</tr>';
-          }).join("") +
-          '</tbody></table></div>';
+        renderDashTable();
       } catch (_) {
         body.innerHTML = '<p class="cs">Unable to load report. Please try again.</p>';
       }
