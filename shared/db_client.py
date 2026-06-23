@@ -8,11 +8,11 @@ import psycopg2.extras
 logger = logging.getLogger(__name__)
 
 _DSN = {
-    "host":     os.getenv("DB_HOST"),
-    "port":     int(os.getenv("DB_PORT", "5432")),
-    "dbname":   os.getenv("DB_NAME"),
-    "user":     os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
+    "host":     os.getenv("TRACKER_DB_HOST"),
+    "port":     int(os.getenv("TRACKER_DB_PORT", "5432")),
+    "dbname":   os.getenv("TRACKER_DB_NAME"),
+    "user":     os.getenv("TRACKER_DB_USER"),
+    "password": os.getenv("TRACKER_DB_PASSWORD"),
     "connect_timeout": 10,
 }
 
