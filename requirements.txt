@@ -17,6 +17,4 @@ numpy
 aiohttp
 anthropic
 boto3
-pdfplumber
-apscheduler
 psycopg2-binary>=2.9.9

@@ -1,16 +1,17 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings
-from botbuilder.schema import Activity, ActivityTypes
+from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings, MessageFactory
+from botbuilder.core.teams import TeamsInfo
+from botbuilder.schema import Activity, InvokeResponse
 
+from features import surface_enabled, COMMAND_FLAGS
 from rag import ask_policy_question
-from features import is_pilot
+from keka.mcp_agent import ask_keka_mcp
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,9 +19,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_ID       = os.getenv("MicrosoftAppId")
-APP_PASSWORD = os.getenv("MicrosoftAppPassword")
-TENANT_ID    = os.getenv("MicrosoftAppTenantId")
+APP_ID            = os.getenv("MicrosoftAppId")
+APP_PASSWORD      = os.getenv("MicrosoftAppPassword")
+TENANT_ID         = os.getenv("MicrosoftAppTenantId")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 adapter = BotFrameworkAdapter(BotFrameworkAdapterSettings(
     app_id=APP_ID,
@@ -32,6 +34,231 @@ app = FastAPI(title="Caizin HrOps Bot")
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+
+
+# ── Bot helpers ───────────────────────────────────────────────────────────────
+
+async def _get_user_email(turn_context) -> str:
+    try:
+        member = await TeamsInfo.get_member(
+            turn_context, turn_context.activity.from_property.id
+        )
+        if member and member.email:
+            return member.email.lower()
+    except Exception as exc:
+        logger.warning("[bot] TeamsInfo.get_member failed: %s", exc)
+    return ""
+
+
+# ── Task-module helpers ───────────────────────────────────────────────────────
+
+def _task_continue(title: str, card: dict, height: str = "medium", width: str = "medium") -> dict:
+    return {
+        "task": {
+            "type": "continue",
+            "value": {
+                "title": title,
+                "height": height,
+                "width": width,
+                "card": {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "content": card,
+                },
+            },
+        }
+    }
+
+
+def _task_message(text: str) -> dict:
+    return {"task": {"type": "message", "value": text}}
+
+
+def _build_apply_leave_card() -> dict:
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "Input.ChoiceSet",
+                "id": "leave_type",
+                "label": "Leave Type",
+                "style": "compact",
+                "value": "Casual Leave",
+                "choices": [
+                    {"title": "Casual Leave",     "value": "Casual Leave"},
+                    {"title": "Sick Leave",        "value": "Sick Leave"},
+                    {"title": "Earned Leave",      "value": "Earned Leave"},
+                    {"title": "Compensatory Off",  "value": "Compensatory Off"},
+                    {"title": "Loss of Pay",       "value": "Loss of Pay"},
+                ],
+            },
+            {"type": "Input.Date", "id": "from_date", "label": "From Date"},
+            {"type": "Input.Date", "id": "to_date",   "label": "To Date"},
+            {
+                "type": "Input.Text",
+                "id": "reason",
+                "label": "Reason (optional)",
+                "isMultiline": True,
+                "placeholder": "e.g. Personal work",
+            },
+        ],
+        "actions": [
+            {
+                "type": "Action.Submit",
+                "title": "Submit",
+                "data": {"commandId": "applyLeave"},
+            }
+        ],
+    }
+
+
+# ── Per-command fetch handlers ────────────────────────────────────────────────
+
+async def _fetch_balance(turn_context, email: str) -> dict:
+    answer = await ask_keka_mcp(
+        "What is my current leave balance broken down by leave type?",
+        email,
+        ANTHROPIC_API_KEY,
+    )
+    card = {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [
+            {"type": "TextBlock", "text": "Your Leave Balance", "size": "Medium", "weight": "Bolder"},
+            {"type": "TextBlock", "text": answer, "wrap": True},
+        ],
+    }
+    return _task_continue("Leave Balance", card)
+
+
+async def _fetch_apply_leave(turn_context, email: str) -> dict:
+    return _task_continue("Apply for Leave", _build_apply_leave_card())
+
+
+async def _fetch_attendance(turn_context, email: str) -> dict:
+    from insync_db import get_today_all_records
+    records = get_today_all_records()
+    if not records:
+        return _task_message("No attendance records found for today.")
+    buckets: dict = {}
+    for r in records:
+        buckets.setdefault(r.get("bucket", "Pending"), []).append(r.get("name", ""))
+    facts = [
+        {"title": f"{bucket} ({len(names)})", "value": ", ".join(sorted(names))}
+        for bucket, names in sorted(buckets.items())
+    ]
+    card = {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [
+            {"type": "TextBlock", "text": "Attendance Today", "size": "Medium", "weight": "Bolder"},
+            {"type": "FactSet", "facts": facts},
+        ],
+    }
+    return _task_continue("Attendance Today", card)
+
+
+async def _fetch_help(turn_context, email: str) -> dict:
+    card = {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [
+            {"type": "TextBlock", "text": "Available Commands", "size": "Medium", "weight": "Bolder"},
+            {
+                "type": "FactSet",
+                "facts": [
+                    {"title": "Balance",     "value": "Check your current leave balance"},
+                    {"title": "Apply Leave", "value": "Submit a leave request"},
+                    {"title": "Attendance",  "value": "View today's team attendance"},
+                ],
+            },
+            {
+                "type": "TextBlock",
+                "text": "Type @HrOps Test in the chat to access these commands.",
+                "wrap": True,
+                "isSubtle": True,
+                "spacing": "Medium",
+            },
+        ],
+    }
+    return _task_continue("Help", card, height="small")
+
+
+# Dispatch table — add new commands here
+_FETCH_HANDLERS = {
+    "balance":    _fetch_balance,
+    "applyLeave": _fetch_apply_leave,
+    "attendance": _fetch_attendance,
+    "help":       _fetch_help,
+}
+
+
+# ── Per-command submit handlers ───────────────────────────────────────────────
+
+async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
+    leave_type = data.get("leave_type", "Casual Leave")
+    from_date  = data.get("from_date", "")
+    to_date    = data.get("to_date",   "")
+    reason     = data.get("reason") or "Not specified"
+
+    if not from_date or not to_date:
+        card = _build_apply_leave_card()
+        card["body"].insert(0, {
+            "type": "TextBlock",
+            "text": "Please fill in both From and To dates.",
+            "color": "Attention",
+            "wrap": True,
+        })
+        return _task_continue("Apply for Leave", card)
+
+    answer = await ask_keka_mcp(
+        f"Apply {leave_type} for me from {from_date} to {to_date}. Reason: {reason}.",
+        email,
+        ANTHROPIC_API_KEY,
+    )
+    return _task_message(answer)
+
+
+# Dispatch table — add new submit handlers here
+_SUBMIT_HANDLERS = {
+    "applyLeave": _submit_apply_leave,
+}
+
+
+# ── Invoke orchestration ──────────────────────────────────────────────────────
+
+async def _handle_fetch_task(turn_context, command_id: str) -> dict:
+    email = await _get_user_email(turn_context)
+
+    if command_id in COMMAND_FLAGS:
+        if not email:
+            return _task_message("Could not identify your account. Please contact IT.")
+        if not surface_enabled(COMMAND_FLAGS[command_id], email):
+            return _task_message("This feature is not available for your account yet.")
+
+    handler = _FETCH_HANDLERS.get(command_id)
+    if not handler:
+        return _task_message("Unknown command.")
+    return await handler(turn_context, email)
+
+
+async def _handle_submit_action(turn_context, command_id: str, data: dict) -> dict:
+    email = await _get_user_email(turn_context)
+
+    if command_id in COMMAND_FLAGS:
+        if not email:
+            return _task_message("Could not identify your account. Please contact IT.")
+        if not surface_enabled(COMMAND_FLAGS[command_id], email):
+            return _task_message("This feature is not available for your account.")
+
+    handler = _SUBMIT_HANDLERS.get(command_id)
+    if not handler:
+        return _task_message("Request processed.")
+    return await handler(turn_context, data, email)
 
 
 # ── Bot endpoint ──────────────────────────────────────────────────────────────
@@ -49,48 +276,36 @@ async def messages(req: Request):
     auth_header = req.headers.get("Authorization", "")
 
     async def turn_handler(turn_context):
-        atype = turn_context.activity.type
+        act = turn_context.activity
 
-        # conversationUpdate — bot added; no proactive send (InSync tab owns attendance)
-        if atype == "conversationUpdate":
+        if act.type == "invoke" and act.name == "composeExtension/fetchTask":
+            command_id = (act.value or {}).get("commandId", "")
+            body = await _handle_fetch_task(turn_context, command_id)
+            await turn_context.send_activity(Activity(
+                type="invokeResponse",
+                value=InvokeResponse(status=200, body=body),
+            ))
             return
 
-        # Action.Submit — Apply Leave form
-        if atype == "message" and turn_context.activity.value:
-            form   = turn_context.activity.value
-            action = form.get("action", "")
-
-            if action == "apply_leave_cancel":
-                return
-
-            if action == "apply_leave_submit":
-                await turn_context.send_activity(Activity(type=ActivityTypes.typing))
-
-                leave_type = form.get("leave_type", "Casual Leave")
-                from_date  = form.get("from_date", "")
-                to_date    = form.get("to_date", "")
-                reason     = form.get("reason", "")
-
-                if not from_date or not to_date:
-                    await turn_context.send_activity(
-                        "⚠️ Please fill in both **From** and **To** dates before submitting."
-                    )
-                    return
-
-                from keka.client import TEST_EMPLOYEE_EMAIL
-                from keka.mcp_agent import ask_keka_mcp
-                from rag import _get_anthropic_api_key
-
-                query = (
-                    f"Apply {leave_type} from {from_date} to {to_date}. "
-                    f"Reason: {reason or 'Not specified'}."
-                )
-                result = await ask_keka_mcp(query, TEST_EMPLOYEE_EMAIL, _get_anthropic_api_key())
-                await turn_context.send_activity(result)
+        if act.type == "invoke" and act.name == "composeExtension/submitAction":
+            command_id = (act.value or {}).get("commandId", "")
+            data       = (act.value or {}).get("data", {})
+            body = await _handle_submit_action(turn_context, command_id, data)
+            await turn_context.send_activity(Activity(
+                type="invokeResponse",
+                value=InvokeResponse(status=200, body=body),
+            ))
             return
 
-        # Notification-only — ignore all other activity types
-        return
+        if act.type != "message":
+            return
+
+        await turn_context.send_activity(MessageFactory.text(
+            "Type **@HrOps Test** in the chat to access commands:\n\n"
+            "• **Balance** — Check your current leave balance\n"
+            "• **Apply Leave** — Submit a leave request\n"
+            "• **Attendance** — View today's team attendance"
+        ))
 
     invoke_response = await adapter.process_activity(activity, auth_header, turn_handler)
 
@@ -119,54 +334,14 @@ async def ask(req: Request):
 _TAB_CSP = "frame-ancestors teams.microsoft.com *.teams.microsoft.com *.skype.com"
 
 
-@app.get("/tabs/home")
-async def tab_home():
-    r = FileResponse(os.path.join("static", "home.html"))
-    r.headers["Content-Security-Policy"] = _TAB_CSP
-    return r
+@app.get("/icon.png")
+async def app_icon():
+    return FileResponse(os.path.join("..", "manifest", "color.png"), media_type="image/png")
 
 
 @app.get("/tabs/askcai")
 async def tab_askcai():
     r = FileResponse(os.path.join("static", "askcai.html"))
-    r.headers["Content-Security-Policy"] = _TAB_CSP
-    return r
-
-
-@app.get("/tabs/attendance-status")
-async def attendance_status(email: str = ""):
-    from fastapi.responses import JSONResponse
-    email = email.strip().lower()
-    if not email:
-        return JSONResponse(status_code=400, content={"error": "email required"})
-    if not is_pilot(email):
-        return JSONResponse(status_code=403, content={"error": "not in pilot"})
-    from insync_db import get_today_status
-    data = get_today_status(email)
-    r = JSONResponse(content=data)
-    r.headers["Content-Security-Policy"] = _TAB_CSP
-    return r
-
-
-@app.post("/tabs/record-attendance")
-async def record_attendance(req: Request):
-    from fastapi.responses import JSONResponse
-    body   = await req.json()
-    email  = (body.get("email")  or "").strip()
-    status = (body.get("status") or "unknown").strip()
-    from insync_db import record_response
-    record_response(email, status)
-    return JSONResponse(content={"ok": True})
-
-
-@app.get("/tabs/tracker-dashboard")
-async def tracker_dashboard():
-    from fastapi.responses import JSONResponse
-    from insync_db import get_today_all_records
-    ist   = timezone(timedelta(hours=5, minutes=30))
-    today = datetime.now(ist).strftime("%Y-%m-%d")
-    data  = get_today_all_records()
-    r = JSONResponse(content={"entries": data, "date": today})
     r.headers["Content-Security-Policy"] = _TAB_CSP
     return r
 

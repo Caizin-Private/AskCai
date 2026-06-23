@@ -85,6 +85,26 @@
     }
     body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
+    /* ── Tab header ──────────────────────────────────────────────────────── */
+    .tab-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-s);
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+    .tab-icon {
+      width: 24px; height: 24px;
+      border-radius: 4px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .tab-title {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
     /* ── Gate ──────────────────────────────────────────────────────────────── */
     #gate-view {
       display: none; flex: 1; flex-direction: column;
@@ -110,11 +130,12 @@
     /* Avatar */
     .av {
       width: 32px; height: 32px; border-radius: 50%;
-      background: var(--avatar-bg); color: var(--avatar-fg);
+      background: var(--avatar-bg);
       display: flex; align-items: center; justify-content: center;
-      font-size: 0.8rem; font-weight: 700;
       flex-shrink: 0; margin-top: 18px;
+      overflow: hidden;
     }
+    .av img { width: 32px; height: 32px; display: block; object-fit: cover; }
 
     /* Bubble group (sender name + bubble) */
     .bgroup { display: flex; flex-direction: column; max-width: 78%; }
@@ -242,6 +263,11 @@
 </head>
 <body>
 
+  <div class="tab-header">
+    <img src="/icon.png" class="tab-icon" alt="" />
+    <span class="tab-title">AskCai</span>
+  </div>
+
   <!-- Gate -->
   <div id="gate-view">
     <h1>Access restricted</h1>
@@ -266,6 +292,7 @@
 
     var BASE = window.location.origin;
     var BOT_NAME = "Caizin HR Ops";
+    var BOT_ICON = "/icon.png";
     var BOT_INITIAL = "C";
 
     var PILOT = new Set([
@@ -388,7 +415,7 @@
       if (role === "bot") {
         var av       = document.createElement("div");
         av.className = "av";
-        av.textContent = BOT_INITIAL;
+        av.innerHTML = '<img src="' + BOT_ICON + '" alt="Caizin">';
         row.appendChild(av);
 
         sline.innerHTML =
@@ -446,7 +473,7 @@
       bgroup.className = "bgroup";
       sline.className  = "sender-line";
       av.className     = "av";
-      av.textContent   = BOT_INITIAL;
+      av.innerHTML     = '<img src="' + BOT_ICON + '" alt="Caizin">';
 
       sline.innerHTML  = "<span>" + BOT_NAME + "</span><span class='ts'>" + nowTime() + "</span>";
       bgroup.appendChild(sline);
@@ -466,7 +493,7 @@
     /* ── Quickstart card ─────────────────────────────────────────────────────  */
     function addGreeting() {
       // Line 1: greeting message
-      appendBot(esc("Good day! 👋 How can I help you with Caizin's policies today?"));
+      appendBot(esc("Good day! How can I help you with Caizin's policies today?"));
 
       // Line 2: topic picker card
       var card  = document.createElement("div");
@@ -474,7 +501,7 @@
 
       var title = document.createElement("div");
       title.className = "card-title";
-      title.textContent = "🤖 Caizin Policy Assistant";
+      title.textContent = "Caizin Policy Assistant";
 
       var sub = document.createElement("div");
       sub.className = "card-sub";
