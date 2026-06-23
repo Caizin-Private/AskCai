@@ -609,8 +609,13 @@
         var res  = await fetch(BASE + "/tabs/tracker-dashboard");
         var data = await res.json();
         var rows = data.entries || [];
+        if (data.date) {
+          var d = new Date(data.date);
+          var label = d.toLocaleDateString("en-IN", {day:"2-digit", month:"short", year:"numeric"});
+          title.textContent = "Attendance — " + label;
+        }
         if (!rows.length) {
-          body.innerHTML = '<p class="cs">No attendance records found for today.</p>';
+          body.innerHTML = '<p class="cs">No attendance records found.</p>';
           return;
         }
         body.innerHTML =

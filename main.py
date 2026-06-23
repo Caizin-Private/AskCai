@@ -259,11 +259,12 @@ async def record_attendance(req: Request):
 @app.get("/tabs/tracker-dashboard")
 async def tracker_dashboard():
     from fastapi.responses import JSONResponse
-    from insync_db import get_today_all_records
+    from insync_db import get_today_all_records, get_latest_attendance_date
     ist   = timezone(timedelta(hours=5, minutes=30))
     today = datetime.now(ist).strftime("%Y-%m-%d")
     data  = get_today_all_records()
-    r = JSONResponse(content={"entries": data, "date": today})
+    date  = get_latest_attendance_date() or today
+    r = JSONResponse(content={"entries": data, "date": date})
     r.headers["Content-Security-Policy"] = _TAB_CSP
     return r
 

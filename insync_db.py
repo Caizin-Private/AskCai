@@ -242,6 +242,11 @@ def get_today_all_records() -> list:
     try:
         conn = _get_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Use most recent date that has data, falling back to today if DB is current
+            cur.execute("SELECT MAX(date) FROM attendance")
+            latest = cur.fetchone()["max"]
+            query_date = str(latest) if latest and str(latest) != today else today
+
             cur.execute(
                 """
                 SELECT e.name, a.status, a.employee_response, a.response_time
@@ -250,7 +255,7 @@ def get_today_all_records() -> list:
                  WHERE a.date = %s AND e.is_active = 'active'
                  ORDER BY e.name
                 """,
-                (today,),
+                (query_date,),
             )
             rows = cur.fetchall()
 
@@ -264,6 +269,19 @@ def get_today_all_records() -> list:
     except Exception as exc:
         logger.error("[InSyncDB] get_today_all_records: %s", exc)
         return []
+
+
+def get_latest_attendance_date() -> str | None:
+    """Returns the most recent date that has attendance records."""
+    try:
+        conn = _get_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT MAX(date) AS date FROM attendance")
+            row = cur.fetchone()
+        return str(row["date"]) if row and row["date"] else None
+    except Exception as exc:
+        logger.error("[InSyncDB] get_latest_attendance_date: %s", exc)
+        return None
 
 
 def record_response(email: str, label: str) -> bool:
