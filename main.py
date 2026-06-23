@@ -7,16 +7,34 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings
-from botbuilder.schema import Activity, ActivityTypes
+from botbuilder.schema import Activity, ActivityTypes, Attachment, InvokeResponse
 
+from teams_bot import (
+    on_message_activity, send_suggested_questions, send_apply_leave_form, APPLY_LEAVE_TRIGGER,
+    build_dummy_attendance_card, build_attendance_ack_card,
+)
+from shared.teams_client import build_dashboard_card
 from rag import ask_policy_question
+from conv_refs import save_ref, get_all_refs
 from features import is_pilot
+from teams_bot import _get_employee_email
+from attendance_log import log_attendance, get_attendance_log
+import shared.db_client as db
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Maps attendance_log human-readable labels back to (db_status, employee_response)
+# so build_dashboard_card's _status_bucket() produces the correct bucket.
+_LOG_LABEL_TO_RECORD: dict[str, tuple[str, str | None]] = {
+    "In Office":   ("present",                None),
+    "WFH":         ("present",                "wfh"),
+    "On Leave":    ("pre_approved_leave",      None),
+    "Client Site": ("pre_applied_client_site", None),
+}
 
 APP_ID       = os.getenv("MicrosoftAppId")
 APP_PASSWORD = os.getenv("MicrosoftAppPassword")
@@ -89,10 +107,89 @@ async def messages(req: Request):
                 await turn_context.send_activity(result)
             return
 
-        # Notification-only — ignore all other activity types
-        return
+        # Action.Execute — Adaptive Card button clicks
+        if atype == "invoke" and turn_context.activity.name == "adaptiveCard/action":
+            action = (turn_context.activity.value or {}).get("action", {})
+            verb   = action.get("verb", "")
 
-    invoke_response = await adapter.process_activity(activity, auth_header, turn_handler)
+            if verb == "dummy_attendance":
+                status = action.get("data", {}).get("status", "unknown")
+                ack = build_attendance_ack_card(status)
+                await turn_context.send_activity(Activity(
+                    type=ActivityTypes.invoke_response,
+                    value=InvokeResponse(
+                        status=200,
+                        body={
+                            "statusCode": 200,
+                            "type": "application/vnd.microsoft.card.adaptive",
+                            "value": ack,
+                        },
+                    )
+                ))
+                # Persist attendance choice for the Report pop-up
+                email = _get_employee_email(turn_context)
+                name  = (turn_context.activity.from_property.name or email) if turn_context.activity.from_property else email
+                ts    = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+                log_attendance(email, name, status, ts)
+
+            elif verb == "view_dashboard":
+                today = datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%Y-%m-%d")
+                display_date = datetime.strptime(today, "%Y-%m-%d").strftime("%d %b %Y")
+                try:
+                    records   = db.query_attendance_by_date(today)
+                    employees = db.get_all_active_employees()
+                except Exception as db_err:
+                    logger.warning(f"[TeamsBot] DB unavailable, falling back to local log: {db_err}")
+                    entries = get_attendance_log()
+                    records = [
+                        {
+                            "employee_id": e["email"],
+                            "status": _LOG_LABEL_TO_RECORD.get(e["status"], ("card_sent", None))[0],
+                            "employee_response": _LOG_LABEL_TO_RECORD.get(e["status"], ("card_sent", None))[1],
+                            "check_in_time": e.get("timestamp"),
+                        }
+                        for e in entries
+                    ]
+                    employees = [
+                        {"employee_id": e["email"], "name": e["name"]}
+                        for e in entries
+                    ]
+                card = build_dashboard_card(records, employees, today)
+                await turn_context.send_activity(Activity(
+                    type=ActivityTypes.invoke_response,
+                    value=InvokeResponse(
+                        status=200,
+                        body={
+                            "statusCode": 200,
+                            "type": "application/vnd.microsoft.activity.taskInfo",
+                            "value": {
+                                "type": "continue",
+                                "value": {
+                                    "title": f"Attendance — {display_date}",
+                                    "height": "large",
+                                    "width": "large",
+                                    "card": {
+                                        "contentType": "application/vnd.microsoft.card.adaptive",
+                                        "content": card,
+                                    },
+                                },
+                            },
+                        },
+                    )
+                ))
+                logger.info(f"[TeamsBot] dashboard popup: {len(records)} records for {today}")
+
+            return
+
+        # Ignore everything else safely
+        else:
+            return
+
+    invoke_response = await adapter.process_activity(
+        activity,
+        auth_header,
+        turn_handler
+    )
 
     if invoke_response:
         return Response(
