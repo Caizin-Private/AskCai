@@ -1,93 +1,39 @@
 """
 keka/leave_service.py
-Facade over Keka leave APIs.
+Facade over Keka leave operations.
+Orchestrates DAOs and maps raw API responses to typed models.
 """
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
-from enum import Enum
 
-import requests
-
-from keka.client import get_access_token, KEKA_BASE_URL
+from keka.dao.employee_dao import find_by_email
+from keka.dao.leave_dao import fetch_leave_types, fetch_leave_balance, post_leave_request
+from keka.models import (
+    LeaveBalance,
+    LeaveType,
+    LeaveApplicationResult,
+    SessionType,
+    EmployeeNotFoundError,
+)
 
 logger = logging.getLogger(__name__)
 
 _employee_id_cache: dict = {}
 
 
-@dataclass
-class LeaveBalance:
-    leave_type_name: str
-    leave_type_id: str
-    total: float
-    used: float
-    available: float
-
-
-@dataclass
-class LeaveType:
-    id: str
-    name: str
-
-
-@dataclass
-class LeaveApplicationResult:
-    success: bool
-    message: str
-    request_id: str = field(default=None)
-
-
-class SessionType(str, Enum):
-    FULL_DAY    = "full_day"
-    FIRST_HALF  = "first_half"
-    SECOND_HALF = "second_half"
-
-
-class KekaServiceError(Exception):
-    pass
-
-
-class EmployeeNotFoundError(Exception):
-    pass
-
-
-def _auth_headers() -> dict:
-    return {
-        "Authorization": f"Bearer {get_access_token()}",
-        "Accept": "application/json",
-    }
-
-
 def _resolve_employee_id(email: str) -> str:
     if email in _employee_id_cache:
         return _employee_id_cache[email]
 
-    page = 1
-    while True:
-        resp = requests.get(
-            f"{KEKA_BASE_URL}/hris/employees",
-            headers=_auth_headers(),
-            params={"pageNumber": page, "pageSize": 100},
-            timeout=10,
-        )
-        if resp.status_code >= 500:
-            raise KekaServiceError(f"Keka employee lookup failed: {resp.status_code}")
+    emp = find_by_email(email)
+    if not emp:
+        raise EmployeeNotFoundError(f"No employee found for {email}")
 
-        body = resp.json()
-        for emp in body.get("data", []):
-            if (emp.get("email") or "").lower() == email.lower():
-                emp_id = emp["id"]
-                _employee_id_cache[email] = emp_id
-                logger.info("[keka] resolved employee id for %s", email)
-                return emp_id
-
-        if page >= (body.get("totalPages") or 1):
-            break
-        page += 1
-
-    raise EmployeeNotFoundError(f"No employee found for {email}")
+    emp_id = emp["id"]
+    _employee_id_cache[email] = emp_id
+    logger.info("[leave_service] resolved employee id for %s", email)
+    return emp_id
 
 
 class KekaLeaveService:
@@ -97,15 +43,8 @@ class KekaLeaveService:
         return await loop.run_in_executor(None, self._sync_get_leave_types)
 
     def _sync_get_leave_types(self) -> list:
-        resp = requests.get(
-            f"{KEKA_BASE_URL}/time/leavetypes",
-            headers=_auth_headers(),
-            timeout=10,
-        )
-        if resp.status_code >= 500:
-            raise KekaServiceError(f"Keka leave types fetch failed: {resp.status_code}")
-        data = resp.json().get("data", [])
-        return [LeaveType(id=lt["identifier"], name=lt["name"]) for lt in data]
+        raw = fetch_leave_types()
+        return [LeaveType(id=lt["identifier"], name=lt["name"]) for lt in raw]
 
     async def get_leave_balance(self, email: str) -> tuple:
         """Returns (employee_name, list[LeaveBalance])."""
@@ -114,18 +53,10 @@ class KekaLeaveService:
 
     def _sync_get_leave_balance(self, email: str) -> tuple:
         emp_id = _resolve_employee_id(email)
-        resp = requests.get(
-            f"{KEKA_BASE_URL}/time/leavebalance",
-            headers=_auth_headers(),
-            params={"employeeIds": emp_id},
-            timeout=10,
-        )
-        if resp.status_code >= 500:
-            raise KekaServiceError(f"Keka leave balance fetch failed: {resp.status_code}")
-        data = resp.json().get("data", [])
-        if not data:
+        rec = fetch_leave_balance(emp_id)
+        if not rec:
             return ("", [])
-        rec = data[0]
+
         employee_name = rec.get("employeeName", "")
         balances = [
             LeaveBalance(
@@ -183,33 +114,16 @@ class KekaLeaveService:
             "note":        reason,
         }
 
-        headers = _auth_headers()
-        headers["Content-Type"] = "application/json"
+        result = post_leave_request(payload)
 
-        resp = requests.post(
-            f"{KEKA_BASE_URL}/time/leaverequests",
-            headers=headers,
-            json=payload,
-            timeout=10,
+        if not result["ok"]:
+            return LeaveApplicationResult(success=False, message=result["message"])
+
+        return LeaveApplicationResult(
+            success=True,
+            message="Leave applied successfully.",
+            request_id=result.get("request_id"),
         )
-
-        if resp.status_code >= 500:
-            raise KekaServiceError(f"Keka apply leave failed: {resp.status_code}")
-
-        if resp.status_code >= 400:
-            try:
-                msg = resp.json().get("message") or resp.text
-            except Exception:
-                msg = resp.text
-            return LeaveApplicationResult(success=False, message=msg)
-
-        try:
-            data = resp.json().get("data", {})
-            req_id = str(data.get("id", "")) if data else None
-        except Exception:
-            req_id = None
-
-        return LeaveApplicationResult(success=True, message="Leave applied successfully.", request_id=req_id)
 
 
 leave_service = KekaLeaveService()

@@ -19,7 +19,8 @@ from botbuilder.schema import Activity, InvokeResponse
 
 from features import surface_enabled, is_pilot, COMMAND_FLAGS
 from rag import ask_policy_question, _classify_intent
-from keka.leave_service import leave_service, SessionType, LeaveType, LeaveBalance
+from keka.leave_service import leave_service
+from keka.models import SessionType
 from insync_db import (
     get_today_all_records,
     get_latest_records,
@@ -547,11 +548,16 @@ async def _handle_filter_dashboard(data: dict) -> dict:
 
 
 async def _handle_apply_leave_action(turn_context, data: dict) -> dict:
+    logger.info("[apply_leave] received data: %s", data)
+
     leave_type_id = data.get("leave_type_id") or ""
     from_date     = data.get("from_date", "")
     to_date       = data.get("to_date", "")
     session_type  = SessionType(data.get("session_type") or "full_day")
     reason        = data.get("reason") or "Not specified"
+
+    logger.info("[apply_leave] leave_type_id=%s from=%s to=%s session=%s",
+                leave_type_id, from_date, to_date, session_type)
 
     if not from_date or not to_date:
         leave_types = await leave_service.get_leave_types()
@@ -568,9 +574,17 @@ async def _handle_apply_leave_action(turn_context, data: dict) -> dict:
             _build_text_card("Error", "Could not identify your account. Please contact IT.")
         )
 
-    result = await leave_service.apply_leave(
-        _leave_email(email), leave_type_id, from_date, to_date, session_type, reason
-    )
+    try:
+        result = await leave_service.apply_leave(
+            _leave_email(email), leave_type_id, from_date, to_date, session_type, reason
+        )
+    except Exception as exc:
+        logger.error("[apply_leave] service error: %s", exc, exc_info=True)
+        return _card_action_response(
+            _build_text_card("Error", f"Could not submit leave request: {exc}")
+        )
+
+    logger.info("[apply_leave] result: success=%s message=%s", result.success, result.message)
 
     if result.success:
         return _card_action_response(
