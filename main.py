@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -18,7 +19,7 @@ from botbuilder.core.teams import TeamsInfo
 from botbuilder.schema import Activity, InvokeResponse
 
 from features import surface_enabled, is_pilot, COMMAND_FLAGS
-from rag import ask_policy_question, _classify_intent
+from rag import ask_policy_question, _classify_intent, extract_leave_request
 from keka.leave_service import leave_service
 from keka.models import SessionType
 from insync_db import (
@@ -316,7 +317,8 @@ def _build_balance_card(employee_name: str, email: str, balances: list) -> dict:
     }
 
 
-def _build_chat_leave_form(leave_types: list, error: str = "") -> dict:
+def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = None) -> dict:
+    prefill = prefill or {}
     choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
     default_id = leave_types[0].id if leave_types else ""
     body = [
@@ -325,7 +327,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "") -> dict:
             "id": "leave_type_id",
             "label": "Leave Type",
             "style": "compact",
-            "value": default_id,
+            "value": prefill.get("leave_type_id") or default_id,
             "choices": choices,
         },
         {
@@ -333,21 +335,22 @@ def _build_chat_leave_form(leave_types: list, error: str = "") -> dict:
             "id": "session_type",
             "label": "Duration",
             "style": "compact",
-            "value": "full_day",
+            "value": prefill.get("session_type") or "full_day",
             "choices": [
                 {"title": "Full Day",    "value": "full_day"},
                 {"title": "First Half",  "value": "first_half"},
                 {"title": "Second Half", "value": "second_half"},
             ],
         },
-        {"type": "Input.Date", "id": "from_date", "label": "From Date"},
-        {"type": "Input.Date", "id": "to_date",   "label": "To Date"},
+        {"type": "Input.Date", "id": "from_date", "label": "From Date", "value": prefill.get("from_date") or ""},
+        {"type": "Input.Date", "id": "to_date",   "label": "To Date",   "value": prefill.get("to_date") or ""},
         {
             "type": "Input.Text",
             "id": "reason",
             "label": "Reason (optional)",
             "isMultiline": True,
             "placeholder": "e.g. Personal work",
+            "value": prefill.get("reason") or "",
         },
     ]
     if error:
@@ -863,6 +866,25 @@ async def messages(req: Request):
             await _handle_cmd_help(turn_context)
 
         else:
+            _LEAVE_KEYWORDS = ("leave", "apply", "off", "balance", "vacation", "sick", "casual", "annual", "holiday")
+            if email and is_pilot(email) and any(kw in text.lower() for kw in _LEAVE_KEYWORDS):
+                today_str = datetime.now(IST).strftime("%Y-%m-%d")
+                parsed = await asyncio.get_event_loop().run_in_executor(
+                    None, extract_leave_request, text, today_str
+                )
+                if parsed:
+                    if parsed.get("action") == "check_balance":
+                        await _handle_cmd_balance(turn_context, email)
+                        return
+                    if parsed.get("action") == "apply_leave":
+                        leave_types = await leave_service.get_leave_types()
+                        await turn_context.send_activity(
+                            MessageFactory.attachment(CardFactory.adaptive_card(
+                                _build_chat_leave_form(leave_types, prefill=parsed)
+                            ))
+                        )
+                        return
+
             answer, _ = await ask_policy_question(
                 text,
                 employee_email=email,

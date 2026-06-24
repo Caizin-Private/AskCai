@@ -10,6 +10,8 @@ from azure.core.credentials import AzureKeyCredential
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 # =========================
 # CONFIG  (unchanged)
 # =========================
@@ -169,6 +171,47 @@ def _classify_intent(question: str) -> str:
     except Exception as e:
         print(f"[intent] classifier failed, defaulting to rag: {e}")
         return "rag"
+
+
+# =========================
+# LEAVE INTENT EXTRACTOR
+# =========================
+def extract_leave_request(text: str, today: str) -> dict | None:
+    """
+    Detect and extract leave intent from natural language in one LLM call.
+    Returns:
+      {"action": "apply_leave", "from_date": "YYYY-MM-DD"|null,
+       "to_date": "YYYY-MM-DD"|null, "session_type": "full_day", "reason": ""}
+      {"action": "check_balance"}
+      None — if the message is not a leave action.
+    """
+    try:
+        response = _get_anthropic_client().messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=150,
+            temperature=0,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Today is {today}. Analyze this message and reply with JSON only, no explanation.\n\n"
+                    f'Message: "{text}"\n\n'
+                    "Rules:\n"
+                    '- Checking/viewing leave balance → {"action":"check_balance"}\n'
+                    '- Applying/requesting/taking leave → {"action":"apply_leave",'
+                    '"from_date":"YYYY-MM-DD or null","to_date":"YYYY-MM-DD or null",'
+                    '"session_type":"full_day","reason":""}\n'
+                    "  session_type: full_day | first_half | second_half\n"
+                    "  If only one date is mentioned, set both from_date and to_date to that date.\n"
+                    '- Neither → {"action":null}'
+                ),
+            }],
+        )
+        raw = next((b.text for b in response.content if b.type == "text"), "").strip()
+        data = json.loads(raw)
+        return data if data.get("action") else None
+    except Exception as e:
+        logger.debug("[extract_leave_request] failed: %s", e)
+        return None
 
 
 # =========================
