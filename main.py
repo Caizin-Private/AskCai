@@ -377,27 +377,31 @@ def _build_text_card(title: str, text: str) -> dict:
     }
 
 
-def _build_help_card() -> dict:
+def _build_help_card(header: str = "") -> dict:
+    body = []
+    if header:
+        body.append({"type": "TextBlock", "text": header, "wrap": True, "spacing": "None"})
+    body += [
+        {"type": "TextBlock", "text": "InSync — Available Commands", "weight": "Bolder", "size": "Medium", "spacing": "Medium" if header else "None"},
+        {"type": "FactSet", "facts": [
+            {"title": "/balance",    "value": "Check your leave balance"},
+            {"title": "/leave",      "value": "Apply for leave"},
+            {"title": "/dashboard",  "value": "View team attendance dashboard"},
+            {"title": "/help",       "value": "Show this help"},
+        ]},
+        {
+            "type": "TextBlock",
+            "text": "For policy questions, switch to the **AskCAI** tab.",
+            "wrap": True,
+            "isSubtle": True,
+            "spacing": "Medium",
+        },
+    ]
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
-        "body": [
-            {"type": "TextBlock", "text": "InSync — Available Commands", "weight": "Bolder", "size": "Medium"},
-            {"type": "FactSet", "facts": [
-                {"title": "/balance",    "value": "Check your leave balance"},
-                {"title": "/leave",      "value": "Apply for leave"},
-                {"title": "/dashboard",  "value": "View team attendance dashboard"},
-                {"title": "/help",       "value": "Show this help"},
-            ]},
-            {
-                "type": "TextBlock",
-                "text": "For policy questions, switch to the **AskCAI** tab.",
-                "wrap": True,
-                "isSubtle": True,
-                "spacing": "Medium",
-            },
-        ],
+        "body": body,
     }
 
 
@@ -892,14 +896,22 @@ async def messages(req: Request):
                         )
                         return
 
-            answer, _ = await ask_policy_question(
-                text,
-                employee_email=email,
-                policy_only=True,
-            )
-            await turn_context.send_activity(
-                MessageFactory.attachment(CardFactory.adaptive_card(_build_text_card("", answer)))
-            )
+            intent = await asyncio.get_event_loop().run_in_executor(None, _classify_intent, text)
+            if intent == "greeting":
+                await turn_context.send_activity(
+                    MessageFactory.attachment(CardFactory.adaptive_card(
+                        _build_help_card(header="Hi there! 👋 Here's what I can help you with:")
+                    ))
+                )
+            else:
+                await turn_context.send_activity(
+                    MessageFactory.attachment(CardFactory.adaptive_card(
+                        _build_help_card(
+                            header="This chat supports **attendance and leave** only. "
+                                   "For policy questions, please use the **AskCAI** tab."
+                        )
+                    ))
+                )
 
     invoke_response = await adapter.process_activity(activity, auth_header, turn_handler)
 
