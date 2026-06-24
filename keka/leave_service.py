@@ -116,7 +116,7 @@ class KekaLeaveService:
             "fromSession": from_session,
             "toSession":   to_session,
             "reason":      reason,
-            "note":        "",
+            "note":        " ",
         }
 
         result = post_leave_request(payload)
