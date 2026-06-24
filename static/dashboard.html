@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard — Attendance</title>
+  <title>People Pulse</title>
   <script src="https://unpkg.com/@microsoft/teams-js@2.22.0/dist/MicrosoftTeams.min.js"></script>
   <script>
     (function () {
@@ -13,7 +13,6 @@
     })();
   </script>
   <style>
-    /* ── Fluent UI tokens ───────────────────────────────────────────────── */
     :root, [data-theme="default"] {
       --bg:        #ffffff;
       --bg-sec:    #f5f5f5;
@@ -86,42 +85,11 @@
     }
     body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    /* Let native form controls (select, input) respect the OS/Teams colour scheme */
     [data-theme="default"] { color-scheme: light; }
     [data-theme="dark"]    { color-scheme: dark; }
     [data-theme="contrast"]{ color-scheme: dark; }
 
-    /* ── Header ──────────────────────────────────────────────────────────── */
-    .tab-header {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--border-s);
-      flex-shrink: 0;
-    }
-    .tab-icon  { width: 24px; height: 24px; border-radius: 4px; flex-shrink: 0; }
-    .tab-title { font-size: 0.9375rem; font-weight: 600; }
-    .date-chip {
-      font-size: 0.78rem; color: var(--text3);
-      background: var(--bg-sec); border-radius: 4px;
-      padding: 2px 8px;
-    }
-    .hdr-spacer { flex: 1; }
-    .last-updated { font-size: 0.75rem; color: var(--text3); }
-    .refresh-btn {
-      display: flex; align-items: center; gap: 4px;
-      padding: 5px 12px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: transparent;
-      color: var(--brand);
-      font-size: 0.8rem; font-family: inherit;
-      cursor: pointer;
-      transition: background 0.12s;
-    }
-    .refresh-btn:hover { background: var(--bg-hover); }
-    .refresh-btn:disabled { opacity: 0.4; cursor: default; }
-
-    /* ── Gate / Loading ──────────────────────────────────────────────────── */
+    /* ── Gate / Loading ──────────────────────────────────────────────────────── */
     .center-state {
       flex: 1; display: flex; flex-direction: column;
       align-items: center; justify-content: center;
@@ -130,63 +98,95 @@
     .center-state h1 { font-size: 1.1rem; }
     .center-state p  { color: var(--text3); font-size: 0.875rem; }
 
-    /* ── Dashboard view ──────────────────────────────────────────────────── */
+    /* ── Dashboard view ──────────────────────────────────────────────────────── */
     #dash-view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
 
-    /* ── Summary pills ───────────────────────────────────────────────────── */
+    /* ── Summary pills ───────────────────────────────────────────────────────── */
     .summary-bar {
-      display: flex; flex-wrap: wrap; gap: 8px;
-      padding: 10px 16px 8px;
+      display: flex; flex-wrap: wrap; gap: 10px;
+      padding: 14px 16px 12px;
       border-bottom: 1px solid var(--border-s);
       flex-shrink: 0;
     }
     .sum-pill {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 3px 11px; border-radius: 20px;
-      font-size: 0.78rem; font-weight: 600;
+      display: inline-flex; flex-direction: column; align-items: center;
+      justify-content: center;
+      padding: 10px 18px; border-radius: 10px;
+      min-width: 72px;
       cursor: pointer; user-select: none;
       transition: opacity 0.12s;
     }
     .sum-pill:hover { opacity: 0.78; }
-    .sum-pill .count { font-size: 0.88rem; font-weight: 700; }
+    .sum-pill .pill-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.02em; }
+    .sum-pill .pill-count { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
 
-    /* ── Toolbar ─────────────────────────────────────────────────────────── */
-    .toolbar {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 16px;
+    /* ── Table header row with search + filter ───────────────────────────────── */
+    .table-header-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px;
       border-bottom: 1px solid var(--border-s);
       flex-shrink: 0;
+      background: var(--bg);
+      position: sticky; top: 0; z-index: 2;
     }
-    .toolbar input, .toolbar select {
-      padding: 7px 12px;
-      border: 1px solid var(--border);
+    .th-search {
+      flex: 1;
+      padding: 5px 10px;
+      border: 1px solid transparent;
       border-radius: 6px;
-      background: var(--input-bg);
+      background: transparent;
       color: var(--text);
       font-size: 0.875rem;
       font-family: inherit;
       outline: none;
-      transition: border-color 0.12s;
+      transition: border-color 0.12s, background 0.12s;
     }
-    .toolbar input { flex: 1; }
-    .toolbar input::placeholder { color: var(--text3); }
-    .toolbar input:focus,
-    .toolbar select:focus  { border-color: var(--brand); }
-    .toolbar select { min-width: 148px; cursor: pointer; }
-    .result-count { font-size: 0.8rem; color: var(--text3); white-space: nowrap; }
+    .th-search::placeholder { color: var(--text3); }
+    .th-search:focus {
+      border-color: var(--brand);
+      background: var(--input-bg);
+    }
+    /* ── Filter icon + dropdown ──────────────────────────────────────────────── */
+    .filter-wrap { position: relative; flex-shrink: 0; }
+    .filter-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text3);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--bg-hover);
+      color: var(--brand);
+      border-color: var(--brand);
+    }
+    .filter-dropdown {
+      display: none;
+      position: absolute; right: 0; top: calc(100% + 4px);
+      min-width: 160px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      z-index: 100;
+      overflow: hidden;
+    }
+    .filter-dropdown.open { display: block; }
+    .filter-option {
+      padding: 9px 14px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .filter-option:hover { background: var(--bg-hover); }
+    .filter-option.selected { color: var(--brand); font-weight: 600; }
 
-    /* ── Table ───────────────────────────────────────────────────────────── */
+    /* ── Table ───────────────────────────────────────────────────────────────── */
     .table-wrap { flex: 1; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; }
-    thead { position: sticky; top: 0; background: var(--bg); z-index: 1; }
-    th {
-      padding: 9px 16px;
-      text-align: left;
-      font-size: 0.72rem; font-weight: 700;
-      color: var(--text3);
-      text-transform: uppercase; letter-spacing: 0.05em;
-      border-bottom: 1px solid var(--border-s);
-    }
     td {
       padding: 10px 16px;
       border-bottom: 1px solid var(--border-s);
@@ -197,7 +197,7 @@
     .col-name   { width: 60%; }
     .col-status { width: 40%; }
 
-    /* ── Status chip ─────────────────────────────────────────────────────── */
+    /* ── Status chip ─────────────────────────────────────────────────────────── */
     .chip {
       display: inline-block;
       padding: 2px 10px; border-radius: 12px;
@@ -221,20 +221,6 @@
 </head>
 <body>
 
-  <div class="tab-header">
-    <img src="/icon.png" class="tab-icon" alt="" />
-    <span class="tab-title">Dashboard</span>
-    <span class="date-chip" id="date-chip"></span>
-    <span class="hdr-spacer"></span>
-    <span class="last-updated" id="last-updated"></span>
-    <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M17.65 6.35A7.96 7.96 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-      </svg>
-      Refresh
-    </button>
-  </div>
-
   <div id="gate-view" class="center-state" style="display:none">
     <h1>Access restricted</h1>
     <p>Dashboard is currently in pilot. Contact HR to request access.</p>
@@ -245,30 +231,34 @@
   </div>
 
   <div id="dash-view">
+    <!-- Summary pills -->
     <div class="summary-bar" id="summary-bar"></div>
-    <div class="toolbar">
-      <input id="search-input" type="text" placeholder="Search by name…"
-             oninput="applyFilters()" autocomplete="off" />
-      <select id="status-filter" onchange="applyFilters()">
-        <option value="all">All Statuses</option>
-        <option value="Office">Office</option>
-        <option value="WFH">WFH</option>
-        <option value="Leave">Leave</option>
-        <option value="Client Location">Client Location</option>
-        <option value="Floater Holiday">Floater Holiday</option>
-        <option value="Absent">Absent</option>
-        <option value="Pending">Pending</option>
-      </select>
-      <span class="result-count" id="result-count"></span>
+
+    <!-- Table header: search bar + filter icon -->
+    <div class="table-header-row">
+      <input id="search-input" class="th-search" type="text"
+             placeholder="Search employee…" oninput="applyFilters()" autocomplete="off" />
+      <div class="filter-wrap">
+        <button class="filter-btn" id="filter-btn" onclick="toggleFilter(event)" title="Filter by status">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 18.95 4H5.04a1 1 0 0 0-.79 1.61z"/>
+          </svg>
+        </button>
+        <div class="filter-dropdown" id="filter-dropdown">
+          <div class="filter-option selected" data-value="all" onclick="selectFilter(this)">All Statuses</div>
+          <div class="filter-option" data-value="Absent"          onclick="selectFilter(this)">Absent</div>
+          <div class="filter-option" data-value="Client Location" onclick="selectFilter(this)">Client Location</div>
+          <div class="filter-option" data-value="Floater Holiday" onclick="selectFilter(this)">Floater Holiday</div>
+          <div class="filter-option" data-value="Leave"           onclick="selectFilter(this)">Leave</div>
+          <div class="filter-option" data-value="Office"          onclick="selectFilter(this)">Office</div>
+          <div class="filter-option" data-value="Pending"         onclick="selectFilter(this)">Pending</div>
+          <div class="filter-option" data-value="WFH"             onclick="selectFilter(this)">WFH</div>
+        </div>
+      </div>
     </div>
+
     <div class="table-wrap">
       <table>
-        <thead>
-          <tr>
-            <th class="col-name">Employee</th>
-            <th class="col-status">Status</th>
-          </tr>
-        </thead>
         <tbody id="table-body"></tbody>
       </table>
     </div>
@@ -286,16 +276,17 @@
       "nikhil.negi@caizin.com",
     ]);
 
-    var _allRecords  = [];
+    var _allRecords   = [];
+    var _activeFilter = "all";
     var _refreshTimer = null;
 
-    /* ── Theme ────────────────────────────────────────────────────────────── */
+    /* ── Theme ──────────────────────────────────────────────────────────────── */
     function applyTheme(t) {
       document.documentElement.setAttribute("data-theme",
         t === "dark" ? "dark" : t === "contrast" ? "contrast" : "default");
     }
 
-    /* ── Utilities ────────────────────────────────────────────────────────── */
+    /* ── Utilities ──────────────────────────────────────────────────────────── */
     function esc(v) {
       return String(v || "")
         .replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -306,7 +297,34 @@
       return "chip chip-" + (bucket || "Pending").replace(/ /g, "-");
     }
 
-    /* ── Summary pills ────────────────────────────────────────────────────── */
+    /* ── Filter dropdown ────────────────────────────────────────────────────── */
+    function toggleFilter(e) {
+      e.stopPropagation();
+      var dd  = document.getElementById("filter-dropdown");
+      var btn = document.getElementById("filter-btn");
+      var open = dd.classList.toggle("open");
+      btn.classList.toggle("active", open);
+    }
+
+    function selectFilter(el) {
+      _activeFilter = el.getAttribute("data-value");
+      document.querySelectorAll(".filter-option").forEach(function(o) {
+        o.classList.toggle("selected", o === el);
+      });
+      var btn = document.getElementById("filter-btn");
+      btn.classList.toggle("active", _activeFilter !== "all");
+      document.getElementById("filter-dropdown").classList.remove("open");
+      applyFilters();
+    }
+
+    document.addEventListener("click", function() {
+      document.getElementById("filter-dropdown").classList.remove("open");
+      if (_activeFilter === "all") {
+        document.getElementById("filter-btn").classList.remove("active");
+      }
+    });
+
+    /* ── Summary pills ──────────────────────────────────────────────────────── */
     var PILL_STYLE = {
       "Office":          { bg: "var(--chip-office-bg)",  fg: "var(--chip-office-fg)"  },
       "WFH":             { bg: "var(--chip-wfh-bg)",     fg: "var(--chip-wfh-fg)"     },
@@ -328,8 +346,8 @@
       var total = document.createElement("span");
       total.className = "sum-pill";
       total.style.cssText = "background:var(--bg-sec);color:var(--text2)";
-      total.innerHTML = "Total <span class='count'>" + records.length + "</span>";
-      total.onclick = function() { setFilter("all"); };
+      total.innerHTML = "<span class='pill-label'>Total</span><span class='pill-count'>" + records.length + "</span>";
+      total.onclick = function() { selectFilterByValue("all"); };
       bar.appendChild(total);
 
       BUCKET_ORDER.forEach(function(b) {
@@ -338,31 +356,30 @@
         var pill = document.createElement("span");
         pill.className = "sum-pill";
         pill.style.cssText = "background:" + s.bg + ";color:" + s.fg;
-        pill.innerHTML = esc(b) + " <span class='count'>" + counts[b] + "</span>";
-        pill.onclick = (function(bucket) { return function() { setFilter(bucket); }; })(b);
+        pill.innerHTML = "<span class='pill-label'>" + esc(b) + "</span><span class='pill-count'>" + counts[b] + "</span>";
+        pill.onclick = (function(bucket) { return function() { selectFilterByValue(bucket); }; })(b);
         bar.appendChild(pill);
       });
     }
 
-    function setFilter(val) {
-      document.getElementById("status-filter").value = val;
+    function selectFilterByValue(val) {
+      _activeFilter = val;
+      document.querySelectorAll(".filter-option").forEach(function(o) {
+        o.classList.toggle("selected", o.getAttribute("data-value") === val);
+      });
+      document.getElementById("filter-btn").classList.toggle("active", val !== "all");
       applyFilters();
     }
 
-    /* ── Table ────────────────────────────────────────────────────────────── */
+    /* ── Table ──────────────────────────────────────────────────────────────── */
     function applyFilters() {
       var q   = (document.getElementById("search-input").value || "").trim().toLowerCase();
-      var flt = document.getElementById("status-filter").value;
+      var flt = _activeFilter;
 
       var filtered = _allRecords.filter(function(r) {
-        return (!q   || (r.name   || "").toLowerCase().includes(q)) &&
+        return (!q   || (r.name || "").toLowerCase().includes(q)) &&
                (flt === "all" || r.bucket === flt);
       });
-
-      var cnt = document.getElementById("result-count");
-      cnt.textContent = (filtered.length < _allRecords.length)
-        ? filtered.length + " of " + _allRecords.length
-        : "";
 
       renderTable(filtered);
     }
@@ -375,57 +392,38 @@
       }
       tbody.innerHTML = records.map(function(r) {
         return "<tr>" +
-          "<td class='col-name'>"   + esc(r.name)   + "</td>" +
+          "<td class='col-name'>"   + esc(r.name) + "</td>" +
           "<td class='col-status'><span class='" + chipClass(r.bucket) + "'>" + esc(r.bucket) + "</span></td>" +
           "</tr>";
       }).join("");
     }
 
-    /* ── Data fetch ───────────────────────────────────────────────────────── */
+    /* ── Data fetch ─────────────────────────────────────────────────────────── */
     function loadData() {
-      var btn = document.getElementById("refresh-btn");
-      btn.disabled = true;
-
       fetch(BASE + "/tabs/dashboard-data")
         .then(function(r) { return r.json(); })
         .then(function(data) {
           _allRecords = (data.records || []).slice().sort(function(a, b) {
             return (a.name || "").localeCompare(b.name || "");
           });
-
-          // Date chip
-          var dc = document.getElementById("date-chip");
-          try {
-            var p = (data.date || "").split("-");
-            dc.textContent = new Date(+p[0], p[1] - 1, +p[2])
-              .toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-          } catch(e) { dc.textContent = data.date || ""; }
-
-          // Last updated
-          document.getElementById("last-updated").textContent =
-            "Updated " + new Date().toLocaleTimeString("en-IN",
-              { hour: "2-digit", minute: "2-digit", hour12: false });
-
           renderSummary(_allRecords);
           applyFilters();
-
           document.getElementById("loading-view").style.display = "none";
           document.getElementById("dash-view").style.display   = "flex";
         })
         .catch(function() {
           document.getElementById("loading-view").style.display = "none";
           document.getElementById("dash-view").style.display   = "flex";
-        })
-        .finally(function() { btn.disabled = false; });
+        });
     }
 
-    /* ── Auto-refresh every 60 s ──────────────────────────────────────────── */
+    /* ── Auto-refresh every 60 s ────────────────────────────────────────────── */
     function startAutoRefresh() {
       if (_refreshTimer) clearInterval(_refreshTimer);
       _refreshTimer = setInterval(loadData, 60000);
     }
 
-    /* ── Init ─────────────────────────────────────────────────────────────── */
+    /* ── Init ───────────────────────────────────────────────────────────────── */
     function showDash() {
       document.getElementById("gate-view").style.display    = "none";
       document.getElementById("loading-view").style.display = "flex";
