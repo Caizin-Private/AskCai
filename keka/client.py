@@ -28,7 +28,8 @@ KEKA_MCP_URL        = "https://developers.keka.com/mcp"
 TEST_EMPLOYEE_EMAIL = os.getenv("KEKA_TEST_EMAIL")
 
 _token_cache = {"access_token": None, "expires_at": 0.0}
-_employee_cache: dict[str, str] = {}  # email → employee id
+_employee_cache: dict[str, str] = {}   # email → employee id
+_leave_type_cache: dict[str, str] = {} # "casual leave" → UUID
 
 
 def get_access_token() -> str:
@@ -97,3 +98,31 @@ def get_employee_id(email: str) -> str | None:
 
     logger.warning("[keka] employee not found for email=%s", email)
     return None
+
+
+def get_leave_type_id(leave_type_name: str) -> str | None:
+    """Return Keka leaveTypeId UUID for a given leave type name, or None."""
+    key = leave_type_name.lower().strip()
+    if key in _leave_type_cache:
+        return _leave_type_cache[key]
+
+    token = get_access_token()
+    resp = requests.get(
+        f"{KEKA_BASE_URL}/time/leavetypes",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    items = data if isinstance(data, list) else data.get("data", [])
+
+    for lt in items:
+        name = lt.get("name") or lt.get("displayName") or ""
+        uid  = lt.get("id") or lt.get("leaveTypeId") or lt.get("identifier")
+        if uid:
+            _leave_type_cache[name.lower().strip()] = str(uid)
+
+    result = _leave_type_cache.get(key)
+    if not result:
+        logger.warning("[keka] leave type not found: %s", leave_type_name)
+    return result

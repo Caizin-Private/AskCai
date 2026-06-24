@@ -32,7 +32,7 @@ import re
 from datetime import date
 
 import anthropic
-from keka.client import get_access_token, get_employee_id, KEKA_BASE_URL, KEKA_MCP_URL
+from keka.client import get_access_token, get_employee_id, get_leave_type_id, KEKA_BASE_URL, KEKA_MCP_URL
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +68,11 @@ _TOOLSET_EXEC = {
 _PHASE1_SYSTEM = """\
 You are an API discovery assistant for Keka HRMS.
 Step 1: Call search-endpoints ONCE with a focused keyword to find the right path.
-Step 2: Call get-endpoint for that exact path to get its full spec including query parameters.
+Step 2: Call get-endpoint for that exact path to get its full spec including parameters and request body.
 After both tool calls, reply with ONLY a single JSON object on one line — no markdown, no explanation:
-{"title": "<spec title>", "path": "<endpoint path>", "method": "<http method>", "params": {"<param_name>": "<description>"}}
-For "params", include only query parameters relevant to filtering by employee or user. If none, use {}.\
+{"title": "<spec title>", "path": "<endpoint path>", "method": "<http method>", "params": {"<param_name>": "<description>"}, "body": {"<field_name>": "<description>"}}
+For "params", include only query parameters relevant to filtering by employee or user. If none, use {}.
+For "body", include all request body fields from the schema. If none (e.g. GET), use {}.\
 """
 
 _PHASE2_SYSTEM = """\
@@ -95,7 +96,7 @@ Respond in clear, friendly Markdown.\
 # ---------------------------------------------------------------------------
 
 def _extract_endpoint(text: str) -> dict | None:
-    """Extract the {title, path, method, params} JSON from Phase 1's text reply."""
+    """Extract the {title, path, method, params, body} JSON from Phase 1's text reply."""
     match = re.search(r'\{.*\}', text, re.DOTALL)
     if not match:
         return None
@@ -103,6 +104,7 @@ def _extract_endpoint(text: str) -> dict | None:
         data = json.loads(match.group())
         if all(k in data for k in ("title", "path", "method")):
             data.setdefault("params", {})
+            data.setdefault("body", {})
             return data
     except json.JSONDecodeError:
         pass
@@ -236,3 +238,147 @@ async def ask_keka_mcp(question: str, employee_email: str, api_key: str) -> str:
     except Exception as exc:
         logger.error("[mcp_agent] Phase 2 failed: %s", exc)
         return f"Sorry, I couldn't complete your HR request. _(Error: {exc})_"
+
+
+# ---------------------------------------------------------------------------
+# Apply-leave constants
+# ---------------------------------------------------------------------------
+
+_SESSION_MAP = {
+    "full":        (1, 2),  # fromSession=FirstHalf start, toSession=SecondHalf end
+    "first_half":  (1, 1),
+    "second_half": (2, 2),
+}
+
+_PHASE2_APPLY_SYSTEM = """\
+You are Caizin's internal HR assistant.
+Today's date: {today}
+Employee email: {email}
+Employee ID: {employee_id}
+Keka API base URL: {base_url}
+
+Your only job is to call execute-request ONCE with the POST body the user provides.
+Do NOT call any other endpoints. Do NOT look up leave types or employee IDs — they are already resolved.
+For the HAR postData: set mimeType to "application/json" and text to a JSON string of the body fields.
+Include the Authorization header in every execute-request call.
+After the call, report the result clearly — confirm success or explain any API error.\
+"""
+
+
+# ---------------------------------------------------------------------------
+# Apply-leave entry point
+# ---------------------------------------------------------------------------
+
+async def ask_keka_mcp_apply_leave(
+    leave_params: dict,   # keys: leave_type, from_date, to_date, session, reason
+    employee_email: str,
+    api_key: str,
+) -> str:
+    """Apply leave via the two-phase Keka MCP approach."""
+
+    try:
+        token = await asyncio.to_thread(get_access_token)
+    except Exception as exc:
+        logger.error("[mcp_agent] token fetch failed: %s", exc)
+        return f"Sorry, I couldn't connect to Keka right now. _(Error: {exc})_"
+
+    client = anthropic.AsyncAnthropic(api_key=api_key, timeout=90.0)
+    mcp_server = {
+        "type":                "url",
+        "url":                 KEKA_MCP_URL,
+        "name":                "keka",
+        "authorization_token": token,
+    }
+
+    # -- Phase 1: discover POST /time/leaverequests body schema --------------
+    logger.info("[mcp_agent] ApplyLeave Phase 1 — endpoint discovery")
+    endpoint = None
+    try:
+        p1 = await client.beta.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            system=_PHASE1_SYSTEM,
+            messages=[{"role": "user", "content": "Find the endpoint to submit a new leave request (POST leave request / apply leave)"}],
+            mcp_servers=[mcp_server],
+            tools=[_TOOLSET_SEARCH],
+            betas=["mcp-client-2025-11-20"],
+        )
+        _log_content_blocks("ApplyLeave Phase 1", p1.content)
+        endpoint = _extract_endpoint(_first_text(p1))
+        logger.info("[mcp_agent] ApplyLeave Phase 1 endpoint: %s", endpoint)
+    except Exception as exc:
+        logger.warning("[mcp_agent] ApplyLeave Phase 1 failed: %s", exc)
+
+    if not endpoint:
+        return "I couldn't identify the leave request endpoint. Please contact HR."
+
+    # -- Resolve employee ID and leave type UUID (Python, cached) ------------
+    employee_id   = await asyncio.to_thread(get_employee_id, employee_email)
+    leave_type_id = await asyncio.to_thread(get_leave_type_id, leave_params["leave_type"])
+
+    if not employee_id:
+        return "I couldn't identify your employee profile. Please contact HR."
+    if not leave_type_id:
+        return f"Leave type '{leave_params['leave_type']}' was not found in Keka. Please contact HR."
+
+    # -- Compute session values and half-day guard ---------------------------
+    from_session, to_session = _SESSION_MAP.get(leave_params.get("session", "full"), (1, 2))
+    from_date = leave_params["from_date"]
+    to_date   = leave_params["to_date"]
+    if leave_params.get("session") in ("first_half", "second_half"):
+        to_date = from_date
+
+    # -- Phase 2: Claude builds HAR and calls execute-request ----------------
+    logger.info("[mcp_agent] ApplyLeave Phase 2 — execution")
+
+    system2 = _PHASE2_APPLY_SYSTEM.format(
+        today=date.today().isoformat(),
+        email=employee_email,
+        employee_id=employee_id,
+        base_url=KEKA_BASE_URL,
+    )
+
+    post_url    = f"{KEKA_BASE_URL}{endpoint['path']}"
+    auth_header = f"Bearer {token}"
+
+    user_content = f"""\
+Apply leave for the employee.
+
+POST {post_url}
+Spec: '{endpoint['title']}'
+
+Resolved values (use exactly as-is):
+  employeeId:    {employee_id}
+  requestedBy:   {employee_id}
+  leaveTypeId:   {leave_type_id}
+  fromDate:      {from_date}
+  toDate:        {to_date}
+  fromSession:   {from_session}
+  toSession:     {to_session}
+  reason:        {leave_params.get('reason') or ''}
+
+Build the execute-request call with:
+- method: POST
+- url: {post_url}
+- headers: [{{"name": "Authorization", "value": "{auth_header}"}}, {{"name": "Content-Type", "value": "application/json"}}]
+- postData: {{"mimeType": "application/json", "text": "<JSON string of the body above>"}}
+
+Call execute-request now.\
+"""
+
+    try:
+        p2 = await client.beta.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=4096,
+            system=system2,
+            messages=[{"role": "user", "content": user_content}],
+            mcp_servers=[mcp_server],
+            tools=[_TOOLSET_EXEC],
+            betas=["mcp-client-2025-11-20"],
+        )
+        _log_content_blocks("ApplyLeave Phase 2", p2.content)
+        text = _first_text(p2)
+        return text or "Leave submitted — please verify in Keka."
+    except Exception as exc:
+        logger.error("[mcp_agent] ApplyLeave Phase 2 failed: %s", exc)
+        return f"Sorry, I couldn't submit your leave request. _(Error: {exc})_"

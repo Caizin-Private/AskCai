@@ -91,6 +91,7 @@ async def messages(req: Request):
                 leave_type = form_data.get("leave_type", "Casual Leave")
                 from_date  = form_data.get("from_date", "")
                 to_date    = form_data.get("to_date", "")
+                session    = form_data.get("session", "full")
                 reason     = form_data.get("reason", "")
 
                 if not from_date or not to_date:
@@ -100,15 +101,21 @@ async def messages(req: Request):
                     return
 
                 from keka.client import TEST_EMPLOYEE_EMAIL
-                from keka.mcp_agent import ask_keka_mcp
+                from keka.mcp_agent import ask_keka_mcp_apply_leave
                 from rag import _get_anthropic_api_key
 
-                employee_email = TEST_EMPLOYEE_EMAIL
-                query = (
-                    f"Apply {leave_type} from {from_date} to {to_date}. "
-                    f"Reason: {reason or 'Not specified'}."
+                leave_params = {
+                    "leave_type": leave_type,
+                    "from_date":  from_date,
+                    "to_date":    to_date,
+                    "session":    session,
+                    "reason":     reason,
+                }
+                result = await ask_keka_mcp_apply_leave(
+                    leave_params,
+                    TEST_EMPLOYEE_EMAIL,
+                    _get_anthropic_api_key(),
                 )
-                result = await ask_keka_mcp(query, employee_email, _get_anthropic_api_key())
                 await turn_context.send_activity(result)
                 return
 

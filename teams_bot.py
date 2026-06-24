@@ -140,6 +140,19 @@ async def send_apply_leave_form(turn_context: TurnContext):
                 "errorMessage": "Please select an end date."
             },
             {
+                "type": "Input.ChoiceSet",
+                "id": "session",
+                "label": "Duration",
+                "isRequired": True,
+                "choices": [
+                    {"title": "Full Day",     "value": "full"},
+                    {"title": "First Half",   "value": "first_half"},
+                    {"title": "Second Half",  "value": "second_half"}
+                ],
+                "value": "full",
+                "style": "compact"
+            },
+            {
                 "type": "Input.Text",
                 "id": "reason",
                 "label": "Reason (optional)",
