@@ -64,6 +64,8 @@ def post_leave_request(payload: dict) -> dict:
     h = _headers()
     h["Content-Type"] = "application/json"
 
+    logger.info("[leave_dao] POST /time/leaverequests payload: %s", payload)
+
     resp = requests.post(
         f"{KEKA_BASE_URL}/time/leaverequests",
         headers=h,
@@ -71,8 +73,10 @@ def post_leave_request(payload: dict) -> dict:
         timeout=10,
     )
 
+    logger.info("[leave_dao] Keka response %d: %s", resp.status_code, resp.text[:500])
+
     if resp.status_code >= 500:
-        raise KekaServiceError(f"Apply leave failed: HTTP {resp.status_code}")
+        raise KekaServiceError(f"Apply leave failed: HTTP {resp.status_code} — {resp.text[:200]}")
 
     if resp.status_code >= 400:
         try:

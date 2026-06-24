@@ -104,14 +104,18 @@ class KekaLeaveService:
         else:
             from_session, to_session = 0, 1
 
+        from_dt = from_date if "T" in from_date else f"{from_date}T00:00:00"
+        to_dt   = to_date   if "T" in to_date   else f"{to_date}T00:00:00"
+
         payload = {
             "employeeId":  emp_id,
+            "requestedBy": emp_id,
             "leaveTypeId": leave_type_id,
-            "from":        from_date,
-            "to":          to_date,
+            "fromDate":    from_dt,
+            "toDate":      to_dt,
             "fromSession": from_session,
             "toSession":   to_session,
-            "note":        reason,
+            "reason":      reason,
         }
 
         result = post_leave_request(payload)
