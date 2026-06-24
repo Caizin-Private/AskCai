@@ -258,7 +258,7 @@ def _build_dashboard_card(records: list, today: str, name_query: str = "", statu
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
         "body": body,
-        "actions": [{"type": "Action.Execute", "title": "Search", "verb": "filter_dashboard"}],
+        "actions": [{"type": "Action.Submit", "title": "Search"}],
     }
 
 
@@ -592,13 +592,6 @@ async def _fetch_apply_leave(turn_context, email: str) -> dict:
     return _task_continue("Apply for Leave", _build_apply_leave_card(leave_types))
 
 
-async def _fetch_attendance(turn_context, email: str) -> dict:
-    records = get_today_all_records()
-    today   = datetime.now(IST).strftime("%Y-%m-%d")
-    if not records:
-        return _task_message("No attendance records found for today.")
-    return _task_continue("Attendance Dashboard", _build_dashboard_card(records, today), height="large", width="large")
-
 
 async def _fetch_help(turn_context, email: str) -> dict:
     card = {
@@ -628,10 +621,9 @@ async def _fetch_help(turn_context, email: str) -> dict:
 
 
 _FETCH_HANDLERS = {
-    "balance":   _fetch_balance,
-    "leave":     _fetch_apply_leave,
-    "dashboard": _fetch_attendance,
-    "help":      _fetch_help,
+    "balance": _fetch_balance,
+    "leave":   _fetch_apply_leave,
+    "help":    _fetch_help,
 }
 
 
