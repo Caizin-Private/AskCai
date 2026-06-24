@@ -177,7 +177,7 @@ def _classify_intent(question: str) -> str:
 # =========================
 # LEAVE INTENT EXTRACTOR
 # =========================
-def extract_leave_request(text: str, today: str) -> dict | None:
+def extract_leave_request(text: str, today: str, leave_type_names: list = None) -> dict | None:
     """
     Detect and extract leave intent from natural language in one LLM call.
     Returns:
@@ -200,8 +200,10 @@ def extract_leave_request(text: str, today: str) -> dict | None:
                     '- Checking/viewing leave balance → {"action":"check_balance"}\n'
                     '- Applying/requesting/taking leave → {"action":"apply_leave",'
                     '"from_date":"YYYY-MM-DD or null","to_date":"YYYY-MM-DD or null",'
-                    '"session_type":"full_day","reason":""}\n'
+                    '"session_type":"full_day","reason":"","leave_type_hint":""}\n'
                     "  session_type: full_day | first_half | second_half\n"
+                    "  leave_type_hint: pick the closest match from this list if a leave type is mentioned, else empty string.\n"
+                    f"  Available leave types: {', '.join(leave_type_names) if leave_type_names else 'casual, sick, annual, earned'}\n"
                     "  If only one date is mentioned, set both from_date and to_date to that date.\n"
                     '- Neither → {"action":null}'
                 ),

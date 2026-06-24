@@ -868,16 +868,23 @@ async def messages(req: Request):
         else:
             _LEAVE_KEYWORDS = ("leave", "apply", "off", "balance", "vacation", "sick", "casual", "annual", "holiday")
             if email and is_pilot(email) and any(kw in text.lower() for kw in _LEAVE_KEYWORDS):
-                today_str = datetime.now(IST).strftime("%Y-%m-%d")
+                today_str  = datetime.now(IST).strftime("%Y-%m-%d")
+                leave_types = await leave_service.get_leave_types()
+                lt_names    = [lt.name for lt in leave_types]
                 parsed = await asyncio.get_event_loop().run_in_executor(
-                    None, extract_leave_request, text, today_str
+                    None, extract_leave_request, text, today_str, lt_names
                 )
                 if parsed:
                     if parsed.get("action") == "check_balance":
                         await _handle_cmd_balance(turn_context, email)
                         return
                     if parsed.get("action") == "apply_leave":
-                        leave_types = await leave_service.get_leave_types()
+                        hint = (parsed.get("leave_type_hint") or "").strip().lower()
+                        if hint:
+                            for lt in leave_types:
+                                if lt.name.lower() == hint:
+                                    parsed["leave_type_id"] = lt.id
+                                    break
                         await turn_context.send_activity(
                             MessageFactory.attachment(CardFactory.adaptive_card(
                                 _build_chat_leave_form(leave_types, prefill=parsed)
