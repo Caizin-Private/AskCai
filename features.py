@@ -21,9 +21,9 @@ _FLAGS = {
 # Maps each compose-extension command to its surface flag.
 # Commands not listed here are always available (e.g. help).
 COMMAND_FLAGS = {
-    "balance":    "attendance_card",
-    "applyLeave": "attendance_card",
-    "attendance": "attendance_card",
+    "balance":   "attendance_card",
+    "leave":     "attendance_card",
+    "dashboard": "attendance_card",
 }
 
 

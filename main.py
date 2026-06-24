@@ -593,10 +593,10 @@ async def _fetch_help(turn_context, email: str) -> dict:
 
 
 _FETCH_HANDLERS = {
-    "balance":    _fetch_balance,
-    "applyLeave": _fetch_apply_leave,
-    "attendance": _fetch_attendance,
-    "help":       _fetch_help,
+    "balance":   _fetch_balance,
+    "leave":     _fetch_apply_leave,
+    "dashboard": _fetch_attendance,
+    "help":      _fetch_help,
 }
 
 
@@ -634,18 +634,22 @@ _SUBMIT_HANDLERS = {
 # ── Invoke orchestration (compose extension) ─────────────────────────────────
 
 async def _handle_fetch_task(turn_context, command_id: str) -> dict:
-    email = await _get_user_email(turn_context)
+    try:
+        email = await _get_user_email(turn_context)
 
-    if command_id in COMMAND_FLAGS:
-        if not email:
-            return _task_message("Could not identify your account. Please contact IT.")
-        if not surface_enabled(COMMAND_FLAGS[command_id], email):
-            return _task_message("This feature is not available for your account yet.")
+        if command_id in COMMAND_FLAGS:
+            if not email:
+                return _task_message("Could not identify your account. Please contact IT.")
+            if not surface_enabled(COMMAND_FLAGS[command_id], email):
+                return _task_message("This feature is not available for your account yet.")
 
-    handler = _FETCH_HANDLERS.get(command_id)
-    if not handler:
-        return _task_message("Unknown command.")
-    return await handler(turn_context, email)
+        handler = _FETCH_HANDLERS.get(command_id)
+        if not handler:
+            return _task_message("Unknown command.")
+        return await handler(turn_context, email)
+    except Exception as exc:
+        logger.error("[bot] _handle_fetch_task error command=%s: %s", command_id, exc)
+        return _task_message("Something went wrong. Please try again.")
 
 
 async def _handle_submit_action(turn_context, command_id: str, data: dict) -> dict:
