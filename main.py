@@ -762,8 +762,13 @@ async def messages(req: Request):
             await _handle_cmd_help(turn_context)
 
         else:
+            answer = await ask_policy_question(
+                text,
+                employee_email=email,
+                policy_only=False,
+            )
             await turn_context.send_activity(
-                MessageFactory.attachment(CardFactory.adaptive_card(_build_help_card()))
+                MessageFactory.attachment(CardFactory.adaptive_card(_build_text_card("", answer)))
             )
 
     invoke_response = await adapter.process_activity(activity, auth_header, turn_handler)
