@@ -107,6 +107,26 @@
       flex: 1; overflow: hidden;
     }
 
+    /* ── Info bar (date + editable indicator) ───────────────────────────────── */
+    .info-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px 6px;
+      flex-shrink: 0;
+    }
+    .data-date {
+      font-size: 0.8rem; color: var(--text3); font-weight: 500;
+    }
+    .edit-indicator {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; color: var(--text3);
+    }
+    .edit-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .edit-dot.green { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.25); }
+    .edit-dot.red   { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.25); }
+
     /* ── Summary pills ───────────────────────────────────────────────────────── */
     .summary-bar {
       display: flex; flex-wrap: wrap; gap: 10px;
@@ -117,8 +137,9 @@
     .sum-pill {
       display: inline-flex; flex-direction: column; align-items: center;
       justify-content: center;
-      padding: 10px 18px; border-radius: 10px;
-      min-width: 72px;
+      flex: 1;
+      padding: 10px 8px; border-radius: 10px;
+      min-width: 60px;
       cursor: pointer; user-select: none;
       transition: opacity 0.12s;
     }
@@ -154,7 +175,8 @@
     }
     .th-status-col {
       width: 40%;
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: center; justify-content: flex-start;
+      padding-left: 16px;
     }
     /* ── Filter icon + dropdown ──────────────────────────────────────────────── */
     .filter-wrap { position: relative; flex-shrink: 0; }
@@ -242,6 +264,15 @@
 
   <div id="dash-view">
    <div class="dash-inner">
+    <!-- Date + editable indicator -->
+    <div class="info-bar">
+      <span class="data-date" id="data-date"></span>
+      <div class="edit-indicator">
+        <span class="edit-dot" id="edit-dot"></span>
+        <span id="edit-label"></span>
+      </div>
+    </div>
+
     <!-- Summary pills -->
     <div class="summary-bar" id="summary-bar"></div>
 
@@ -257,7 +288,7 @@
           </svg>
         </button>
         <div class="filter-dropdown" id="filter-dropdown">
-          <div class="filter-option selected" data-value="all" onclick="selectFilter(this)">All Statuses</div>
+          <div class="filter-option selected" data-value="all" onclick="selectFilter(this)">All</div>
           <div class="filter-option" data-value="Absent"          onclick="selectFilter(this)">Absent</div>
           <div class="filter-option" data-value="Client Location" onclick="selectFilter(this)">Client Location</div>
           <div class="filter-option" data-value="Floater Holiday" onclick="selectFilter(this)">Floater Holiday</div>
@@ -412,6 +443,18 @@
       }).join("");
     }
 
+    /* ── Edit window indicator (9 AM – 3 PM IST) ───────────────────────────── */
+    function updateEditIndicator() {
+      var now = new Date();
+      var ist = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      var h   = ist.getHours();
+      var open = h >= 9 && h < 15;
+      var dot   = document.getElementById("edit-dot");
+      var label = document.getElementById("edit-label");
+      dot.className   = "edit-dot " + (open ? "green" : "red");
+      label.textContent = open ? "Status updates open" : "Status updates closed";
+    }
+
     /* ── Data fetch ─────────────────────────────────────────────────────────── */
     function loadData() {
       fetch(BASE + "/tabs/dashboard-data")
@@ -420,6 +463,15 @@
           _allRecords = (data.records || []).slice().sort(function(a, b) {
             return (a.name || "").localeCompare(b.name || "");
           });
+
+          // Show the date of the fetched data
+          var dateEl = document.getElementById("data-date");
+          try {
+            var p = (data.date || "").split("-");
+            dateEl.textContent = new Date(+p[0], p[1] - 1, +p[2])
+              .toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+          } catch(e) { dateEl.textContent = data.date || ""; }
+
           renderSummary(_allRecords);
           applyFilters();
           document.getElementById("loading-view").style.display = "none";
@@ -434,7 +486,10 @@
     /* ── Auto-refresh every 60 s ────────────────────────────────────────────── */
     function startAutoRefresh() {
       if (_refreshTimer) clearInterval(_refreshTimer);
-      _refreshTimer = setInterval(loadData, 60000);
+      _refreshTimer = setInterval(function() {
+        loadData();
+        updateEditIndicator();
+      }, 60000);
     }
 
     /* ── Init ───────────────────────────────────────────────────────────────── */
@@ -442,6 +497,7 @@
       document.getElementById("gate-view").style.display    = "none";
       document.getElementById("loading-view").style.display = "flex";
       document.getElementById("dash-view").style.display    = "none";
+      updateEditIndicator();
       loadData();
       startAutoRefresh();
     }
