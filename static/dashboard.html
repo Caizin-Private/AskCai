@@ -100,6 +100,12 @@
 
     /* ── Dashboard view ──────────────────────────────────────────────────────── */
     #dash-view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .dash-inner {
+      max-width: 860px; width: 100%;
+      margin: 0 auto;
+      display: flex; flex-direction: column;
+      flex: 1; overflow: hidden;
+    }
 
     /* ── Summary pills ───────────────────────────────────────────────────────── */
     .summary-bar {
@@ -122,7 +128,7 @@
 
     /* ── Table header row with search + filter ───────────────────────────────── */
     .table-header-row {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center;
       padding: 8px 16px;
       border-bottom: 1px solid var(--border-s);
       flex-shrink: 0;
@@ -130,7 +136,7 @@
       position: sticky; top: 0; z-index: 2;
     }
     .th-search {
-      flex: 1;
+      width: 60%;
       padding: 5px 10px;
       border: 1px solid transparent;
       border-radius: 6px;
@@ -145,6 +151,10 @@
     .th-search:focus {
       border-color: var(--brand);
       background: var(--input-bg);
+    }
+    .th-status-col {
+      width: 40%;
+      display: flex; align-items: center; justify-content: center;
     }
     /* ── Filter icon + dropdown ──────────────────────────────────────────────── */
     .filter-wrap { position: relative; flex-shrink: 0; }
@@ -231,13 +241,15 @@
   </div>
 
   <div id="dash-view">
+   <div class="dash-inner">
     <!-- Summary pills -->
     <div class="summary-bar" id="summary-bar"></div>
 
-    <!-- Table header: search bar + filter icon -->
+    <!-- Table header: search bar + filter icon above status column -->
     <div class="table-header-row">
       <input id="search-input" class="th-search" type="text"
              placeholder="Search employee…" oninput="applyFilters()" autocomplete="off" />
+      <div class="th-status-col">
       <div class="filter-wrap">
         <button class="filter-btn" id="filter-btn" onclick="toggleFilter(event)" title="Filter by status">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -255,6 +267,7 @@
           <div class="filter-option" data-value="WFH"             onclick="selectFilter(this)">WFH</div>
         </div>
       </div>
+      </div>
     </div>
 
     <div class="table-wrap">
@@ -262,6 +275,7 @@
         <tbody id="table-body"></tbody>
       </table>
     </div>
+   </div>
   </div>
 
   <script>
