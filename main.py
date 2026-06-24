@@ -863,8 +863,13 @@ async def messages(req: Request):
             await _handle_cmd_help(turn_context)
 
         else:
+            answer, _ = await ask_policy_question(
+                text,
+                employee_email=email,
+                policy_only=True,
+            )
             await turn_context.send_activity(
-                MessageFactory.attachment(CardFactory.adaptive_card(_build_help_card()))
+                MessageFactory.attachment(CardFactory.adaptive_card(_build_text_card("", answer)))
             )
 
     invoke_response = await adapter.process_activity(activity, auth_header, turn_handler)
@@ -885,11 +890,12 @@ async def ask(req: Request):
     body     = await req.json()
     question = body.get("question", "")
     email    = body.get("employee_email", "")
-    return {"answer": await ask_policy_question(
+    answer, intent = await ask_policy_question(
         question,
         employee_email=email,
         policy_only=bool(body.get("policy_only", False)),
-    )}
+    )
+    return {"answer": answer, "intent": intent}
 
 
 # ── Tab endpoints ─────────────────────────────────────────────────────────────

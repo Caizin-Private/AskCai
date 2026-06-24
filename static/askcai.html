@@ -35,21 +35,21 @@
       --send-fg:   #0078d4;
     }
     [data-theme="dark"] {
-      --bg:        #292929;
-      --bg-msg:    #3d3d3d;
-      --bg-user:   #3a5a8a;
-      --bg-card:   #3d3d3d;
-      --bg-hover:  #454545;
+      --bg:        #1f1f1f;
+      --bg-msg:    #2d2d2d;
+      --bg-user:   #3d5a9e;
+      --bg-card:   #2d2d2d;
+      --bg-hover:  #383838;
       --text:      #ffffff;
       --text2:     #d6d6d6;
-      --text3:     #adadad;
+      --text3:     #9e9e9e;
       --text-user: #ffffff;
       --brand:     #479ef5;
-      --border:    #525252;
-      --border-s:  #3d3d3d;
+      --border:    #404040;
+      --border-s:  #2d2d2d;
       --avatar-bg: #4f6bed;
       --avatar-fg: #ffffff;
-      --input-bg:  #3d3d3d;
+      --input-bg:  #2d2d2d;
       --send-bg:   transparent;
       --send-fg:   #479ef5;
     }
@@ -85,26 +85,6 @@
     }
     body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    /* ── Tab header ──────────────────────────────────────────────────────── */
-    .tab-header {
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-s);
-      background: var(--bg);
-      flex-shrink: 0;
-    }
-    .tab-icon {
-      width: 24px; height: 24px;
-      border-radius: 4px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    .tab-title {
-      font-size: 0.9375rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-
     /* ── Gate ──────────────────────────────────────────────────────────────── */
     #gate-view {
       display: none; flex: 1; flex-direction: column;
@@ -129,13 +109,13 @@
 
     /* Avatar */
     .av {
-      width: 32px; height: 32px; border-radius: 50%;
-      background: var(--avatar-bg);
+      width: 36px; height: 36px; border-radius: 50%;
+      background: #0d1b3e;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0; margin-top: 18px;
       overflow: hidden;
     }
-    .av img { width: 32px; height: 32px; display: block; object-fit: cover; }
+    .av img { width: 36px; height: 36px; display: block; object-fit: contain; }
 
     /* Bubble group (sender name + bubble) */
     .bgroup { display: flex; flex-direction: column; max-width: 78%; }
@@ -231,7 +211,7 @@
     /* ── Input bar ─────────────────────────────────────────────────────────── */
     .input-bar {
       display: flex; align-items: center; gap: 8px;
-      padding: 10px 14px 14px;
+      padding: 10px 16px 16px;
       background: var(--bg);
       border-top: 1px solid var(--border-s);
     }
@@ -263,11 +243,6 @@
 </head>
 <body>
 
-  <div class="tab-header">
-    <img src="/icon.png" class="tab-icon" alt="" />
-    <span class="tab-title">AskCai</span>
-  </div>
-
   <!-- Gate -->
   <div id="gate-view">
     <h1>Access restricted</h1>
@@ -294,6 +269,7 @@
     var BOT_NAME = "Caizin HR Ops";
     var BOT_ICON = "/icon.png";
     var BOT_INITIAL = "C";
+    var _userEmail = "";
 
     var PILOT = new Set([
       "maitreyee.joshi@caizin.com",
@@ -541,13 +517,16 @@
       fetch(BASE + "/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: text, policy_only: true }),
+        body: JSON.stringify({ question: text, policy_only: true, employee_email: _userEmail }),
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         typingRow.remove();
         var answer = data.answer || "Sorry, I couldn't find an answer to that.";
         appendBot(mdToHtml(answer));
+        if (data.intent === "greeting") {
+          addTopicPicker();
+        }
       })
       .catch(function() {
         typingRow.remove();
@@ -589,6 +568,7 @@
         })
         .then(function(ctx) {
           var email = ((ctx.user && ctx.user.userPrincipalName) || "").toLowerCase();
+          _userEmail = email;
           var theme = (ctx.app && ctx.app.theme) || ctx.theme || "default";
           applyTheme(theme);
           try { microsoftTeams.app.registerOnThemeChangeHandler(applyTheme); } catch(_) {}

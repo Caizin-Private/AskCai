@@ -269,15 +269,15 @@ async def ask_policy_question(question: str, employee_email: str = "", policy_on
 
     # 1. Greeting
     if intent == "greeting":
-        return "Good day! 👋 How can I help you with Caizin's policies today?"
+        return "Good day! 👋 How can I help you with Caizin's policies today?", intent
 
     # 2. List all policies
     if intent == "list_policies":
-        return list_all_policies()
+        return list_all_policies(), intent
 
     # 3. Live HR action — skip when policy_only=True (AskCAI tab serves policy docs only)
     if intent == "hr_action" and not policy_only:
-        return await ask_keka_mcp(question, employee_email, _get_anthropic_api_key())
+        return await ask_keka_mcp(question, employee_email, _get_anthropic_api_key()), intent
 
     # 4. RAG pipeline — policy knowledge question
     docs, all_sources, chunk_sources = search_documents(question)
@@ -317,7 +317,7 @@ async def ask_policy_question(question: str, employee_email: str = "", policy_on
             "please verify the policy details with HR._"
         )
 
-    return answer
+    return answer, intent
 
 
 if __name__ == "__main__":
