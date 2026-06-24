@@ -490,12 +490,8 @@
         .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     }
 
-    /* ── Quickstart card ─────────────────────────────────────────────────────  */
-    function addGreeting() {
-      // Line 1: greeting message
-      appendBot(esc("Good day! How can I help you with Caizin's policies today?"));
-
-      // Line 2: topic picker card
+    /* ── Topic picker card ───────────────────────────────────────────────────── */
+    function addTopicPicker() {
       var card  = document.createElement("div");
       card.className = "qs-card";
 
@@ -524,6 +520,12 @@
       appendCard(card);
     }
 
+    /* ── Quickstart card ─────────────────────────────────────────────────────  */
+    function addGreeting() {
+      appendBot(esc("Good day! How can I help you with Caizin's policies today?"));
+      addTopicPicker();
+    }
+
     /* ── Send ────────────────────────────────────────────────────────────────── */
     function fireQuestion(text) {
       var input = document.getElementById("q-input");
@@ -541,7 +543,11 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         typingRow.remove();
-        appendBot(mdToHtml(data.answer || "Sorry, I couldn't find an answer to that."));
+        var answer = data.answer || "Sorry, I couldn't find an answer to that.";
+        appendBot(mdToHtml(answer));
+        if (/^good day!/i.test(answer.trim())) {
+          addTopicPicker();
+        }
       })
       .catch(function() {
         typingRow.remove();

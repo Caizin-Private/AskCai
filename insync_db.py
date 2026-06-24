@@ -63,8 +63,10 @@ _RESPONSE_LABELS = {
 def _bucket(status: str, employee_response: Optional[str]) -> str:
     """Mirrors _status_bucket() from tracker's teams_client.py."""
     if status == "present":
-        if employee_response == "wfh":         return "WFH"
-        if employee_response == "client_site": return "Client Location"
+        if employee_response == "wfh":           return "WFH"
+        if employee_response == "client_site":   return "Client Location"
+        if employee_response == "leave":         return "Leave"
+        if employee_response == "floater_leave": return "Floater Holiday"
         return "Office"
     if status == "pre_applied_wfh":
         return "WFH"
@@ -110,3 +112,86 @@ def get_today_all_records() -> list:
     except Exception as exc:
         logger.error("[InSyncDB] get_today_all_records: %s", exc)
         return []
+
+
+def get_employee_by_email(email: str) -> dict | None:
+    """Look up active employee by email. Returns {employee_id, name} or None."""
+    try:
+        conn = _get_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT employee_id, name FROM employees WHERE lower(email) = %s AND is_active = 'active'",
+                (email.lower(),),
+            )
+            row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as exc:
+        logger.error("[InSyncDB] get_employee_by_email: %s", exc)
+        return None
+
+
+def record_attendance_response(employee_id: str, status_verb: str) -> bool:
+    """
+    Write the employee's attendance response to the tracker DB.
+    status_verb: office | wfh | leave | client_site | floater_leave
+    Mirrors the tracker Lambda's DB write (status stays card_sent; employee_response is set).
+    """
+    if status_verb not in {"office", "wfh", "leave", "client_site", "floater_leave"}:
+        logger.warning("[InSyncDB] record_attendance_response: unknown verb %s", status_verb)
+        return False
+
+    today   = datetime.now(IST).strftime("%Y-%m-%d")
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    try:
+        conn = _get_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE attendance
+                   SET employee_response     = %s,
+                       response_time         = %s,
+                       response_update_count = COALESCE(response_update_count, 0) + 1
+                 WHERE date = %s AND employee_id = %s
+                """,
+                (status_verb, now_utc, today, employee_id),
+            )
+            updated = cur.rowcount
+        if updated == 0:
+            logger.warning("[InSyncDB] record_attendance_response: no row for emp=%s date=%s", employee_id, today)
+            return False
+        logger.info("[InSyncDB] attendance recorded: emp=%s status=%s", employee_id, status_verb)
+        return True
+    except Exception as exc:
+        logger.error("[InSyncDB] record_attendance_response: %s", exc)
+        return False
+
+
+def get_dashboard_data() -> dict:
+    """
+    Returns attendance data shaped for build_dashboard_card().
+    {date, records: [{employee_id, status, employee_response, check_in_time}],
+           employees: [{employee_id, name}]}
+    """
+    today = datetime.now(IST).strftime("%Y-%m-%d")
+    try:
+        conn = _get_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT a.employee_id, a.status, a.employee_response, a.check_in_time,
+                       e.name
+                  FROM attendance a
+                  JOIN employees e ON a.employee_id = e.employee_id
+                 WHERE a.date = %s AND e.is_active = 'active'
+                 ORDER BY e.name
+                """,
+                (today,),
+            )
+            rows = cur.fetchall()
+        records   = [dict(r) for r in rows]
+        employees = [{"employee_id": r["employee_id"], "name": r["name"]} for r in records]
+        return {"date": today, "records": records, "employees": employees}
+    except Exception as exc:
+        logger.error("[InSyncDB] get_dashboard_data: %s", exc)
+        return {"date": today, "records": [], "employees": []}

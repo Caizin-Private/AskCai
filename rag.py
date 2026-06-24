@@ -263,7 +263,6 @@ Question:
 # MAIN QUERY ROUTER
 # =========================
 async def ask_policy_question(question: str, employee_email: str = "", policy_only: bool = False):
-    from keka.client import TEST_EMPLOYEE_EMAIL
     from keka.mcp_agent import ask_keka_mcp
 
     intent = _classify_intent(question)
@@ -275,8 +274,6 @@ async def ask_policy_question(question: str, employee_email: str = "", policy_on
     # 2. List all policies
     if intent == "list_policies":
         return list_all_policies()
-
-    employee_email = TEST_EMPLOYEE_EMAIL  # use test account during Phase 1 testing
 
     # 3. Live HR action — skip when policy_only=True (AskCAI tab serves policy docs only)
     if intent == "hr_action" and not policy_only:

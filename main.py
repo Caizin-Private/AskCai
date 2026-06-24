@@ -1,23 +1,36 @@
 import json
 import logging
 import os
+import re
+from datetime import datetime, timedelta, timezone
+
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings, MessageFactory
+from botbuilder.core import (
+    BotFrameworkAdapter,
+    BotFrameworkAdapterSettings,
+    CardFactory,
+    MessageFactory,
+)
 from botbuilder.core.teams import TeamsInfo
 from botbuilder.schema import Activity, InvokeResponse
 
-from features import surface_enabled, COMMAND_FLAGS
-from rag import ask_policy_question
+from features import surface_enabled, is_pilot, COMMAND_FLAGS
+from rag import ask_policy_question, _classify_intent
 from keka.mcp_agent import ask_keka_mcp
+from insync_db import (
+    get_today_all_records,
+    record_attendance_response,
+)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+IST = timezone(timedelta(hours=5, minutes=30))
 
 APP_ID            = os.getenv("MicrosoftAppId")
 APP_PASSWORD      = os.getenv("MicrosoftAppPassword")
@@ -36,21 +49,300 @@ if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
 
-# ── Bot helpers ───────────────────────────────────────────────────────────────
+# ── Response verb constants ──────────────────────────────────────────────────
 
-async def _get_user_email(turn_context) -> str:
+_RESPONSE_LABEL = {
+    "office":        "Office",
+    "wfh":           "WFH",
+    "leave":         "Leave",
+    "client_site":   "Client Location",
+    "floater_leave": "Floater Holiday",
+}
+_RESPONSE_COLOR = {
+    "office":        "Good",
+    "wfh":           "Accent",
+    "leave":         "Warning",
+    "client_site":   "Good",
+    "floater_leave": "Warning",
+}
+_VALID_VERBS = frozenset(_RESPONSE_LABEL)
+
+_BUCKET_COLOR = {
+    "Office":          "Good",
+    "WFH":             "Accent",
+    "Leave":           "Warning",
+    "Client Location": "Good",
+    "Floater Holiday": "Warning",
+    "Absent":          "Attention",
+    "Pending":         "Default",
+}
+
+
+# ── Card builders ────────────────────────────────────────────────────────────
+
+def _first_name(full_name: str) -> str:
+    parts = (full_name or "").split()
+    return parts[0] if parts else "there"
+
+
+def _build_ack_card(name: str, status_verb: str, today: str, employee_id: str = "") -> dict:
+    label = _RESPONSE_LABEL.get(status_verb, status_verb.replace("_", " ").title())
+    color = _RESPONSE_COLOR.get(status_verb, "Default")
     try:
-        member = await TeamsInfo.get_member(
-            turn_context, turn_context.activity.from_property.id
-        )
-        if member and member.email:
-            return member.email.lower()
-    except Exception as exc:
-        logger.warning("[bot] TeamsInfo.get_member failed: %s", exc)
-    return ""
+        date_display = datetime.strptime(today, "%Y-%m-%d").strftime("%B %d, %Y")
+    except ValueError:
+        date_display = today
+    body = [
+        {
+            "type": "TextBlock",
+            "text": f"{date_display} : {label}",
+            "weight": "Bolder",
+            "color": color,
+            "wrap": True,
+        },
+        {
+            "type": "TextBlock",
+            "text": f"Thanks, {name}! Your attendance has been recorded.",
+            "wrap": True,
+            "isSubtle": True,
+        },
+    ]
+    actions = []
+    if employee_id:
+        actions = [{
+            "type": "Action.Execute",
+            "title": "Edit Status",
+            "verb": "show_options",
+            "data": {"employee_id": employee_id},
+        }]
+    card = {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": body,
+    }
+    if actions:
+        card["actions"] = actions
+    return card
 
 
-# ── Task-module helpers ───────────────────────────────────────────────────────
+def _build_options_card(name: str, employee_id: str, current_response: str = "", is_floater: bool = False) -> dict:
+    if current_response:
+        cur_label = _RESPONSE_LABEL.get(current_response, current_response)
+        heading = f"Your current status is **{cur_label}**. Select a new location to update:"
+    else:
+        heading = f"Hi {name}, where are you working from today?"
+
+    buttons = [
+        {"type": "Action.Execute", "title": "Office",          "verb": "submit_status", "data": {"status": "office",      "employee_id": employee_id}},
+        {"type": "Action.Execute", "title": "Home (WFH)",      "verb": "submit_status", "data": {"status": "wfh",         "employee_id": employee_id}},
+        {"type": "Action.Execute", "title": "Leave",           "verb": "submit_status", "data": {"status": "leave",       "employee_id": employee_id}},
+        {"type": "Action.Execute", "title": "Client Location", "verb": "submit_status", "data": {"status": "client_site", "employee_id": employee_id}},
+    ]
+    if is_floater:
+        buttons.append({
+            "type": "Action.Execute", "title": "Floater Leave",
+            "verb": "submit_status", "data": {"status": "floater_leave", "employee_id": employee_id},
+        })
+
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [{"type": "TextBlock", "text": heading, "wrap": True, "weight": "Bolder"}],
+        "actions": buttons,
+    }
+
+
+def _build_dashboard_card(records: list, today: str, name_query: str = "", status_filter: str = "all") -> dict:
+    """Full attendance dashboard with name search and status filter."""
+    try:
+        date_display = datetime.strptime(today, "%Y-%m-%d").strftime("%B %d, %Y")
+    except ValueError:
+        date_display = today
+
+    # Apply filters
+    filtered = records
+    if name_query:
+        q = name_query.strip().lower()
+        filtered = [r for r in filtered if q in (r.get("name") or "").lower()]
+    if status_filter and status_filter != "all":
+        filtered = [r for r in filtered if r.get("bucket", "Pending") == status_filter]
+
+    total  = len(records)
+    shown  = len(filtered)
+    summary = f"{shown} of {total}" if (name_query or status_filter != "all") else str(total)
+
+    # Employee rows
+    rows = []
+    for r in sorted(filtered, key=lambda x: (x.get("name") or "").lower()):
+        name   = r.get("name", "")
+        bucket = r.get("bucket", "Pending")
+        color  = _BUCKET_COLOR.get(bucket, "Default")
+        rows.append({
+            "type": "ColumnSet",
+            "spacing": "Small",
+            "columns": [
+                {
+                    "type": "Column", "width": "stretch",
+                    "items": [{"type": "TextBlock", "text": name, "wrap": False, "size": "Small"}],
+                },
+                {
+                    "type": "Column", "width": "auto",
+                    "items": [{"type": "TextBlock", "text": bucket, "color": color, "wrap": False, "size": "Small"}],
+                },
+            ],
+        })
+
+    if not rows:
+        rows = [{"type": "TextBlock", "text": "No matching employees found.", "isSubtle": True, "spacing": "Small"}]
+
+    body = [
+        # Title + count
+        {
+            "type": "ColumnSet",
+            "columns": [
+                {
+                    "type": "Column", "width": "stretch",
+                    "items": [{"type": "TextBlock", "text": f"Attendance — {date_display}", "weight": "Bolder", "size": "Medium"}],
+                },
+                {
+                    "type": "Column", "width": "auto",
+                    "items": [{"type": "TextBlock", "text": summary, "isSubtle": True, "size": "Small", "verticalContentAlignment": "Center"}],
+                },
+            ],
+        },
+        # Search + filter row
+        {
+            "type": "ColumnSet",
+            "columns": [
+                {
+                    "type": "Column", "width": "stretch",
+                    "items": [{
+                        "type": "Input.Text", "id": "name_query",
+                        "placeholder": "Search by name", "value": name_query,
+                    }],
+                },
+                {
+                    "type": "Column", "width": "auto",
+                    "items": [{
+                        "type": "Input.ChoiceSet", "id": "status_filter",
+                        "style": "compact", "value": status_filter,
+                        "choices": [
+                            {"title": "All Statuses",    "value": "all"},
+                            {"title": "Office",          "value": "Office"},
+                            {"title": "WFH",             "value": "WFH"},
+                            {"title": "Leave",           "value": "Leave"},
+                            {"title": "Client Location", "value": "Client Location"},
+                            {"title": "Floater Holiday", "value": "Floater Holiday"},
+                            {"title": "Absent",          "value": "Absent"},
+                            {"title": "Pending",         "value": "Pending"},
+                        ],
+                    }],
+                },
+            ],
+        },
+        # Table header
+        {
+            "type": "ColumnSet", "separator": True, "spacing": "Small",
+            "columns": [
+                {"type": "Column", "width": "stretch", "items": [{"type": "TextBlock", "text": "Employee", "weight": "Bolder", "size": "Small", "isSubtle": True}]},
+                {"type": "Column", "width": "auto",    "items": [{"type": "TextBlock", "text": "Status",   "weight": "Bolder", "size": "Small", "isSubtle": True}]},
+            ],
+        },
+    ] + rows
+
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": body,
+        "actions": [{"type": "Action.Execute", "title": "Search", "verb": "filter_dashboard"}],
+    }
+
+
+def _build_chat_leave_form(error: str = "") -> dict:
+    body = [
+        {
+            "type": "Input.ChoiceSet",
+            "id": "leave_type",
+            "label": "Leave Type",
+            "style": "compact",
+            "value": "Casual Leave",
+            "choices": [
+                {"title": "Casual Leave",    "value": "Casual Leave"},
+                {"title": "Sick Leave",       "value": "Sick Leave"},
+                {"title": "Earned Leave",     "value": "Earned Leave"},
+                {"title": "Compensatory Off", "value": "Compensatory Off"},
+                {"title": "Loss of Pay",      "value": "Loss of Pay"},
+            ],
+        },
+        {"type": "Input.Date", "id": "from_date", "label": "From Date"},
+        {"type": "Input.Date", "id": "to_date",   "label": "To Date"},
+        {
+            "type": "Input.Text",
+            "id": "reason",
+            "label": "Reason (optional)",
+            "isMultiline": True,
+            "placeholder": "e.g. Personal work",
+        },
+    ]
+    if error:
+        body.insert(0, {"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": body,
+        "actions": [{"type": "Action.Execute", "title": "Apply Leave", "verb": "apply_leave"}],
+    }
+
+
+def _build_text_card(title: str, text: str) -> dict:
+    body = []
+    if title:
+        body.append({"type": "TextBlock", "text": title, "weight": "Bolder", "size": "Medium"})
+    body.append({"type": "TextBlock", "text": text, "wrap": True})
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": body,
+    }
+
+
+def _build_help_card() -> dict:
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [
+            {"type": "TextBlock", "text": "InSync — Available Commands", "weight": "Bolder", "size": "Medium"},
+            {"type": "FactSet", "facts": [
+                {"title": "/balance",    "value": "Check your leave balance"},
+                {"title": "/leave",      "value": "Apply for leave"},
+                {"title": "/dashboard",  "value": "View team attendance dashboard"},
+                {"title": "/help",       "value": "Show this help"},
+            ]},
+            {
+                "type": "TextBlock",
+                "text": "For policy questions, switch to the **AskCAI** tab.",
+                "wrap": True,
+                "isSubtle": True,
+                "spacing": "Medium",
+            },
+        ],
+    }
+
+
+# ── Invoke response builders ─────────────────────────────────────────────────
+
+def _card_action_response(card: dict) -> dict:
+    return {"statusCode": 200, "type": "application/vnd.microsoft.card.adaptive", "value": card}
+
+
+
+# ── Task-module helpers (compose extension) ──────────────────────────────────
 
 def _task_continue(title: str, card: dict, height: str = "medium", width: str = "medium") -> dict:
     return {
@@ -74,6 +366,7 @@ def _task_message(text: str) -> dict:
 
 
 def _build_apply_leave_card() -> dict:
+    """Apply leave card for the compose extension task module (uses Action.Submit)."""
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -86,11 +379,11 @@ def _build_apply_leave_card() -> dict:
                 "style": "compact",
                 "value": "Casual Leave",
                 "choices": [
-                    {"title": "Casual Leave",     "value": "Casual Leave"},
-                    {"title": "Sick Leave",        "value": "Sick Leave"},
-                    {"title": "Earned Leave",      "value": "Earned Leave"},
-                    {"title": "Compensatory Off",  "value": "Compensatory Off"},
-                    {"title": "Loss of Pay",       "value": "Loss of Pay"},
+                    {"title": "Casual Leave",    "value": "Casual Leave"},
+                    {"title": "Sick Leave",       "value": "Sick Leave"},
+                    {"title": "Earned Leave",     "value": "Earned Leave"},
+                    {"title": "Compensatory Off", "value": "Compensatory Off"},
+                    {"title": "Loss of Pay",      "value": "Loss of Pay"},
                 ],
             },
             {"type": "Input.Date", "id": "from_date", "label": "From Date"},
@@ -113,7 +406,134 @@ def _build_apply_leave_card() -> dict:
     }
 
 
-# ── Per-command fetch handlers ────────────────────────────────────────────────
+# ── User email helper ────────────────────────────────────────────────────────
+
+async def _get_user_email(turn_context) -> str:
+    try:
+        member = await TeamsInfo.get_member(
+            turn_context, turn_context.activity.from_property.id
+        )
+        if member and member.email:
+            return member.email.lower()
+    except Exception as exc:
+        logger.warning("[bot] TeamsInfo.get_member failed: %s", exc)
+    # Local-dev fallback: parse display name / id from the Teams activity
+    from teams_bot import _get_employee_email
+    return _get_employee_email(turn_context)
+
+
+# ── adaptiveCard/action handlers ─────────────────────────────────────────────
+
+async def _handle_submit_status(turn_context, data: dict) -> dict:
+    employee_id = data.get("employee_id", "")
+    status_verb = data.get("status", "")
+
+    if status_verb not in _VALID_VERBS:
+        return _card_action_response(
+            _build_text_card("Error", "Unknown status response. Please try again.")
+        )
+
+    name = _first_name(
+        (turn_context.activity.from_property.name or "")
+        if turn_context.activity.from_property else ""
+    )
+
+    if employee_id:
+        saved = record_attendance_response(employee_id, status_verb)
+        if not saved:
+            logger.warning("[bot] submit_status: DB write failed emp=%s verb=%s", employee_id, status_verb)
+
+    today = datetime.now(IST).strftime("%Y-%m-%d")
+    return _card_action_response(_build_ack_card(name, status_verb, today, employee_id))
+
+
+async def _handle_show_options(turn_context, data: dict) -> dict:
+    employee_id      = data.get("employee_id", "")
+    current_response = data.get("current_response", "")
+    name = _first_name(
+        (turn_context.activity.from_property.name or "")
+        if turn_context.activity.from_property else ""
+    )
+    return _card_action_response(_build_options_card(name, employee_id, current_response))
+
+
+async def _handle_view_dashboard() -> dict:
+    records = get_today_all_records()
+    today   = datetime.now(IST).strftime("%Y-%m-%d")
+    return _card_action_response(_build_dashboard_card(records, today))
+
+
+async def _handle_filter_dashboard(data: dict) -> dict:
+    name_query    = (data.get("name_query")    or "").strip()
+    status_filter = (data.get("status_filter") or "all").strip()
+    records = get_today_all_records()
+    today   = datetime.now(IST).strftime("%Y-%m-%d")
+    return _card_action_response(_build_dashboard_card(records, today, name_query, status_filter))
+
+
+async def _handle_apply_leave_action(turn_context, data: dict) -> dict:
+    leave_type = data.get("leave_type") or "Casual Leave"
+    from_date  = data.get("from_date", "")
+    to_date    = data.get("to_date", "")
+    reason     = data.get("reason") or "Not specified"
+
+    if not from_date or not to_date:
+        return _card_action_response(
+            _build_chat_leave_form(error="Please fill in both From and To dates.")
+        )
+
+    email = await _get_user_email(turn_context)
+    if not email:
+        return _card_action_response(
+            _build_text_card("Error", "Could not identify your account. Please contact IT.")
+        )
+
+    answer = await ask_keka_mcp(
+        f"Apply {leave_type} for me from {from_date} to {to_date}. Reason: {reason}.",
+        email,
+        ANTHROPIC_API_KEY,
+    )
+    return _card_action_response(_build_text_card("Leave Application", answer))
+
+
+# ── Chat command handlers ────────────────────────────────────────────────────
+
+async def _handle_cmd_balance(turn_context, email: str) -> None:
+    answer = await ask_keka_mcp(
+        "What is my current leave balance broken down by leave type?",
+        email,
+        ANTHROPIC_API_KEY,
+    )
+    await turn_context.send_activity(
+        MessageFactory.attachment(CardFactory.adaptive_card(_build_text_card("Leave Balance", answer)))
+    )
+
+
+async def _handle_cmd_leave(turn_context, email: str) -> None:
+    await turn_context.send_activity(
+        MessageFactory.attachment(CardFactory.adaptive_card(_build_chat_leave_form()))
+    )
+
+
+async def _handle_cmd_attendance(turn_context) -> None:
+    records = get_today_all_records()
+    today   = datetime.now(IST).strftime("%Y-%m-%d")
+    await turn_context.send_activity(
+        MessageFactory.attachment(
+            CardFactory.adaptive_card(_build_dashboard_card(records, today))
+        )
+    )
+
+
+async def _handle_cmd_help(turn_context) -> None:
+    await turn_context.send_activity(
+        MessageFactory.attachment(CardFactory.adaptive_card(_build_help_card()))
+    )
+
+
+
+
+# ── Per-command fetch handlers (compose extension) ───────────────────────────
 
 async def _fetch_balance(turn_context, email: str) -> dict:
     answer = await ask_keka_mcp(
@@ -138,27 +558,11 @@ async def _fetch_apply_leave(turn_context, email: str) -> dict:
 
 
 async def _fetch_attendance(turn_context, email: str) -> dict:
-    from insync_db import get_today_all_records
     records = get_today_all_records()
+    today   = datetime.now(IST).strftime("%Y-%m-%d")
     if not records:
         return _task_message("No attendance records found for today.")
-    buckets: dict = {}
-    for r in records:
-        buckets.setdefault(r.get("bucket", "Pending"), []).append(r.get("name", ""))
-    facts = [
-        {"title": f"{bucket} ({len(names)})", "value": ", ".join(sorted(names))}
-        for bucket, names in sorted(buckets.items())
-    ]
-    card = {
-        "type": "AdaptiveCard",
-        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-        "version": "1.4",
-        "body": [
-            {"type": "TextBlock", "text": "Attendance Today", "size": "Medium", "weight": "Bolder"},
-            {"type": "FactSet", "facts": facts},
-        ],
-    }
-    return _task_continue("Attendance Today", card)
+    return _task_continue("Attendance Dashboard", _build_dashboard_card(records, today), height="large", width="large")
 
 
 async def _fetch_help(turn_context, email: str) -> dict:
@@ -173,7 +577,7 @@ async def _fetch_help(turn_context, email: str) -> dict:
                 "facts": [
                     {"title": "Balance",     "value": "Check your current leave balance"},
                     {"title": "Apply Leave", "value": "Submit a leave request"},
-                    {"title": "Attendance",  "value": "View today's team attendance"},
+                    {"title": "Attendance",  "value": "View today’s team attendance"},
                 ],
             },
             {
@@ -188,7 +592,6 @@ async def _fetch_help(turn_context, email: str) -> dict:
     return _task_continue("Help", card, height="small")
 
 
-# Dispatch table — add new commands here
 _FETCH_HANDLERS = {
     "balance":    _fetch_balance,
     "applyLeave": _fetch_apply_leave,
@@ -197,7 +600,7 @@ _FETCH_HANDLERS = {
 }
 
 
-# ── Per-command submit handlers ───────────────────────────────────────────────
+# ── Per-command submit handlers (compose extension) ──────────────────────────
 
 async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
     leave_type = data.get("leave_type", "Casual Leave")
@@ -223,13 +626,12 @@ async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
     return _task_message(answer)
 
 
-# Dispatch table — add new submit handlers here
 _SUBMIT_HANDLERS = {
     "applyLeave": _submit_apply_leave,
 }
 
 
-# ── Invoke orchestration ──────────────────────────────────────────────────────
+# ── Invoke orchestration (compose extension) ─────────────────────────────────
 
 async def _handle_fetch_task(turn_context, command_id: str) -> dict:
     email = await _get_user_email(turn_context)
@@ -261,7 +663,7 @@ async def _handle_submit_action(turn_context, command_id: str, data: dict) -> di
     return await handler(turn_context, data, email)
 
 
-# ── Bot endpoint ──────────────────────────────────────────────────────────────
+# ── Bot endpoint ─────────────────────────────────────────────────────────────
 
 @app.post("/api/messages")
 async def messages(req: Request):
@@ -278,34 +680,94 @@ async def messages(req: Request):
     async def turn_handler(turn_context):
         act = turn_context.activity
 
+        # ── Compose extension ─────────────────────────────────────────────
         if act.type == "invoke" and act.name == "composeExtension/fetchTask":
             command_id = (act.value or {}).get("commandId", "")
-            body = await _handle_fetch_task(turn_context, command_id)
+            resp = await _handle_fetch_task(turn_context, command_id)
             await turn_context.send_activity(Activity(
                 type="invokeResponse",
-                value=InvokeResponse(status=200, body=body),
+                value=InvokeResponse(status=200, body=resp),
             ))
             return
 
         if act.type == "invoke" and act.name == "composeExtension/submitAction":
             command_id = (act.value or {}).get("commandId", "")
             data       = (act.value or {}).get("data", {})
-            body = await _handle_submit_action(turn_context, command_id, data)
+            resp = await _handle_submit_action(turn_context, command_id, data)
             await turn_context.send_activity(Activity(
                 type="invokeResponse",
-                value=InvokeResponse(status=200, body=body),
+                value=InvokeResponse(status=200, body=resp),
             ))
             return
 
+        # ── Adaptive Card Action.Execute ──────────────────────────────────
+        if act.type == "invoke" and act.name == "adaptiveCard/action":
+            action = (act.value or {}).get("action", {}) or {}
+            verb   = action.get("verb", "")
+            data   = action.get("data", {}) or {}
+
+            if verb == "submit_status":
+                resp = await _handle_submit_status(turn_context, data)
+            elif verb == "show_options":
+                resp = await _handle_show_options(turn_context, data)
+            elif verb == "view_dashboard":
+                resp = await _handle_view_dashboard()
+            elif verb == "apply_leave":
+                resp = await _handle_apply_leave_action(turn_context, data)
+            elif verb == "filter_dashboard":
+                resp = await _handle_filter_dashboard(data)
+            else:
+                logger.warning("[bot] unknown adaptiveCard/action verb: %s", verb)
+                resp = _card_action_response({})
+
+            await turn_context.send_activity(Activity(
+                type="invokeResponse",
+                value=InvokeResponse(status=200, body=resp),
+            ))
+            return
+
+        # ── Chat messages ─────────────────────────────────────────────────
         if act.type != "message":
             return
 
-        await turn_context.send_activity(MessageFactory.text(
-            "Type **@HrOps Test** in the chat to access commands:\n\n"
-            "• **Balance** — Check your current leave balance\n"
-            "• **Apply Leave** — Submit a leave request\n"
-            "• **Attendance** — View today's team attendance"
-        ))
+        # Strip @mention tags Teams injects when the bot is mentioned
+        raw_text = act.text or ""
+        text = re.sub(r"<at>[^<]*</at>", "", raw_text).strip()
+
+        email = await _get_user_email(turn_context)
+        cmd   = text.split()[0].lower() if text else ""
+
+        if cmd in ("/balance", "balance"):
+            if not email or not is_pilot(email):
+                await turn_context.send_activity(MessageFactory.text(
+                    "This feature is coming soon to your account."
+                ))
+                return
+            await _handle_cmd_balance(turn_context, email)
+
+        elif cmd in ("/leave", "leave", "/applyleave", "applyleave"):
+            if not email or not is_pilot(email):
+                await turn_context.send_activity(MessageFactory.text(
+                    "This feature is coming soon to your account."
+                ))
+                return
+            await _handle_cmd_leave(turn_context, email)
+
+        elif cmd in ("/attendance", "attendance", "/dashboard", "dashboard"):
+            if not email or not is_pilot(email):
+                await turn_context.send_activity(MessageFactory.text(
+                    "This feature is coming soon to your account."
+                ))
+                return
+            await _handle_cmd_attendance(turn_context)
+
+        elif cmd in ("/help", "help"):
+            await _handle_cmd_help(turn_context)
+
+        else:
+            await turn_context.send_activity(
+                MessageFactory.attachment(CardFactory.adaptive_card(_build_help_card()))
+            )
 
     invoke_response = await adapter.process_activity(activity, auth_header, turn_handler)
 
@@ -318,13 +780,16 @@ async def messages(req: Request):
     return Response(status_code=201)
 
 
-# ── Policy Q&A ────────────────────────────────────────────────────────────────
+# ── Policy Q&A (AskCAI tab) ──────────────────────────────────────────────────
 
 @app.post("/ask")
 async def ask(req: Request):
-    body = await req.json()
+    body     = await req.json()
+    question = body.get("question", "")
+    email    = body.get("employee_email", "")
     return {"answer": await ask_policy_question(
-        body.get("question", ""),
+        question,
+        employee_email=email,
         policy_only=bool(body.get("policy_only", False)),
     )}
 
@@ -344,6 +809,20 @@ async def tab_askcai():
     r = FileResponse(os.path.join("static", "askcai.html"))
     r.headers["Content-Security-Policy"] = _TAB_CSP
     return r
+
+
+@app.get("/tabs/dashboard")
+async def tab_dashboard():
+    r = FileResponse(os.path.join("static", "dashboard.html"))
+    r.headers["Content-Security-Policy"] = _TAB_CSP
+    return r
+
+
+@app.get("/tabs/dashboard-data")
+async def dashboard_data():
+    records = get_today_all_records()
+    today   = datetime.now(IST).strftime("%Y-%m-%d")
+    return {"date": today, "records": records}
 
 
 if __name__ == "__main__":
