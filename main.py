@@ -19,7 +19,7 @@ from botbuilder.schema import Activity, InvokeResponse
 
 from features import surface_enabled, is_pilot, COMMAND_FLAGS
 from rag import ask_policy_question, _classify_intent
-from keka.mcp_agent import ask_keka_mcp
+from keka.leave_service import leave_service, SessionType, LeaveType, LeaveBalance
 from insync_db import (
     get_today_all_records,
     get_latest_records,
@@ -36,7 +36,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 APP_ID            = os.getenv("MicrosoftAppId")
 APP_PASSWORD      = os.getenv("MicrosoftAppPassword")
 TENANT_ID         = os.getenv("MicrosoftAppTenantId")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+_KEKA_EMAIL_OVERRIDE = os.getenv("KEKA_TEST_EMAIL", "")
 
 adapter = BotFrameworkAdapter(BotFrameworkAdapterSettings(
     app_id=APP_ID,
@@ -262,20 +262,44 @@ def _build_dashboard_card(records: list, today: str, name_query: str = "", statu
     }
 
 
-def _build_chat_leave_form(error: str = "") -> dict:
+def _build_balance_card(balances: list) -> dict:
+    facts = [
+        {"title": b.leave_type_name, "value": f"{b.available} days available (of {b.total})"}
+        for b in balances
+    ]
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [
+            {"type": "TextBlock", "text": "Your Leave Balance", "weight": "Bolder", "size": "Medium"},
+            {"type": "FactSet", "facts": facts},
+        ],
+    }
+
+
+def _build_chat_leave_form(leave_types: list, error: str = "") -> dict:
+    choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
+    default_id = leave_types[0].id if leave_types else ""
     body = [
         {
             "type": "Input.ChoiceSet",
-            "id": "leave_type",
+            "id": "leave_type_id",
             "label": "Leave Type",
             "style": "compact",
-            "value": "Casual Leave",
+            "value": default_id,
+            "choices": choices,
+        },
+        {
+            "type": "Input.ChoiceSet",
+            "id": "session_type",
+            "label": "Duration",
+            "style": "compact",
+            "value": "full_day",
             "choices": [
-                {"title": "Casual Leave",    "value": "Casual Leave"},
-                {"title": "Sick Leave",       "value": "Sick Leave"},
-                {"title": "Earned Leave",     "value": "Earned Leave"},
-                {"title": "Compensatory Off", "value": "Compensatory Off"},
-                {"title": "Loss of Pay",      "value": "Loss of Pay"},
+                {"title": "Full Day",    "value": "full_day"},
+                {"title": "First Half",  "value": "first_half"},
+                {"title": "Second Half", "value": "second_half"},
             ],
         },
         {"type": "Input.Date", "id": "from_date", "label": "From Date"},
@@ -366,8 +390,10 @@ def _task_message(text: str) -> dict:
     return {"task": {"type": "message", "value": text}}
 
 
-def _build_apply_leave_card() -> dict:
+def _build_apply_leave_card(leave_types: list) -> dict:
     """Apply leave card for the compose extension task module (uses Action.Submit)."""
+    choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
+    default_id = leave_types[0].id if leave_types else ""
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -375,16 +401,22 @@ def _build_apply_leave_card() -> dict:
         "body": [
             {
                 "type": "Input.ChoiceSet",
-                "id": "leave_type",
+                "id": "leave_type_id",
                 "label": "Leave Type",
                 "style": "compact",
-                "value": "Casual Leave",
+                "value": default_id,
+                "choices": choices,
+            },
+            {
+                "type": "Input.ChoiceSet",
+                "id": "session_type",
+                "label": "Duration",
+                "style": "compact",
+                "value": "full_day",
                 "choices": [
-                    {"title": "Casual Leave",    "value": "Casual Leave"},
-                    {"title": "Sick Leave",       "value": "Sick Leave"},
-                    {"title": "Earned Leave",     "value": "Earned Leave"},
-                    {"title": "Compensatory Off", "value": "Compensatory Off"},
-                    {"title": "Loss of Pay",      "value": "Loss of Pay"},
+                    {"title": "Full Day",    "value": "full_day"},
+                    {"title": "First Half",  "value": "first_half"},
+                    {"title": "Second Half", "value": "second_half"},
                 ],
             },
             {"type": "Input.Date", "id": "from_date", "label": "From Date"},
@@ -408,6 +440,11 @@ def _build_apply_leave_card() -> dict:
 
 
 # ── User email helper ────────────────────────────────────────────────────────
+
+def _leave_email(user_email: str) -> str:
+    """Return KEKA_TEST_EMAIL override if set, otherwise the real user email."""
+    return _KEKA_EMAIL_OVERRIDE or user_email
+
 
 async def _get_user_email(turn_context) -> str:
     try:
@@ -473,15 +510,20 @@ async def _handle_filter_dashboard(data: dict) -> dict:
 
 
 async def _handle_apply_leave_action(turn_context, data: dict) -> dict:
-    leave_type = data.get("leave_type") or "Casual Leave"
-    from_date  = data.get("from_date", "")
-    to_date    = data.get("to_date", "")
-    reason     = data.get("reason") or "Not specified"
+    leave_type_id = data.get("leave_type_id") or ""
+    from_date     = data.get("from_date", "")
+    to_date       = data.get("to_date", "")
+    session_type  = SessionType(data.get("session_type") or "full_day")
+    reason        = data.get("reason") or "Not specified"
 
     if not from_date or not to_date:
+        leave_types = await leave_service.get_leave_types()
         return _card_action_response(
-            _build_chat_leave_form(error="Please fill in both From and To dates.")
+            _build_chat_leave_form(leave_types, error="Please fill in both From and To dates.")
         )
+
+    if session_type != SessionType.FULL_DAY:
+        to_date = from_date
 
     email = await _get_user_email(turn_context)
     if not email:
@@ -489,30 +531,34 @@ async def _handle_apply_leave_action(turn_context, data: dict) -> dict:
             _build_text_card("Error", "Could not identify your account. Please contact IT.")
         )
 
-    answer = await ask_keka_mcp(
-        f"Apply {leave_type} for me from {from_date} to {to_date}. Reason: {reason}.",
-        email,
-        ANTHROPIC_API_KEY,
+    result = await leave_service.apply_leave(
+        _leave_email(email), leave_type_id, from_date, to_date, session_type, reason
     )
-    return _card_action_response(_build_text_card("Leave Application", answer))
+
+    if result.success:
+        return _card_action_response(
+            _build_text_card("Leave Applied", "Your leave request has been submitted successfully.")
+        )
+
+    leave_types = await leave_service.get_leave_types()
+    return _card_action_response(
+        _build_chat_leave_form(leave_types, error=result.message)
+    )
 
 
 # ── Chat command handlers ────────────────────────────────────────────────────
 
 async def _handle_cmd_balance(turn_context, email: str) -> None:
-    answer = await ask_keka_mcp(
-        "What is my current leave balance broken down by leave type?",
-        email,
-        ANTHROPIC_API_KEY,
-    )
+    balances = await leave_service.get_leave_balance(_leave_email(email))
     await turn_context.send_activity(
-        MessageFactory.attachment(CardFactory.adaptive_card(_build_text_card("Leave Balance", answer)))
+        MessageFactory.attachment(CardFactory.adaptive_card(_build_balance_card(balances)))
     )
 
 
 async def _handle_cmd_leave(turn_context, email: str) -> None:
+    leave_types = await leave_service.get_leave_types()
     await turn_context.send_activity(
-        MessageFactory.attachment(CardFactory.adaptive_card(_build_chat_leave_form()))
+        MessageFactory.attachment(CardFactory.adaptive_card(_build_chat_leave_form(leave_types)))
     )
 
 
@@ -537,25 +583,13 @@ async def _handle_cmd_help(turn_context) -> None:
 # ── Per-command fetch handlers (compose extension) ───────────────────────────
 
 async def _fetch_balance(turn_context, email: str) -> dict:
-    answer = await ask_keka_mcp(
-        "What is my current leave balance broken down by leave type?",
-        email,
-        ANTHROPIC_API_KEY,
-    )
-    card = {
-        "type": "AdaptiveCard",
-        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-        "version": "1.4",
-        "body": [
-            {"type": "TextBlock", "text": "Your Leave Balance", "size": "Medium", "weight": "Bolder"},
-            {"type": "TextBlock", "text": answer, "wrap": True},
-        ],
-    }
-    return _task_continue("Leave Balance", card)
+    balances = await leave_service.get_leave_balance(_leave_email(email))
+    return _task_continue("Leave Balance", _build_balance_card(balances))
 
 
 async def _fetch_apply_leave(turn_context, email: str) -> dict:
-    return _task_continue("Apply for Leave", _build_apply_leave_card())
+    leave_types = await leave_service.get_leave_types()
+    return _task_continue("Apply for Leave", _build_apply_leave_card(leave_types))
 
 
 async def _fetch_attendance(turn_context, email: str) -> dict:
@@ -604,13 +638,15 @@ _FETCH_HANDLERS = {
 # ── Per-command submit handlers (compose extension) ──────────────────────────
 
 async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
-    leave_type = data.get("leave_type", "Casual Leave")
-    from_date  = data.get("from_date", "")
-    to_date    = data.get("to_date",   "")
-    reason     = data.get("reason") or "Not specified"
+    leave_type_id = data.get("leave_type_id") or ""
+    from_date     = data.get("from_date", "")
+    to_date       = data.get("to_date", "")
+    session_type  = SessionType(data.get("session_type") or "full_day")
+    reason        = data.get("reason") or "Not specified"
 
     if not from_date or not to_date:
-        card = _build_apply_leave_card()
+        leave_types = await leave_service.get_leave_types()
+        card = _build_apply_leave_card(leave_types)
         card["body"].insert(0, {
             "type": "TextBlock",
             "text": "Please fill in both From and To dates.",
@@ -619,12 +655,24 @@ async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
         })
         return _task_continue("Apply for Leave", card)
 
-    answer = await ask_keka_mcp(
-        f"Apply {leave_type} for me from {from_date} to {to_date}. Reason: {reason}.",
-        email,
-        ANTHROPIC_API_KEY,
+    if session_type != SessionType.FULL_DAY:
+        to_date = from_date
+
+    result = await leave_service.apply_leave(
+        _leave_email(email), leave_type_id, from_date, to_date, session_type, reason
     )
-    return _task_message(answer)
+    if result.success:
+        return _task_message("Your leave request has been submitted successfully.")
+
+    leave_types = await leave_service.get_leave_types()
+    card = _build_apply_leave_card(leave_types)
+    card["body"].insert(0, {
+        "type": "TextBlock",
+        "text": result.message,
+        "color": "Attention",
+        "wrap": True,
+    })
+    return _task_continue("Apply for Leave", card)
 
 
 _SUBMIT_HANDLERS = {
