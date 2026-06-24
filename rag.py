@@ -132,13 +132,14 @@ def search_documents(query: str):
 # =========================
 def _classify_intent(question: str) -> str:
     """
-    Classify intent into one of four categories:
-      - 'greeting'    : casual small talk
+    Classify intent into one of five categories:
+      - 'greeting'     : casual small talk
       - 'list_policies': user wants to see all available policies
-      - 'hr_action'   : live HRMS action (leave balance, apply/view/cancel leave)
-      - 'rag'         : policy knowledge question
+      - 'hr_action'    : live HRMS action (leave balance, apply/view/cancel leave)
+      - 'rag'          : policy knowledge question
+      - 'other'        : off-topic, gibberish, slogans, or anything unrelated to HR/policies
 
-    Falls back to 'rag' on any error.
+    Falls back to 'other' on any error.
     """
     try:
         response = _get_anthropic_client().messages.create(
@@ -159,9 +160,13 @@ def _classify_intent(question: str) -> str:
                     "applying/cancelling leave, viewing leave requests or history "
                     "(e.g. 'what is my leave balance', 'apply casual leave from June 10 to 12', "
                     "'show my leaves', 'cancel my leave')\n"
-                    "- \"rag\" — a knowledge question about policy rules, eligibility, or entitlements "
-                    "(e.g. 'what is the leave policy', 'how many sick days am I entitled to', "
-                    "'tell me about travel policy')\n\n"
+                    "- \"rag\" — a genuine question about Caizin company policy rules, eligibility, "
+                    "or entitlements (e.g. 'what is the leave policy', 'how many sick days am I entitled to', "
+                    "'tell me about travel policy')\n"
+                    "- \"other\" — anything that does not fit the above: random text, gibberish, "
+                    "political slogans, non-English phrases unrelated to HR, jokes, or any message "
+                    "that has nothing to do with company policies or HR actions "
+                    "(e.g. 'lets make america great again', 'ab ki baar modi sarkaar', 'dbAKJ')\n\n"
                     "IMPORTANT: If the message contains BOTH a greeting AND a policy question "
                     "classify as the non-greeting category.\n\n"
                     f"Message: {question}\n\n"
@@ -170,10 +175,10 @@ def _classify_intent(question: str) -> str:
             }],
         )
         intent = next((b.text for b in response.content if b.type == "text"), "").strip().lower()
-        return intent if intent in ("greeting", "list_policies", "hr_action", "rag") else "rag"
+        return intent if intent in ("greeting", "list_policies", "hr_action", "rag", "other") else "other"
     except Exception as e:
-        print(f"[intent] classifier failed, defaulting to rag: {e}")
-        return "rag"
+        print(f"[intent] classifier failed, defaulting to other: {e}")
+        return "other"
 
 
 # =========================
@@ -325,15 +330,24 @@ async def ask_policy_question(question: str, employee_email: str = "", policy_on
     if intent == "greeting":
         return "Hi there! 👋 How can I help you today?", intent
 
-    # 2. List all policies
+    # 2. Off-topic / gibberish — short-circuit before RAG
+    if intent == "other":
+        return (
+            "I can only answer questions about Caizin's company policies — "
+            "such as leave, travel expenses, fitness reimbursement, POSH, or anti-bribery. "
+            "Please try asking a policy-related question.",
+            intent,
+        )
+
+    # 3. List all policies
     if intent == "list_policies":
         return list_all_policies(), intent
 
-    # 3. Live HR action — skip when policy_only=True (AskCAI tab serves policy docs only)
+    # 4. Live HR action — skip when policy_only=True (AskCAI tab serves policy docs only)
     if intent == "hr_action" and not policy_only:
         return await ask_keka_mcp(question, employee_email, _get_anthropic_api_key()), intent
 
-    # 4. RAG pipeline — policy knowledge question
+    # 5. RAG pipeline — policy knowledge question
     docs, all_sources, chunk_sources = search_documents(question)
     answer, used_policies = generate_answer(question, docs, chunk_sources)
 
