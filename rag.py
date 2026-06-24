@@ -149,8 +149,10 @@ def _classify_intent(question: str) -> str:
                 "role": "user",
                 "content": (
                     "Classify the message below into exactly one category:\n"
-                    "- \"greeting\" — casual greeting or small talk with no policy question "
-                    "(e.g. hi, hello, good morning, thanks, bye)\n"
+                    "- \"greeting\" — a message that is ONLY a greeting or farewell with zero other content "
+                    "(e.g. hi, hello, hey, good morning, thanks, bye, good night). "
+                    "Do NOT classify as greeting if the message contains any question, statement, "
+                    "opinion, slogan, or non-greeting content, even if it is short or casual.\n"
                     "- \"list_policies\" — user wants to see all or available company policies "
                     "(e.g. list all policies, what policies do you have, show me all docs)\n"
                     "- \"hr_action\" — a live HR system action: checking leave balance, "
@@ -321,7 +323,7 @@ async def ask_policy_question(question: str, employee_email: str = "", policy_on
 
     # 1. Greeting
     if intent == "greeting":
-        return "Good day! 👋 How can I help you with Caizin's policies today?", intent
+        return "Hi there! 👋 How can I help you today?", intent
 
     # 2. List all policies
     if intent == "list_policies":
@@ -358,8 +360,7 @@ async def ask_policy_question(question: str, employee_email: str = "", policy_on
         policy_name, policy_url = first_policy
         answer += (
             "\n\n---\n"
-            f"📎 View Full Policy:\n"
-           f"- {policy_name}: {policy_url}\n"
+            f"📎 **View Full Policy:** [{policy_name}]({policy_url})\n"
         )
 
     if is_policy_answer:
