@@ -107,11 +107,12 @@ class KekaLeaveService:
         data = resp.json().get("data", [])
         return [LeaveType(id=lt["identifier"], name=lt["name"]) for lt in data]
 
-    async def get_leave_balance(self, email: str) -> list:
+    async def get_leave_balance(self, email: str) -> tuple:
+        """Returns (employee_name, list[LeaveBalance])."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self._sync_get_leave_balance, email)
 
-    def _sync_get_leave_balance(self, email: str) -> list:
+    def _sync_get_leave_balance(self, email: str) -> tuple:
         emp_id = _resolve_employee_id(email)
         resp = requests.get(
             f"{KEKA_BASE_URL}/time/leavebalance",
@@ -123,9 +124,10 @@ class KekaLeaveService:
             raise KekaServiceError(f"Keka leave balance fetch failed: {resp.status_code}")
         data = resp.json().get("data", [])
         if not data:
-            return []
+            return ("", [])
         rec = data[0]
-        return [
+        employee_name = rec.get("employeeName", "")
+        balances = [
             LeaveBalance(
                 leave_type_name=lb.get("leaveTypeName", ""),
                 leave_type_id=lb.get("leaveTypeId", ""),
@@ -135,6 +137,7 @@ class KekaLeaveService:
             )
             for lb in rec.get("leaveBalance", [])
         ]
+        return (employee_name, balances)
 
     async def apply_leave(
         self,

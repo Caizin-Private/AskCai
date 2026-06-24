@@ -36,7 +36,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 APP_ID            = os.getenv("MicrosoftAppId")
 APP_PASSWORD      = os.getenv("MicrosoftAppPassword")
 TENANT_ID         = os.getenv("MicrosoftAppTenantId")
-_KEKA_EMAIL_OVERRIDE = os.getenv("KEKA_TEST_EMAIL", "")
+_KEKA_EMAIL_OVERRIDE = "recruiter@caizin.com"
 
 adapter = BotFrameworkAdapter(BotFrameworkAdapterSettings(
     app_id=APP_ID,
@@ -262,19 +262,56 @@ def _build_dashboard_card(records: list, today: str, name_query: str = "", statu
     }
 
 
-def _build_balance_card(balances: list) -> dict:
-    facts = [
-        {"title": b.leave_type_name, "value": f"{b.available} days available (of {b.total})"}
-        for b in balances
+def _fmt_days(n: float) -> str:
+    return str(int(n)) if n == int(n) else str(n)
+
+
+def _build_balance_card(employee_name: str, email: str, balances: list) -> dict:
+    def _col(text, width, color=None, bold=False, align="Left"):
+        tb = {"type": "TextBlock", "text": text, "size": "Small", "wrap": False,
+              "horizontalAlignment": align}
+        if bold:
+            tb["weight"] = "Bolder"
+        if color:
+            tb["color"] = color
+        return {"type": "Column", "width": width, "items": [tb]}
+
+    header_row = {
+        "type": "ColumnSet", "separator": True, "spacing": "Small",
+        "columns": [
+            _col("Leave Type", "stretch", bold=True),
+            _col("Accrued", "80px", bold=True, align="Center"),
+            _col("Used",    "60px", bold=True, align="Center"),
+            _col("Available","80px", bold=True, align="Center"),
+        ],
+    }
+
+    rows = []
+    for b in balances:
+        avail_color = "Good" if b.available > 0 else "Default"
+        rows.append({
+            "type": "ColumnSet", "spacing": "Small",
+            "columns": [
+                _col(b.leave_type_name,       "stretch"),
+                _col(_fmt_days(b.total),       "80px", align="Center"),
+                _col(_fmt_days(b.used),        "60px", align="Center"),
+                _col(_fmt_days(b.available),   "80px", color=avail_color, align="Center"),
+            ],
+        })
+
+    body = [
+        {"type": "TextBlock", "text": "Leave Balance", "weight": "Bolder", "size": "Large"},
+        {"type": "TextBlock", "text": f"{employee_name}  ·  {email}",
+         "isSubtle": True, "size": "Small", "spacing": "None"},
+        header_row,
+        *rows,
     ]
+
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
-        "body": [
-            {"type": "TextBlock", "text": "Your Leave Balance", "weight": "Bolder", "size": "Medium"},
-            {"type": "FactSet", "facts": facts},
-        ],
+        "body": body,
     }
 
 
@@ -549,9 +586,11 @@ async def _handle_apply_leave_action(turn_context, data: dict) -> dict:
 # ── Chat command handlers ────────────────────────────────────────────────────
 
 async def _handle_cmd_balance(turn_context, email: str) -> None:
-    balances = await leave_service.get_leave_balance(_leave_email(email))
+    emp_name, balances = await leave_service.get_leave_balance(_leave_email(email))
     await turn_context.send_activity(
-        MessageFactory.attachment(CardFactory.adaptive_card(_build_balance_card(balances)))
+        MessageFactory.attachment(CardFactory.adaptive_card(
+            _build_balance_card(emp_name, _leave_email(email), balances)
+        ))
     )
 
 
@@ -583,8 +622,8 @@ async def _handle_cmd_help(turn_context) -> None:
 # ── Per-command fetch handlers (compose extension) ───────────────────────────
 
 async def _fetch_balance(turn_context, email: str) -> dict:
-    balances = await leave_service.get_leave_balance(_leave_email(email))
-    return _task_continue("Leave Balance", _build_balance_card(balances))
+    emp_name, balances = await leave_service.get_leave_balance(_leave_email(email))
+    return _task_continue("Leave Balance", _build_balance_card(emp_name, _leave_email(email), balances))
 
 
 async def _fetch_apply_leave(turn_context, email: str) -> dict:

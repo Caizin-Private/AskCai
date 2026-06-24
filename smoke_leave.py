@@ -22,12 +22,12 @@ async def main():
 
     print("\n=== Leave Balance ===")
     try:
-        balances = await leave_service.get_leave_balance(TEST_EMAIL)
-        if balances:
-            for b in balances:
-                print(f"  {b.leave_type_name}: {b.available} available / {b.total} accrued (used: {b.used})")
-        else:
-            print("  No balance records returned")
+        emp_name, balances = await leave_service.get_leave_balance(TEST_EMAIL)
+        print(f"  {emp_name}  ({TEST_EMAIL})")
+        print(f"  {'Leave Type':<28} {'Accrued':>8} {'Used':>6} {'Available':>10}")
+        print(f"  {'-'*56}")
+        for b in balances:
+            print(f"  {b.leave_type_name:<28} {b.total:>8.1f} {b.used:>6.1f} {b.available:>10.1f}")
     except Exception as e:
         print(f"  ERROR: {e}")
 
