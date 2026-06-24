@@ -1,6 +1,7 @@
 import logging
 import os
 import json
+import re
 import anthropic
 from dotenv import load_dotenv
 from openai import AzureOpenAI
@@ -207,10 +208,16 @@ def extract_leave_request(text: str, today: str) -> dict | None:
             }],
         )
         raw = next((b.text for b in response.content if b.type == "text"), "").strip()
+        # strip markdown code fences if the model wrapped the JSON
+        if raw.startswith("```"):
+            raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
+        logger.info("[extract_leave_request] raw=%s", raw)
         data = json.loads(raw)
-        return data if data.get("action") else None
+        action = data.get("action")
+        logger.info("[extract_leave_request] action=%s", action)
+        return data if action else None
     except Exception as e:
-        logger.debug("[extract_leave_request] failed: %s", e)
+        logger.info("[extract_leave_request] failed: %s", e)
         return None
 
 
