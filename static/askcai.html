@@ -398,6 +398,9 @@
       text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
       // *italic*
       text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
+      // [text](url)
+      text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--brand)">$1</a>');
       return text;
     }
 
@@ -545,9 +548,6 @@
         typingRow.remove();
         var answer = data.answer || "Sorry, I couldn't find an answer to that.";
         appendBot(mdToHtml(answer));
-        if (/^good day!/i.test(answer.trim())) {
-          addTopicPicker();
-        }
       })
       .catch(function() {
         typingRow.remove();
@@ -574,7 +574,6 @@
     function showChat() {
       document.getElementById("chat-view").style.display = "flex";
       document.getElementById("gate-view").style.display = "none";
-      addGreeting();
       document.getElementById("q-input").focus();
     }
     function showGate() {
