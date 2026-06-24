@@ -849,7 +849,7 @@ async def messages(req: Request):
             await _handle_cmd_help(turn_context)
 
         else:
-            answer = await ask_policy_question(
+            answer, _ = await ask_policy_question(
                 text,
                 employee_email=email,
                 policy_only=True,
@@ -876,11 +876,12 @@ async def ask(req: Request):
     body     = await req.json()
     question = body.get("question", "")
     email    = body.get("employee_email", "")
-    return {"answer": await ask_policy_question(
+    answer, intent = await ask_policy_question(
         question,
         employee_email=email,
         policy_only=bool(body.get("policy_only", False)),
-    )}
+    )
+    return {"answer": answer, "intent": intent}
 
 
 # ── Tab endpoints ─────────────────────────────────────────────────────────────

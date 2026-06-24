@@ -524,6 +524,9 @@
         typingRow.remove();
         var answer = data.answer || "Sorry, I couldn't find an answer to that.";
         appendBot(mdToHtml(answer));
+        if (data.intent === "greeting") {
+          addTopicPicker();
+        }
       })
       .catch(function() {
         typingRow.remove();
