@@ -852,7 +852,7 @@ async def messages(req: Request):
             answer = await ask_policy_question(
                 text,
                 employee_email=email,
-                policy_only=False,
+                policy_only=True,
             )
             await turn_context.send_activity(
                 MessageFactory.attachment(CardFactory.adaptive_card(_build_text_card("", answer)))
