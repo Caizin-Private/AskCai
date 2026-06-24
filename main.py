@@ -22,6 +22,7 @@ from rag import ask_policy_question, _classify_intent
 from keka.mcp_agent import ask_keka_mcp
 from insync_db import (
     get_today_all_records,
+    get_latest_records,
     record_attendance_response,
 )
 
@@ -822,11 +823,17 @@ async def tab_dashboard():
     return r
 
 
+@app.get("/tabs/people-pulse")
+async def tab_people_pulse():
+    r = FileResponse(os.path.join("static", "dashboard.html"))
+    r.headers["Content-Security-Policy"] = _TAB_CSP
+    return r
+
+
 @app.get("/tabs/dashboard-data")
 async def dashboard_data():
-    records = get_today_all_records()
-    today   = datetime.now(IST).strftime("%Y-%m-%d")
-    return {"date": today, "records": records}
+    records, date = get_latest_records()
+    return {"date": date, "records": records}
 
 
 if __name__ == "__main__":

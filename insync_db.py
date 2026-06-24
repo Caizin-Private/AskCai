@@ -81,6 +81,29 @@ def _bucket(status: str, employee_response: Optional[str]) -> str:
     return "Pending"
 
 
+def _get_records_for_date(date: str) -> list:
+    """Fetch attendance rows for a specific date. Returns [{name, bucket, response_time}]."""
+    conn = _get_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT e.name, a.status, a.employee_response, a.response_time
+              FROM attendance a
+              JOIN employees e ON a.employee_id = e.employee_id
+             WHERE a.date = %s AND e.is_active = 'active'
+             ORDER BY e.name
+            """,
+            (date,),
+        )
+        rows = cur.fetchall()
+    result = []
+    for row in rows:
+        bkt = _bucket(row["status"], row["employee_response"])
+        rt  = str(row["response_time"]) if row["response_time"] else None
+        result.append({"name": row["name"], "bucket": bkt, "response_time": rt})
+    return result
+
+
 def get_today_all_records() -> list:
     """
     All active employees' attendance for today from the tracker RDS.
@@ -88,30 +111,42 @@ def get_today_all_records() -> list:
     """
     today = datetime.now(IST).strftime("%Y-%m-%d")
     try:
-        conn = _get_conn()
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT e.name, a.status, a.employee_response, a.response_time
-                  FROM attendance a
-                  JOIN employees e ON a.employee_id = e.employee_id
-                 WHERE a.date = %s AND e.is_active = 'active'
-                 ORDER BY e.name
-                """,
-                (today,),
-            )
-            rows = cur.fetchall()
-
-        result = []
-        for row in rows:
-            bkt = _bucket(row["status"], row["employee_response"])
-            rt  = str(row["response_time"]) if row["response_time"] else None
-            result.append({"name": row["name"], "bucket": bkt, "response_time": rt})
-        return result
-
+        return _get_records_for_date(today)
     except Exception as exc:
         logger.error("[InSyncDB] get_today_all_records: %s", exc)
         return []
+
+
+def get_latest_records() -> tuple[list, str]:
+    """
+    Returns attendance records for today if data exists, otherwise for the most
+    recent date that has records. Falls back to empty list if no data at all.
+    Returns: (records, date_str)
+    """
+    today = datetime.now(IST).strftime("%Y-%m-%d")
+    try:
+        conn = _get_conn()
+        rows = _get_records_for_date(today)
+        if rows:
+            return rows, today
+
+        # No data today — find the latest date that has any rows
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT MAX(date) FROM attendance WHERE date < %s",
+                (today,),
+            )
+            row = cur.fetchone()
+        latest = str(row[0]) if row and row[0] else None
+        if not latest:
+            return [], today
+
+        rows = _get_records_for_date(latest)
+        return rows, latest
+
+    except Exception as exc:
+        logger.error("[InSyncDB] get_latest_records: %s", exc)
+        return [], today
 
 
 def get_employee_by_email(email: str) -> dict | None:
