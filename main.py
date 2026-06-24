@@ -258,7 +258,7 @@ def _build_dashboard_card(records: list, today: str, name_query: str = "", statu
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
         "body": body,
-        "actions": [{"type": "Action.Execute", "title": "Search", "verb": "filter_dashboard"}],
+        "actions": [{"type": "Action.Submit", "title": "Search"}],
     }
 
 
@@ -559,8 +559,7 @@ async def _fetch_apply_leave(turn_context, email: str) -> dict:
 
 
 async def _fetch_attendance(turn_context, email: str) -> dict:
-    records = get_today_all_records()
-    today   = datetime.now(IST).strftime("%Y-%m-%d")
+    records, today = get_latest_records()
     if not records:
         card = {
             "type": "AdaptiveCard",
@@ -633,8 +632,28 @@ async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
     return _task_message(answer)
 
 
+async def _submit_dashboard(turn_context, data: dict, email: str) -> dict:
+    name_query    = (data.get("name_query") or "").strip()
+    status_filter = data.get("status_filter") or "all"
+    records, today = get_latest_records()
+    if not records:
+        card = {
+            "type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.4",
+            "body": [{"type": "TextBlock", "text": "No attendance data for today yet.", "wrap": True, "isSubtle": True}],
+        }
+        return _task_continue("Attendance Dashboard", card)
+    return _task_continue(
+        "Attendance Dashboard",
+        _build_dashboard_card(records, today, name_query, status_filter),
+        height="large", width="large",
+    )
+
+
 _SUBMIT_HANDLERS = {
     "applyLeave": _submit_apply_leave,
+    "dashboard":  _submit_dashboard,
 }
 
 
