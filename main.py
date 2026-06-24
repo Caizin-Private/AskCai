@@ -561,7 +561,13 @@ async def _fetch_attendance(turn_context, email: str) -> dict:
     records = get_today_all_records()
     today   = datetime.now(IST).strftime("%Y-%m-%d")
     if not records:
-        return _task_message("No attendance records found for today.")
+        card = {
+            "type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.4",
+            "body": [{"type": "TextBlock", "text": "No attendance data for today yet.", "wrap": True, "isSubtle": True}],
+        }
+        return _task_continue("Attendance Dashboard", card)
     return _task_continue("Attendance Dashboard", _build_dashboard_card(records, today), height="large", width="large")
 
 

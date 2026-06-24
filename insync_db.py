@@ -29,6 +29,7 @@ _TRACKER_CFG = {
     "user":            os.getenv("TRACKER_DB_USER", ""),
     "password":        os.getenv("TRACKER_DB_PASSWORD", ""),
     "connect_timeout": 5,
+    "options":         "-c statement_timeout=5000",
     "sslmode":         "prefer",
 }
 
