@@ -80,7 +80,9 @@ def post_leave_request(payload: dict) -> dict:
 
     if resp.status_code >= 400:
         try:
-            message = resp.json().get("message") or resp.text
+            body = resp.json()
+            errors = body.get("errors") or []
+            message = errors[0] if errors else (body.get("message") or resp.text)
         except Exception:
             message = resp.text
         return {"ok": False, "message": message}
