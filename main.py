@@ -386,7 +386,6 @@ def _build_help_card(header: str = "") -> dict:
         {"type": "FactSet", "facts": [
             {"title": "/balance",    "value": "Check your leave balance"},
             {"title": "/leave",      "value": "Apply for leave"},
-            {"title": "/dashboard",  "value": "View team attendance dashboard"},
             {"title": "/help",       "value": "Show this help"},
         ]},
         {
@@ -868,13 +867,16 @@ async def messages(req: Request):
                 return
             await _handle_cmd_leave(turn_context, email)
 
-        elif cmd in ("/attendance", "attendance", "/dashboard", "dashboard"):
+        elif cmd in ("/attendance", "attendance"):
             if not email or not is_pilot(email):
                 await turn_context.send_activity(MessageFactory.text(
                     "This feature is coming soon to your account."
                 ))
                 return
             await _handle_cmd_attendance(turn_context)
+
+        elif cmd in ("/dashboard", "dashboard"):
+            await _handle_cmd_help(turn_context)
 
         elif cmd in ("/help", "help"):
             await _handle_cmd_help(turn_context)
@@ -917,7 +919,7 @@ async def messages(req: Request):
                 await turn_context.send_activity(
                     MessageFactory.attachment(CardFactory.adaptive_card(
                         _build_help_card(
-                            header="This chat supports **attendance and leave** only. "
+                            header="This chat supports **work location and leave** only. "
                                    "For policy questions, please use the **AskCAI** tab."
                         )
                     ))
