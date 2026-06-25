@@ -6,7 +6,7 @@ load_dotenv()
 
 from keka.leave_service import leave_service
 
-TEST_EMAIL = os.getenv("KEKA_TEST_EMAIL", "rohan.lande@caizin.com")
+TEST_EMAIL = os.getenv("KEKA_TEST_EMAIL", "recruiter@caizin.com")
 
 
 async def main():
@@ -20,14 +20,15 @@ async def main():
     except Exception as e:
         print(f"  ERROR: {e}")
 
-    print("\n=== Leave Balance ===")
+    print("\n=== Leave Balance (filtered) ===")
     try:
         emp_name, balances = await leave_service.get_leave_balance(TEST_EMAIL)
         print(f"  {emp_name}  ({TEST_EMAIL})")
-        print(f"  {'Leave Type':<28} {'Accrued':>8} {'Used':>6} {'Available':>10}")
-        print(f"  {'-'*56}")
+        print(f"  {'Leave Type':<30} {'Accrued':>8} {'Used':>6} {'Available':>10}")
+        print(f"  {'-'*58}")
         for b in balances:
-            print(f"  {b.leave_type_name:<28} {b.total:>8.1f} {b.used:>6.1f} {b.available:>10.1f}")
+            print(f"  {b.leave_type_name:<30} {b.total:>8.1f} {b.used:>6.1f} {b.available:>10.1f}")
+        print(f"\n  Total leave types shown: {len(balances)}")
     except Exception as e:
         print(f"  ERROR: {e}")
 

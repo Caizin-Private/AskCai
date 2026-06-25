@@ -57,17 +57,26 @@ class KekaLeaveService:
         if not rec:
             return ("", [])
 
+        valid_names = {lt["name"].lower() for lt in fetch_leave_types()}
+
         employee_name = rec.get("employeeName", "")
-        balances = [
-            LeaveBalance(
-                leave_type_name=lb.get("leaveTypeName", ""),
+        balances = []
+        for lb in rec.get("leaveBalance", []):
+            name = lb.get("leaveTypeName", "")
+            if name.lower() not in valid_names:
+                continue
+            total     = float(lb.get("accruedAmount", 0))
+            used      = float(lb.get("consumedAmount", 0))
+            available = float(lb.get("availableBalance", 0))
+            if total == 0 and used == 0 and available == 0:
+                continue
+            balances.append(LeaveBalance(
+                leave_type_name=name,
                 leave_type_id=lb.get("leaveTypeId", ""),
-                total=float(lb.get("accruedAmount", 0)),
-                used=float(lb.get("consumedAmount", 0)),
-                available=float(lb.get("availableBalance", 0)),
-            )
-            for lb in rec.get("leaveBalance", [])
-        ]
+                total=total,
+                used=used,
+                available=available,
+            ))
         return (employee_name, balances)
 
     async def apply_leave(
