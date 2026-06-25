@@ -377,7 +377,7 @@ def _build_text_card(title: str, text: str) -> dict:
     }
 
 
-def _build_help_card(header: str = "") -> dict:
+def _build_help_card(header: str = "", footer: str = "") -> dict:
     body = []
     if header:
         body.append({"type": "TextBlock", "text": header, "wrap": True, "spacing": "None"})
@@ -390,7 +390,7 @@ def _build_help_card(header: str = "") -> dict:
         ]},
         {
             "type": "TextBlock",
-            "text": "For policy questions, switch to the **AskCAI** tab.",
+            "text": footer or "For policy questions, switch to the **AskCAI** tab.",
             "wrap": True,
             "isSubtle": True,
             "spacing": "Medium",
@@ -876,7 +876,11 @@ async def messages(req: Request):
             await _handle_cmd_attendance(turn_context)
 
         elif cmd in ("/dashboard", "dashboard"):
-            await _handle_cmd_help(turn_context)
+            await turn_context.send_activity(
+                MessageFactory.attachment(CardFactory.adaptive_card(
+                    _build_help_card(footer="To view your colleagues' work locations, check the **People Pulse** tab.")
+                ))
+            )
 
         elif cmd in ("/help", "help"):
             await _handle_cmd_help(turn_context)
