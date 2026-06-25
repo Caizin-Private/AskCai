@@ -177,8 +177,8 @@ def _classify_intent(question: str) -> str:
         intent = next((b.text for b in response.content if b.type == "text"), "").strip().lower()
         return intent if intent in ("greeting", "list_policies", "hr_action", "rag", "other") else "other"
     except Exception as e:
-        print(f"[intent] classifier failed, defaulting to other: {e}")
-        return "other"
+        print(f"[intent] classifier failed, defaulting to rag: {e}")
+        return "rag"
 
 
 # =========================

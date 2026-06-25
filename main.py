@@ -572,6 +572,12 @@ async def _handle_apply_leave_action(turn_context, data: dict) -> dict:
             _build_chat_leave_form(leave_types, error="Please fill in both From and To dates.")
         )
 
+    if datetime.strptime(to_date, "%Y-%m-%d") < datetime.strptime(from_date, "%Y-%m-%d"):
+        leave_types = await leave_service.get_leave_types()
+        return _card_action_response(
+            _build_chat_leave_form(leave_types, error="To Date cannot be earlier than From Date.")
+        )
+
     if session_type != SessionType.FULL_DAY:
         to_date = from_date
 
@@ -696,39 +702,43 @@ async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
     session_type  = SessionType(data.get("session_type") or "full_day")
     reason        = data.get("reason") or "Not specified"
 
+    error = None
     if not from_date or not to_date:
+        error = "Please fill in both From and To dates."
+    elif datetime.strptime(to_date, "%Y-%m-%d") < datetime.strptime(from_date, "%Y-%m-%d"):
+        error = "To Date cannot be earlier than From Date."
+
+    if error:
         leave_types = await leave_service.get_leave_types()
         card = _build_apply_leave_card(leave_types)
-        card["body"].insert(0, {
-            "type": "TextBlock",
-            "text": "Please fill in both From and To dates.",
-            "color": "Attention",
-            "wrap": True,
-        })
+        card["body"].insert(0, {"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
         return _task_continue("Apply for Leave", card)
 
     if session_type != SessionType.FULL_DAY:
         to_date = from_date
 
-    result = await leave_service.apply_leave(
-        _leave_email(email), leave_type_id, from_date, to_date, session_type, reason
-    )
+    try:
+        result = await leave_service.apply_leave(
+            _leave_email(email), leave_type_id, from_date, to_date, session_type, reason
+        )
+    except Exception as exc:
+        logger.error("[apply_leave] service error: %s", exc, exc_info=True)
+        leave_types = await leave_service.get_leave_types()
+        card = _build_apply_leave_card(leave_types)
+        card["body"].insert(0, {"type": "TextBlock", "text": f"Could not submit leave: {exc}", "color": "Attention", "wrap": True})
+        return _task_continue("Apply for Leave", card)
+
     if result.success:
         return _task_message("Your leave request has been submitted successfully.")
 
     leave_types = await leave_service.get_leave_types()
     card = _build_apply_leave_card(leave_types)
-    card["body"].insert(0, {
-        "type": "TextBlock",
-        "text": result.message,
-        "color": "Attention",
-        "wrap": True,
-    })
+    card["body"].insert(0, {"type": "TextBlock", "text": result.message, "color": "Attention", "wrap": True})
     return _task_continue("Apply for Leave", card)
 
 
 _SUBMIT_HANDLERS = {
-    "applyLeave": _submit_apply_leave,
+    "leave": _submit_apply_leave,
 }
 
 
