@@ -852,17 +852,17 @@ async def messages(req: Request):
         cmd   = text.split()[0].lower() if text else ""
 
         if cmd in ("/balance", "balance"):
-            if not email or not is_pilot(email):
+            if not email or not surface_enabled("leave_management", email):
                 await turn_context.send_activity(MessageFactory.text(
-                    "This feature is coming soon to your account."
+                    "This feature is not enabled for your account."
                 ))
                 return
             await _handle_cmd_balance(turn_context, email)
 
         elif cmd in ("/leave", "leave", "/applyleave", "applyleave"):
-            if not email or not is_pilot(email):
+            if not email or not surface_enabled("leave_management", email):
                 await turn_context.send_activity(MessageFactory.text(
-                    "This feature is coming soon to your account."
+                    "This feature is not enabled for your account."
                 ))
                 return
             await _handle_cmd_leave(turn_context, email)
@@ -887,7 +887,7 @@ async def messages(req: Request):
 
         else:
             _LEAVE_KEYWORDS = ("leave", "apply", "off", "balance", "vacation", "sick", "casual", "annual", "holiday")
-            if email and is_pilot(email) and any(kw in text.lower() for kw in _LEAVE_KEYWORDS):
+            if email and surface_enabled("leave_management", email) and any(kw in text.lower() for kw in _LEAVE_KEYWORDS):
                 today_str  = datetime.now(IST).strftime("%Y-%m-%d")
                 leave_types = await leave_service.get_leave_types()
                 lt_names    = [lt.name for lt in leave_types]

@@ -14,15 +14,16 @@ PILOT_ALLOWLIST = (
 
 # Surface flags — set FEATURE_<FLAG_UPPER>=0 to disable for all users
 _FLAGS = {
-    "attendance_card": True,
-    "askcai_tab":      True,
+    "attendance_card":  True,
+    "askcai_tab":       True,
+    "leave_management": True,   # gates apply-leave and get-balance; set FEATURE_LEAVE_MANAGEMENT=0 to disable
 }
 
 # Maps each compose-extension command to its surface flag.
 # Commands not listed here are always available (e.g. help).
 COMMAND_FLAGS = {
-    "balance": "attendance_card",
-    "leave":   "attendance_card",
+    "balance": "leave_management",
+    "leave":   "leave_management",
 }
 
 
