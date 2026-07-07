@@ -176,7 +176,7 @@
     }
     .th-num-col {
       width: 10%;
-      text-align: center;
+      text-align: left;
       font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
       color: var(--text3);
       flex-shrink: 0;
@@ -186,18 +186,9 @@
       width: 50%;
       display: flex; align-items: center;
     }
-    .th-search-icon {
-      position: absolute;
-      left: 9px;
-      color: var(--text3);
-      pointer-events: none;
-      flex-shrink: 0;
-      transition: color 0.15s;
-    }
-    .th-search-wrap:focus-within .th-search-icon { color: var(--brand); }
     .th-search {
       width: 100%;
-      padding: 5px 10px 5px 28px;
+      padding: 5px 10px;
       border: 1px solid var(--border-s);
       border-radius: 6px;
       background: transparent;
@@ -288,7 +279,7 @@
     }
     tr:last-child td { border-bottom: none; }
     tbody tr:hover td { background: var(--bg-hover); }
-    .col-num    { width: 10%; color: var(--text3); font-size: 0.78rem; text-align: center; }
+    .col-num    { width: 10%; color: var(--text3); font-size: 0.78rem; text-align: left; }
     .col-name   { width: 50%; }
     .col-status { width: 40%; }
 
@@ -341,11 +332,8 @@
 
     <!-- Table header: # | employee search heading | status filter heading -->
     <div class="table-header-row">
-      <div class="th-num-col">S.No.</div>
+      <div class="th-num-col" style="text-transform:none">S.No.</div>
       <div class="th-search-wrap">
-        <svg class="th-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-        </svg>
         <input id="search-input" class="th-search" type="text"
                placeholder="Employees" oninput="applyFilters()" autocomplete="off" />
       </div>
