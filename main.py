@@ -913,7 +913,27 @@ async def messages(req: Request):
                 await _update_or_send(_build_chat_leave_form(leave_types, error=error, prefill=act.value, card_activity_id=card_activity_id))
                 return
             if result.success:
-                await _update_or_send(_build_text_card("Leave Applied", "Your leave request has been submitted successfully."))
+                leave_types = await leave_service.get_leave_types()
+                lt_map = {lt.id: lt.name for lt in leave_types}
+                lt_name     = lt_map.get(act.value.get("leave_type_id") or "", "Leave")
+                from_date   = act.value.get("from_date", "")
+                to_date     = act.value.get("to_date", "")
+                session     = act.value.get("session_type", "full_day").replace("_", " ").title()
+                date_str    = from_date if from_date == to_date else f"{from_date} → {to_date}"
+                ack_card = {
+                    "type": "AdaptiveCard",
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "version": "1.4",
+                    "body": [
+                        {"type": "TextBlock", "text": "Leave Applied ✓", "weight": "Bolder", "size": "Medium", "color": "Good"},
+                        {"type": "FactSet", "facts": [
+                            {"title": "Type",     "value": lt_name},
+                            {"title": "Date",     "value": date_str},
+                            {"title": "Duration", "value": session},
+                        ]},
+                    ],
+                }
+                await _update_or_send(ack_card)
             else:
                 leave_types = await leave_service.get_leave_types()
                 await _update_or_send(_build_chat_leave_form(leave_types, error=result.message, prefill=act.value, card_activity_id=card_activity_id))
