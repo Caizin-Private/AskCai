@@ -957,14 +957,18 @@ async def tab_askcai():
 
 @app.get("/tabs/dashboard")
 async def tab_dashboard():
-    r = FileResponse(os.path.join("static", "dashboard.html"))
+    dashboard_on = os.getenv("FEATURE_DASHBOARD", "1") != "0"
+    filename = "dashboard.html" if dashboard_on else "coming_soon.html"
+    r = FileResponse(os.path.join("static", filename))
     r.headers["Content-Security-Policy"] = _TAB_CSP
     return r
 
 
 @app.get("/tabs/people-pulse")
 async def tab_people_pulse():
-    r = FileResponse(os.path.join("static", "dashboard.html"))
+    dashboard_on = os.getenv("FEATURE_DASHBOARD", "1") != "0"
+    filename = "dashboard.html" if dashboard_on else "coming_soon.html"
+    r = FileResponse(os.path.join("static", filename))
     r.headers["Content-Security-Policy"] = _TAB_CSP
     return r
 
