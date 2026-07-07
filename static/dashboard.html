@@ -124,26 +124,20 @@
       width: 8px; height: 8px; border-radius: 50%;
       flex-shrink: 0;
     }
-    .edit-dot.green { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.25); }
-    .edit-dot.red   { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.25); }
+    .edit-dot.green {
+      background: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34,197,94,0.25);
+      animation: dot-pulse 2s ease-in-out infinite;
+    }
+    .edit-dot.red { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.25); }
+    @keyframes dot-pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.35; }
+    }
     .info-right {
-      display: flex; align-items: center; gap: 12px;
+      display: flex; align-items: center; gap: 8px;
     }
     .last-synced { font-size: 0.75rem; color: var(--text3); white-space: nowrap; }
-    .refresh-btn {
-      display: flex; align-items: center; justify-content: center;
-      width: 28px; height: 28px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: transparent;
-      color: var(--text3);
-      cursor: pointer;
-      transition: background 0.12s, color 0.12s, border-color 0.12s;
-    }
-    .refresh-btn:hover { background: var(--bg-hover); color: var(--brand); border-color: var(--brand); }
-    .refresh-btn:disabled { opacity: 0.45; cursor: default; }
-    .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Summary pills ───────────────────────────────────────────────────────── */
     .summary-bar {
@@ -159,9 +153,15 @@
       padding: 10px 8px; border-radius: 10px;
       min-width: 60px;
       cursor: pointer; user-select: none;
-      transition: opacity 0.12s;
+      opacity: 0.55;
+      transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
     }
-    .sum-pill:hover { opacity: 0.78; }
+    .sum-pill:hover { opacity: 0.82; transform: translateY(-1px); }
+    .sum-pill.active {
+      opacity: 1;
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 2px currentColor;
+    }
     .sum-pill .pill-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.02em; }
     .sum-pill .pill-count { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
 
@@ -220,17 +220,20 @@
     /* ── Column headings (search + filter) ──────────────────────────────────── */
     .filter-wrap { position: relative; flex-shrink: 0; width: 100%; }
     .filter-btn {
-      display: flex; align-items: center; gap: 4px;
-      padding: 0;
-      border: none;
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 10px;
+      border: 1px solid var(--border-s);
+      border-radius: 6px;
       background: transparent;
       color: var(--text3);
-      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+      font-family: inherit;
       cursor: pointer;
-      transition: color 0.12s;
+      transition: color 0.12s, border-color 0.12s, background 0.12s;
       white-space: nowrap;
     }
-    .filter-btn:hover, .filter-btn.active { color: var(--brand); }
+    .filter-btn:hover { color: var(--text); border-color: var(--border); background: var(--bg-hover); }
+    .filter-btn.active { color: var(--brand); border-color: var(--brand); }
     .filter-btn svg { flex-shrink: 0; transition: transform 0.15s; }
     .filter-btn.active svg { transform: rotate(180deg); }
     .filter-dropdown {
@@ -306,16 +309,8 @@
     <div class="info-bar">
       <span class="data-date" id="data-date"></span>
       <div class="info-right">
-        <div class="edit-indicator">
-          <span class="edit-dot" id="edit-dot"></span>
-          <span id="edit-label"></span>
-        </div>
         <span class="last-synced" id="last-synced"></span>
-        <button class="refresh-btn" id="refresh-btn" onclick="loadData()" title="Refresh now">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17.65 6.35A7.96 7.96 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-          </svg>
-        </button>
+        <span class="edit-dot" id="edit-dot"></span>
       </div>
     </div>
 
@@ -341,8 +336,7 @@
           <div class="filter-option" data-value="Floater Holiday" onclick="selectFilter(this)">Floater Holiday</div>
           <div class="filter-option" data-value="Leave"           onclick="selectFilter(this)">Leave</div>
           <div class="filter-option" data-value="Office"          onclick="selectFilter(this)">Office</div>
-          <div class="filter-option" data-value="Pending"         onclick="selectFilter(this)">Pending</div>
-          <div class="filter-option" data-value="WFH"             onclick="selectFilter(this)">WFH</div>
+          <div class="filter-option" data-value="WFH"             onclick="selectFilter(this)">Home</div>
         </div>
       </div>
       <span class="result-count" id="result-count"></span>
@@ -406,8 +400,9 @@
       });
       var btn = document.getElementById("filter-btn");
       btn.classList.toggle("active", _activeFilter !== "all");
-      document.getElementById("filter-label").textContent = _activeFilter === "all" ? "Status" : _activeFilter;
+      document.getElementById("filter-label").textContent = _activeFilter === "all" ? "Status" : displayName(_activeFilter);
       document.getElementById("filter-dropdown").classList.remove("open");
+      updatePillActive();
       applyFilters();
     }
 
@@ -417,6 +412,10 @@
         document.getElementById("filter-btn").classList.remove("active");
       }
     });
+
+    /* ── Display name overrides (internal bucket → UI label) ───────────────── */
+    var DISPLAY_NAME = { "WFH": "Home" };
+    function displayName(bucket) { return DISPLAY_NAME[bucket] || bucket; }
 
     /* ── Summary pills ──────────────────────────────────────────────────────── */
     var PILL_STYLE = {
@@ -439,6 +438,7 @@
 
       var total = document.createElement("span");
       total.className = "sum-pill";
+      total.setAttribute("data-bucket", "__total");
       total.style.cssText = "background:var(--bg-sec);color:var(--text2)";
       total.innerHTML = "<span class='pill-label'>Total</span><span class='pill-count'>" + records.length + "</span>";
       total.onclick = function() { selectFilterByValue("all"); };
@@ -449,11 +449,14 @@
         var s = PILL_STYLE[b] || { bg: "var(--bg-sec)", fg: "var(--text2)" };
         var pill = document.createElement("span");
         pill.className = "sum-pill";
+        pill.setAttribute("data-bucket", b);
         pill.style.cssText = "background:" + s.bg + ";color:" + s.fg;
-        pill.innerHTML = "<span class='pill-label'>" + esc(b) + "</span><span class='pill-count'>" + counts[b] + "</span>";
+        pill.innerHTML = "<span class='pill-label'>" + esc(displayName(b)) + "</span><span class='pill-count'>" + counts[b] + "</span>";
         pill.onclick = (function(bucket) { return function() { selectFilterByValue(bucket); }; })(b);
         bar.appendChild(pill);
       });
+
+      updatePillActive();
     }
 
     function selectFilterByValue(val) {
@@ -462,8 +465,17 @@
         o.classList.toggle("selected", o.getAttribute("data-value") === val);
       });
       document.getElementById("filter-btn").classList.toggle("active", val !== "all");
-      document.getElementById("filter-label").textContent = val === "all" ? "Status" : val;
+      document.getElementById("filter-label").textContent = val === "all" ? "Status" : displayName(val);
+      updatePillActive();
       applyFilters();
+    }
+
+    function updatePillActive() {
+      document.querySelectorAll(".sum-pill").forEach(function(p) {
+        var b = p.getAttribute("data-bucket");
+        var on = _activeFilter === "all" ? b === "__total" : b === _activeFilter;
+        p.classList.toggle("active", on);
+      });
     }
 
     /* ── Table ──────────────────────────────────────────────────────────────── */
@@ -493,29 +505,21 @@
       tbody.innerHTML = records.map(function(r) {
         return "<tr>" +
           "<td class='col-name'>"   + esc(r.name) + "</td>" +
-          "<td class='col-status'><span class='" + chipClass(r.bucket) + "'>" + esc(r.bucket) + "</span></td>" +
+          "<td class='col-status'><span class='" + chipClass(r.bucket) + "'>" + esc(displayName(r.bucket)) + "</span></td>" +
           "</tr>";
       }).join("");
     }
 
     /* ── Edit window indicator (9 AM – 3 PM IST) ───────────────────────────── */
     function updateEditIndicator() {
-      var now = new Date();
-      var ist = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-      var h   = ist.getHours();
-      var open = h >= 9 && h < 15;
-      var dot   = document.getElementById("edit-dot");
-      var label = document.getElementById("edit-label");
-      dot.className   = "edit-dot " + (open ? "green" : "red");
-      label.textContent = open ? "Status updates open" : "Status updates closed";
+      var now  = new Date();
+      var ist  = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      var open = ist.getHours() >= 9 && ist.getHours() < 15;
+      document.getElementById("edit-dot").className = "edit-dot " + (open ? "green" : "red");
     }
 
     /* ── Data fetch ─────────────────────────────────────────────────────────── */
     function loadData() {
-      var btn = document.getElementById("refresh-btn");
-      btn.disabled = true;
-      btn.classList.add("spinning");
-
       fetch(BASE + "/tabs/dashboard-data")
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -546,10 +550,7 @@
           document.getElementById("loading-view").style.display = "none";
           document.getElementById("dash-view").style.display   = "flex";
         })
-        .finally(function() {
-          btn.disabled = false;
-          btn.classList.remove("spinning");
-        });
+        .finally(function() {});
     }
 
     /* ── Auto-refresh every 60 s ────────────────────────────────────────────── */
