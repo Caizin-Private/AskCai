@@ -174,9 +174,16 @@
       background: var(--bg);
       position: sticky; top: 0; z-index: 2;
     }
+    .th-num-col {
+      width: 10%;
+      text-align: center;
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+      color: var(--text3);
+      flex-shrink: 0;
+    }
     .th-search-wrap {
       position: relative;
-      width: 60%;
+      width: 50%;
       display: flex; align-items: center;
     }
     .th-search-icon {
@@ -281,7 +288,8 @@
     }
     tr:last-child td { border-bottom: none; }
     tbody tr:hover td { background: var(--bg-hover); }
-    .col-name   { width: 60%; }
+    .col-num    { width: 10%; color: var(--text3); font-size: 0.78rem; text-align: center; }
+    .col-name   { width: 50%; }
     .col-status { width: 40%; }
 
     /* ── Status chip ─────────────────────────────────────────────────────────── */
@@ -331,8 +339,9 @@
     <!-- Summary pills -->
     <div class="summary-bar" id="summary-bar"></div>
 
-    <!-- Table header: employee search heading + status filter heading -->
+    <!-- Table header: # | employee search heading | status filter heading -->
     <div class="table-header-row">
+      <div class="th-num-col">S.No.</div>
       <div class="th-search-wrap">
         <svg class="th-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
           <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
@@ -535,11 +544,12 @@
     function renderTable(records) {
       var tbody = document.getElementById("table-body");
       if (!records.length) {
-        tbody.innerHTML = '<tr><td colspan="2"><div class="empty-msg">No employees match the current filter.</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3"><div class="empty-msg">No employees match the current filter.</div></td></tr>';
         return;
       }
-      tbody.innerHTML = records.map(function(r) {
+      tbody.innerHTML = records.map(function(r, i) {
         return "<tr>" +
+          "<td class='col-num'>" + (i + 1) + "</td>" +
           "<td class='col-name'>"   + esc(r.name) + "</td>" +
           "<td class='col-status'><span class='" + chipClass(r.bucket) + "'>" + esc(displayName(r.bucket)) + "</span></td>" +
           "</tr>";
