@@ -317,7 +317,7 @@ def _build_balance_card(employee_name: str, email: str, balances: list) -> dict:
     }
 
 
-def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = None) -> dict:
+def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = None, card_activity_id: str = "") -> dict:
     prefill = prefill or {}
     choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
     default_id = leave_types[0].id if leave_types else ""
@@ -360,7 +360,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
         "body": body,
-        "actions": [{"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit", "card_activity_id": ""}}],
+        "actions": [{"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit", "card_activity_id": card_activity_id}}],
     }
 
 
@@ -910,13 +910,13 @@ async def messages(req: Request):
                 return
             if error:
                 leave_types = await leave_service.get_leave_types()
-                await _update_or_send(_build_chat_leave_form(leave_types, error=error, prefill=act.value))
+                await _update_or_send(_build_chat_leave_form(leave_types, error=error, prefill=act.value, card_activity_id=card_activity_id))
                 return
             if result.success:
                 await _update_or_send(_build_text_card("Leave Applied", "Your leave request has been submitted successfully."))
             else:
                 leave_types = await leave_service.get_leave_types()
-                await _update_or_send(_build_chat_leave_form(leave_types, error=result.message, prefill=act.value))
+                await _update_or_send(_build_chat_leave_form(leave_types, error=result.message, prefill=act.value, card_activity_id=card_activity_id))
             return
 
         # Strip @mention tags Teams injects when the bot is mentioned
