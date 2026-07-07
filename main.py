@@ -434,8 +434,9 @@ def _task_message(text: str) -> dict:
     return {"task": {"type": "message", "value": text}}
 
 
-def _build_apply_leave_card(leave_types: list) -> dict:
-    """Apply leave card for the compose extension task module (uses Action.Submit)."""
+def _build_apply_leave_card(leave_types: list, prefill: dict = None) -> dict:
+    """Apply leave card for task modules (compose extension + chat trigger). Uses Action.Submit."""
+    prefill = prefill or {}
     choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
     default_id = leave_types[0].id if leave_types else ""
     return {
@@ -448,7 +449,7 @@ def _build_apply_leave_card(leave_types: list) -> dict:
                 "id": "leave_type_id",
                 "label": "Leave Type",
                 "style": "compact",
-                "value": default_id,
+                "value": prefill.get("leave_type_id") or default_id,
                 "choices": choices,
             },
             {
@@ -456,21 +457,22 @@ def _build_apply_leave_card(leave_types: list) -> dict:
                 "id": "session_type",
                 "label": "Duration",
                 "style": "compact",
-                "value": "full_day",
+                "value": prefill.get("session_type") or "full_day",
                 "choices": [
                     {"title": "Full Day",    "value": "full_day"},
                     {"title": "First Half",  "value": "first_half"},
                     {"title": "Second Half", "value": "second_half"},
                 ],
             },
-            {"type": "Input.Date", "id": "from_date", "label": "From Date"},
-            {"type": "Input.Date", "id": "to_date",   "label": "To Date"},
+            {"type": "Input.Date", "id": "from_date", "label": "From Date", "value": prefill.get("from_date") or ""},
+            {"type": "Input.Date", "id": "to_date",   "label": "To Date",   "value": prefill.get("to_date") or ""},
             {
                 "type": "Input.Text",
                 "id": "reason",
                 "label": "Reason (optional)",
                 "isMultiline": True,
                 "placeholder": "e.g. Personal work",
+                "value": prefill.get("reason") or "",
             },
         ],
         "actions": [
@@ -480,6 +482,21 @@ def _build_apply_leave_card(leave_types: list) -> dict:
                 "data": {"commandId": "applyLeave"},
             }
         ],
+    }
+
+
+def _build_leave_trigger_card(prefill: dict = None) -> dict:
+    """Chat card with a button that opens the leave form as a task module."""
+    data = {"msteams": {"type": "task/fetch"}}
+    if prefill:
+        data["prefill"] = prefill
+    text = "I've pre-filled the form with your request. Click below to review and submit." if prefill else "Click below to open the leave application form."
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": [{"type": "TextBlock", "text": text, "wrap": True}],
+        "actions": [{"type": "Action.Submit", "title": "Apply for Leave", "data": data}],
     }
 
 
@@ -621,9 +638,8 @@ async def _handle_cmd_balance(turn_context, email: str) -> None:
 
 
 async def _handle_cmd_leave(turn_context, email: str) -> None:
-    leave_types = await leave_service.get_leave_types()
     await turn_context.send_activity(
-        MessageFactory.attachment(CardFactory.adaptive_card(_build_chat_leave_form(leave_types)))
+        MessageFactory.attachment(CardFactory.adaptive_card(_build_leave_trigger_card()))
     )
 
 
@@ -777,6 +793,35 @@ async def messages(req: Request):
         act = turn_context.activity
         logger.info("[bot] incoming activity type=%s name=%s", act.type, getattr(act, "name", None))
 
+        # ── Task module (triggered from chat leave trigger card) ──────────
+        if act.type == "invoke" and act.name == "task/fetch":
+            data   = (act.value or {}).get("data", {}) or {}
+            prefill = data.get("prefill") or {}
+            email  = await _get_user_email(turn_context)
+            if not email or not surface_enabled("leave_management", email):
+                resp = _task_message("This feature is not enabled for your account.")
+            else:
+                leave_types = await leave_service.get_leave_types()
+                resp = _task_continue("Apply for Leave", _build_apply_leave_card(leave_types, prefill=prefill))
+            await turn_context.send_activity(Activity(
+                type="invokeResponse",
+                value=InvokeResponse(status=200, body=resp),
+            ))
+            return
+
+        if act.type == "invoke" and act.name == "task/submit":
+            data  = (act.value or {}).get("data", {}) or {}
+            email = await _get_user_email(turn_context)
+            if not email or not surface_enabled("leave_management", email):
+                resp = _task_message("This feature is not enabled for your account.")
+            else:
+                resp = await _compose_leave_submit(turn_context, data, email)
+            await turn_context.send_activity(Activity(
+                type="invokeResponse",
+                value=InvokeResponse(status=200, body=resp),
+            ))
+            return
+
         # ── Compose extension ─────────────────────────────────────────────
         if act.type == "invoke" and act.name == "composeExtension/fetchTask":
             command_id = (act.value or {}).get("commandId", "")
@@ -890,7 +935,7 @@ async def messages(req: Request):
                                     break
                         await turn_context.send_activity(
                             MessageFactory.attachment(CardFactory.adaptive_card(
-                                _build_chat_leave_form(leave_types, prefill=parsed)
+                                _build_leave_trigger_card(prefill=parsed)
                             ))
                         )
                         return
