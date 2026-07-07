@@ -360,7 +360,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
         "body": body,
-        "actions": [{"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit"}}],
+        "actions": [{"type": "Action.Execute", "title": "Apply Leave", "verb": "apply_leave"}],
     }
 
 
@@ -825,39 +825,6 @@ async def messages(req: Request):
 
         # ── Chat messages ─────────────────────────────────────────────────
         if act.type != "message":
-            return
-
-        # ── Chat leave form submit (Action.Submit from adaptive card) ────────
-        if isinstance(act.value, dict) and act.value.get("form_type") == "chat_leave_submit":
-            email = await _get_user_email(turn_context)
-            if not email or not surface_enabled("leave_management", email):
-                await turn_context.send_activity(MessageFactory.text(
-                    "This feature is not enabled for your account."
-                ))
-                return
-            try:
-                result, error, _ = await _execute_leave_submission(email, act.value)
-            except Exception as exc:
-                logger.error("[apply_leave] service error: %s", exc, exc_info=True)
-                await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(
-                    _build_text_card("Error", f"Could not submit leave request: {exc}")
-                )))
-                return
-            if error:
-                leave_types = await leave_service.get_leave_types()
-                await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(
-                    _build_chat_leave_form(leave_types, error=error)
-                )))
-                return
-            if result.success:
-                await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(
-                    _build_text_card("Leave Applied", "Your leave request has been submitted successfully.")
-                )))
-            else:
-                leave_types = await leave_service.get_leave_types()
-                await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(
-                    _build_chat_leave_form(leave_types, error=result.message)
-                )))
             return
 
         # Strip @mention tags Teams injects when the bot is mentioned
