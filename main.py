@@ -360,7 +360,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
         "body": body,
-        "actions": [{"type": "Action.Execute", "title": "Apply Leave", "verb": "apply_leave"}],
+        "actions": [{"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit"}}],
     }
 
 
@@ -553,32 +553,36 @@ async def _handle_filter_dashboard(data: dict) -> dict:
     return _card_action_response(_build_dashboard_card(records, today, name_query, status_filter))
 
 
-async def _handle_apply_leave_action(turn_context, data: dict) -> dict:
-    logger.info("[apply_leave] received data: %s", data)
-
+async def _execute_leave_submission(email: str, data: dict):
+    """Shared core: validate form data, call Keka, return (result, error, parsed_data).
+    Returns (None, error_str, parsed) on validation failure,
+    (result, None, parsed) after API call."""
     leave_type_id = data.get("leave_type_id") or ""
     from_date     = data.get("from_date", "")
     to_date       = data.get("to_date", "")
     session_type  = SessionType(data.get("session_type") or "full_day")
     reason        = data.get("reason") or "Not specified"
 
-    logger.info("[apply_leave] leave_type_id=%s from=%s to=%s session=%s",
-                leave_type_id, from_date, to_date, session_type)
+    logger.info("[apply_leave] email=%s leave_type_id=%s from=%s to=%s session=%s",
+                email, leave_type_id, from_date, to_date, session_type)
 
     if not from_date or not to_date:
-        leave_types = await leave_service.get_leave_types()
-        return _card_action_response(
-            _build_chat_leave_form(leave_types, error="Please fill in both From and To dates.")
-        )
-
+        return None, "Please fill in both From and To dates.", None
     if datetime.strptime(to_date, "%Y-%m-%d") < datetime.strptime(from_date, "%Y-%m-%d"):
-        leave_types = await leave_service.get_leave_types()
-        return _card_action_response(
-            _build_chat_leave_form(leave_types, error="To Date cannot be earlier than From Date.")
-        )
-
+        return None, "To Date cannot be earlier than From Date.", None
     if session_type != SessionType.FULL_DAY:
         to_date = from_date
+
+    result = await leave_service.apply_leave(
+        _leave_email(email), leave_type_id, from_date, to_date, session_type, reason
+    )
+    logger.info("[apply_leave] result: success=%s message=%s", result.success, result.message)
+    return result, None, None
+
+
+async def _nlp_leave_submit(turn_context, data: dict) -> dict:
+    """Handler for chat/NLP adaptive card submit (adaptiveCard/action verb=apply_leave)."""
+    logger.info("[apply_leave] received data: %s", data)
 
     email = await _get_user_email(turn_context)
     if not email:
@@ -587,26 +591,22 @@ async def _handle_apply_leave_action(turn_context, data: dict) -> dict:
         )
 
     try:
-        result = await leave_service.apply_leave(
-            _leave_email(email), leave_type_id, from_date, to_date, session_type, reason
-        )
+        result, error, _ = await _execute_leave_submission(email, data)
     except Exception as exc:
         logger.error("[apply_leave] service error: %s", exc, exc_info=True)
         return _card_action_response(
             _build_text_card("Error", f"Could not submit leave request: {exc}")
         )
 
-    logger.info("[apply_leave] result: success=%s message=%s", result.success, result.message)
-
+    if error:
+        leave_types = await leave_service.get_leave_types()
+        return _card_action_response(_build_chat_leave_form(leave_types, error=error))
     if result.success:
         return _card_action_response(
             _build_text_card("Leave Applied", "Your leave request has been submitted successfully.")
         )
-
     leave_types = await leave_service.get_leave_types()
-    return _card_action_response(
-        _build_chat_leave_form(leave_types, error=result.message)
-    )
+    return _card_action_response(_build_chat_leave_form(leave_types, error=result.message))
 
 
 # ── Chat command handlers ────────────────────────────────────────────────────
@@ -694,32 +694,10 @@ _FETCH_HANDLERS = {
 
 # ── Per-command submit handlers (compose extension) ──────────────────────────
 
-async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
-    leave_type_id = data.get("leave_type_id") or ""
-    from_date     = data.get("from_date", "")
-    to_date       = data.get("to_date", "")
-    session_type  = SessionType(data.get("session_type") or "full_day")
-    reason        = data.get("reason") or "Not specified"
-
-    error = None
-    if not from_date or not to_date:
-        error = "Please fill in both From and To dates."
-    elif datetime.strptime(to_date, "%Y-%m-%d") < datetime.strptime(from_date, "%Y-%m-%d"):
-        error = "To Date cannot be earlier than From Date."
-
-    if error:
-        leave_types = await leave_service.get_leave_types()
-        card = _build_apply_leave_card(leave_types)
-        card["body"].insert(0, {"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
-        return _task_continue("Apply for Leave", card)
-
-    if session_type != SessionType.FULL_DAY:
-        to_date = from_date
-
+async def _compose_leave_submit(turn_context, data: dict, email: str) -> dict:
+    """Handler for compose extension submit (composeExtension/submitAction)."""
     try:
-        result = await leave_service.apply_leave(
-            _leave_email(email), leave_type_id, from_date, to_date, session_type, reason
-        )
+        result, error, _ = await _execute_leave_submission(email, data)
     except Exception as exc:
         logger.error("[apply_leave] service error: %s", exc, exc_info=True)
         leave_types = await leave_service.get_leave_types()
@@ -727,9 +705,13 @@ async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
         card["body"].insert(0, {"type": "TextBlock", "text": f"Could not submit leave: {exc}", "color": "Attention", "wrap": True})
         return _task_continue("Apply for Leave", card)
 
+    if error:
+        leave_types = await leave_service.get_leave_types()
+        card = _build_apply_leave_card(leave_types)
+        card["body"].insert(0, {"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
+        return _task_continue("Apply for Leave", card)
     if result.success:
         return _task_message("Your leave request has been submitted successfully.")
-
     leave_types = await leave_service.get_leave_types()
     card = _build_apply_leave_card(leave_types)
     card["body"].insert(0, {"type": "TextBlock", "text": result.message, "color": "Attention", "wrap": True})
@@ -737,7 +719,7 @@ async def _submit_apply_leave(turn_context, data: dict, email: str) -> dict:
 
 
 _SUBMIT_HANDLERS = {
-    "leave": _submit_apply_leave,
+    "leave": _compose_leave_submit,
 }
 
 
@@ -793,6 +775,7 @@ async def messages(req: Request):
 
     async def turn_handler(turn_context):
         act = turn_context.activity
+        logger.info("[bot] incoming activity type=%s name=%s", act.type, getattr(act, "name", None))
 
         # ── Compose extension ─────────────────────────────────────────────
         if act.type == "invoke" and act.name == "composeExtension/fetchTask":
@@ -827,7 +810,7 @@ async def messages(req: Request):
             elif verb == "view_dashboard":
                 resp = await _handle_view_dashboard()
             elif verb == "apply_leave":
-                resp = await _handle_apply_leave_action(turn_context, data)
+                resp = await _nlp_leave_submit(turn_context, data)
             elif verb == "filter_dashboard":
                 resp = await _handle_filter_dashboard(data)
             else:
@@ -842,6 +825,39 @@ async def messages(req: Request):
 
         # ── Chat messages ─────────────────────────────────────────────────
         if act.type != "message":
+            return
+
+        # ── Chat leave form submit (Action.Submit from adaptive card) ────────
+        if isinstance(act.value, dict) and act.value.get("form_type") == "chat_leave_submit":
+            email = await _get_user_email(turn_context)
+            if not email or not surface_enabled("leave_management", email):
+                await turn_context.send_activity(MessageFactory.text(
+                    "This feature is not enabled for your account."
+                ))
+                return
+            try:
+                result, error, _ = await _execute_leave_submission(email, act.value)
+            except Exception as exc:
+                logger.error("[apply_leave] service error: %s", exc, exc_info=True)
+                await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(
+                    _build_text_card("Error", f"Could not submit leave request: {exc}")
+                )))
+                return
+            if error:
+                leave_types = await leave_service.get_leave_types()
+                await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(
+                    _build_chat_leave_form(leave_types, error=error)
+                )))
+                return
+            if result.success:
+                await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(
+                    _build_text_card("Leave Applied", "Your leave request has been submitted successfully.")
+                )))
+            else:
+                leave_types = await leave_service.get_leave_types()
+                await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(
+                    _build_chat_leave_form(leave_types, error=result.message)
+                )))
             return
 
         # Strip @mention tags Teams injects when the bot is mentioned
