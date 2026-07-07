@@ -181,15 +181,34 @@
       border-radius: 6px;
       background: transparent;
       color: var(--text);
-      font-size: 0.875rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
       font-family: inherit;
       outline: none;
-      transition: border-color 0.12s, background 0.12s;
+      transition: border-color 0.12s, background 0.12s, font-size 0.12s, font-weight 0.12s, text-transform 0.12s;
     }
-    .th-search::placeholder { color: var(--text3); }
+    .th-search::placeholder {
+      color: var(--text3);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
     .th-search:focus {
       border-color: var(--brand);
       background: var(--input-bg);
+      font-size: 0.875rem;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .th-search:not(:placeholder-shown) {
+      font-size: 0.875rem;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
     }
     .th-status-col {
       width: 40%;
@@ -198,26 +217,25 @@
       padding-left: 16px;
     }
     .result-count { font-size: 0.78rem; color: var(--text3); white-space: nowrap; }
-    /* ── Filter icon + dropdown ──────────────────────────────────────────────── */
-    .filter-wrap { position: relative; flex-shrink: 0; }
+    /* ── Column headings (search + filter) ──────────────────────────────────── */
+    .filter-wrap { position: relative; flex-shrink: 0; width: 100%; }
     .filter-btn {
-      display: flex; align-items: center; justify-content: center;
-      width: 30px; height: 30px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
+      display: flex; align-items: center; gap: 4px;
+      padding: 0;
+      border: none;
       background: transparent;
       color: var(--text3);
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
       cursor: pointer;
-      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      transition: color 0.12s;
+      white-space: nowrap;
     }
-    .filter-btn:hover, .filter-btn.active {
-      background: var(--bg-hover);
-      color: var(--brand);
-      border-color: var(--brand);
-    }
+    .filter-btn:hover, .filter-btn.active { color: var(--brand); }
+    .filter-btn svg { flex-shrink: 0; transition: transform 0.15s; }
+    .filter-btn.active svg { transform: rotate(180deg); }
     .filter-dropdown {
       display: none;
-      position: absolute; right: 0; top: calc(100% + 4px);
+      position: absolute; left: 0; top: calc(100% + 4px);
       min-width: 160px;
       background: var(--bg);
       border: 1px solid var(--border);
@@ -304,15 +322,16 @@
     <!-- Summary pills -->
     <div class="summary-bar" id="summary-bar"></div>
 
-    <!-- Table header: search bar + filter icon above status column -->
+    <!-- Table header: employee search heading + status filter heading -->
     <div class="table-header-row">
       <input id="search-input" class="th-search" type="text"
-             placeholder="Search employee…" oninput="applyFilters()" autocomplete="off" />
+             placeholder="Employees" oninput="applyFilters()" autocomplete="off" />
       <div class="th-status-col">
       <div class="filter-wrap">
-        <button class="filter-btn" id="filter-btn" onclick="toggleFilter(event)" title="Filter by status">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 18.95 4H5.04a1 1 0 0 0-.79 1.61z"/>
+        <button class="filter-btn" id="filter-btn" onclick="toggleFilter(event)">
+          <span id="filter-label">Status</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 10l5 5 5-5z"/>
           </svg>
         </button>
         <div class="filter-dropdown" id="filter-dropdown">
@@ -387,6 +406,7 @@
       });
       var btn = document.getElementById("filter-btn");
       btn.classList.toggle("active", _activeFilter !== "all");
+      document.getElementById("filter-label").textContent = _activeFilter === "all" ? "Status" : _activeFilter;
       document.getElementById("filter-dropdown").classList.remove("open");
       applyFilters();
     }
@@ -442,6 +462,7 @@
         o.classList.toggle("selected", o.getAttribute("data-value") === val);
       });
       document.getElementById("filter-btn").classList.toggle("active", val !== "all");
+      document.getElementById("filter-label").textContent = val === "all" ? "Status" : val;
       applyFilters();
     }
 
