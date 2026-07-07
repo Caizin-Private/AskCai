@@ -221,7 +221,7 @@
     .filter-wrap { position: relative; flex-shrink: 0; width: 100%; }
     .filter-btn {
       display: flex; align-items: center; gap: 5px;
-      padding: 4px 10px;
+      padding: 4px 10px 4px 0;
       border: 1px solid var(--border-s);
       border-radius: 6px;
       background: transparent;
@@ -233,9 +233,9 @@
       white-space: nowrap;
     }
     .filter-btn:hover { color: var(--text); border-color: var(--border); background: var(--bg-hover); }
-    .filter-btn.active { color: var(--brand); border-color: var(--brand); }
+    .filter-btn.active { border-color: currentColor; }
     .filter-btn svg { flex-shrink: 0; transition: transform 0.15s; }
-    .filter-btn.active svg { transform: rotate(180deg); }
+    .filter-btn.dropdown-open svg { transform: rotate(180deg); }
     .filter-dropdown {
       display: none;
       position: absolute; left: 0; top: calc(100% + 4px);
@@ -258,7 +258,7 @@
     .filter-option.selected { color: var(--brand); font-weight: 600; }
 
     /* ── Table ───────────────────────────────────────────────────────────────── */
-    .table-wrap { flex: 1; overflow-y: auto; }
+    .table-wrap { flex: 1; overflow-y: auto; scrollbar-gutter: stable; }
     table { width: 100%; border-collapse: collapse; }
     td {
       padding: 10px 16px;
@@ -387,10 +387,26 @@
     /* ── Filter dropdown ────────────────────────────────────────────────────── */
     function toggleFilter(e) {
       e.stopPropagation();
-      var dd  = document.getElementById("filter-dropdown");
-      var btn = document.getElementById("filter-btn");
+      var dd   = document.getElementById("filter-dropdown");
+      var btn  = document.getElementById("filter-btn");
       var open = dd.classList.toggle("open");
-      btn.classList.toggle("active", open);
+      btn.classList.toggle("dropdown-open", open);
+    }
+
+    function applyFilterBtnColor(bucket) {
+      var btn = document.getElementById("filter-btn");
+      if (!bucket || bucket === "all") {
+        btn.style.background = "";
+        btn.style.color      = "";
+        btn.classList.remove("active");
+      } else {
+        var s = PILL_STYLE[bucket];
+        if (s) {
+          btn.style.background = s.bg;
+          btn.style.color      = s.fg;
+          btn.classList.add("active");
+        }
+      }
     }
 
     function selectFilter(el) {
@@ -398,19 +414,19 @@
       document.querySelectorAll(".filter-option").forEach(function(o) {
         o.classList.toggle("selected", o === el);
       });
-      var btn = document.getElementById("filter-btn");
-      btn.classList.toggle("active", _activeFilter !== "all");
+      document.getElementById("filter-btn").classList.remove("dropdown-open");
       document.getElementById("filter-label").textContent = _activeFilter === "all" ? "Status" : displayName(_activeFilter);
       document.getElementById("filter-dropdown").classList.remove("open");
+      applyFilterBtnColor(_activeFilter);
       updatePillActive();
       applyFilters();
     }
 
     document.addEventListener("click", function() {
-      document.getElementById("filter-dropdown").classList.remove("open");
-      if (_activeFilter === "all") {
-        document.getElementById("filter-btn").classList.remove("active");
-      }
+      var dd  = document.getElementById("filter-dropdown");
+      var btn = document.getElementById("filter-btn");
+      dd.classList.remove("open");
+      btn.classList.remove("dropdown-open");
     });
 
     /* ── Display name overrides (internal bucket → UI label) ───────────────── */
@@ -444,14 +460,15 @@
       total.onclick = function() { selectFilterByValue("all"); };
       bar.appendChild(total);
 
+      var ALWAYS_SHOW = new Set(["Client Location"]);
       BUCKET_ORDER.forEach(function(b) {
-        if (!counts[b]) return;
+        if (!counts[b] && !ALWAYS_SHOW.has(b)) return;
         var s = PILL_STYLE[b] || { bg: "var(--bg-sec)", fg: "var(--text2)" };
         var pill = document.createElement("span");
         pill.className = "sum-pill";
         pill.setAttribute("data-bucket", b);
         pill.style.cssText = "background:" + s.bg + ";color:" + s.fg;
-        pill.innerHTML = "<span class='pill-label'>" + esc(displayName(b)) + "</span><span class='pill-count'>" + counts[b] + "</span>";
+        pill.innerHTML = "<span class='pill-label'>" + esc(displayName(b)) + "</span><span class='pill-count'>" + (counts[b] || 0) + "</span>";
         pill.onclick = (function(bucket) { return function() { selectFilterByValue(bucket); }; })(b);
         bar.appendChild(pill);
       });
@@ -464,8 +481,8 @@
       document.querySelectorAll(".filter-option").forEach(function(o) {
         o.classList.toggle("selected", o.getAttribute("data-value") === val);
       });
-      document.getElementById("filter-btn").classList.toggle("active", val !== "all");
       document.getElementById("filter-label").textContent = val === "all" ? "Status" : displayName(val);
+      applyFilterBtnColor(val);
       updatePillActive();
       applyFilters();
     }
@@ -537,7 +554,7 @@
 
           // Last synced time
           document.getElementById("last-synced").textContent =
-            "Synced " + new Date().toLocaleTimeString("en-IN",
+            "Last Synced " + new Date().toLocaleTimeString("en-IN",
               { hour: "2-digit", minute: "2-digit", hour12: false });
 
           renderSummary(_allRecords);
