@@ -643,11 +643,13 @@ async def _send_chat_leave_form(turn_context, leave_types: list, prefill: dict =
     resource = await turn_context.send_activity(
         MessageFactory.attachment(CardFactory.adaptive_card(card))
     )
+    logger.info("[leave_form] sent card resource=%s id=%s", resource, resource.id if resource else None)
     if resource and resource.id:
         card["actions"][0]["data"]["card_activity_id"] = resource.id
         stamped = MessageFactory.attachment(CardFactory.adaptive_card(card))
         stamped.id = resource.id
         await turn_context.update_activity(stamped)
+        logger.info("[leave_form] stamped card_activity_id=%s", resource.id)
 
 
 async def _handle_cmd_leave(turn_context, email: str) -> None:
@@ -893,13 +895,16 @@ async def messages(req: Request):
                 ))
                 return
             card_activity_id = act.value.get("card_activity_id") or ""
+            logger.info("[leave_form] submit received card_activity_id=%r", card_activity_id)
 
             async def _update_or_send(card: dict) -> None:
                 if card_activity_id:
+                    logger.info("[leave_form] update_activity id=%s", card_activity_id)
                     msg = MessageFactory.attachment(CardFactory.adaptive_card(card))
                     msg.id = card_activity_id
                     await turn_context.update_activity(msg)
                 else:
+                    logger.info("[leave_form] fallback send_activity (no card_activity_id)")
                     await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(card)))
 
             try:
