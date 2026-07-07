@@ -360,7 +360,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
         "body": body,
-        "actions": [{"type": "Action.Execute", "title": "Apply Leave", "verb": "apply_leave"}],
+        "actions": [{"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit", "card_activity_id": ""}}],
     }
 
 
@@ -637,10 +637,22 @@ async def _handle_cmd_balance(turn_context, email: str) -> None:
     )
 
 
-async def _handle_cmd_leave(turn_context, email: str) -> None:
-    await turn_context.send_activity(
-        MessageFactory.attachment(CardFactory.adaptive_card(_build_leave_trigger_card()))
+async def _send_chat_leave_form(turn_context, leave_types: list, prefill: dict = None, error: str = "") -> None:
+    """Send the leave form card and stamp its own activity ID into the submit data for in-place updates."""
+    card = _build_chat_leave_form(leave_types, error=error, prefill=prefill)
+    resource = await turn_context.send_activity(
+        MessageFactory.attachment(CardFactory.adaptive_card(card))
     )
+    if resource and resource.id:
+        card["actions"][0]["data"]["card_activity_id"] = resource.id
+        stamped = MessageFactory.attachment(CardFactory.adaptive_card(card))
+        stamped.id = resource.id
+        await turn_context.update_activity(stamped)
+
+
+async def _handle_cmd_leave(turn_context, email: str) -> None:
+    leave_types = await leave_service.get_leave_types()
+    await _send_chat_leave_form(turn_context, leave_types)
 
 
 async def _handle_cmd_attendance(turn_context) -> None:
@@ -872,6 +884,41 @@ async def messages(req: Request):
         if act.type != "message":
             return
 
+        # ── Chat leave form submit (Action.Submit from inline chat card) ──
+        if isinstance(act.value, dict) and act.value.get("form_type") == "chat_leave_submit":
+            email = await _get_user_email(turn_context)
+            if not email or not surface_enabled("leave_management", email):
+                await turn_context.send_activity(MessageFactory.text(
+                    "This feature is not enabled for your account."
+                ))
+                return
+            card_activity_id = act.value.get("card_activity_id") or ""
+
+            async def _update_or_send(card: dict) -> None:
+                if card_activity_id:
+                    msg = MessageFactory.attachment(CardFactory.adaptive_card(card))
+                    msg.id = card_activity_id
+                    await turn_context.update_activity(msg)
+                else:
+                    await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(card)))
+
+            try:
+                result, error, _ = await _execute_leave_submission(email, act.value)
+            except Exception as exc:
+                logger.error("[apply_leave] service error: %s", exc, exc_info=True)
+                await _update_or_send(_build_text_card("Error", f"Could not submit leave request: {exc}"))
+                return
+            if error:
+                leave_types = await leave_service.get_leave_types()
+                await _update_or_send(_build_chat_leave_form(leave_types, error=error, prefill=act.value))
+                return
+            if result.success:
+                await _update_or_send(_build_text_card("Leave Applied", "Your leave request has been submitted successfully."))
+            else:
+                leave_types = await leave_service.get_leave_types()
+                await _update_or_send(_build_chat_leave_form(leave_types, error=result.message, prefill=act.value))
+            return
+
         # Strip @mention tags Teams injects when the bot is mentioned
         raw_text = act.text or ""
         text = re.sub(r"<at>[^<]*</at>", "", raw_text).strip()
@@ -933,11 +980,7 @@ async def messages(req: Request):
                                 if lt.name.lower() == hint:
                                     parsed["leave_type_id"] = lt.id
                                     break
-                        await turn_context.send_activity(
-                            MessageFactory.attachment(CardFactory.adaptive_card(
-                                _build_leave_trigger_card(prefill=parsed)
-                            ))
-                        )
+                        await _send_chat_leave_form(turn_context, leave_types, prefill=parsed)
                         return
 
             intent = await asyncio.get_event_loop().run_in_executor(None, _classify_intent, text)
