@@ -15,57 +15,72 @@
   <style>
     :root, [data-theme="default"] {
       --bg:        #ffffff;
-      --bg-sec:    #f5f5f5;
-      --bg-hover:  #e8e8e8;
-      --text:      #242424;
-      --text2:     #424242;
-      --text3:     #616161;
+      --bg-sec:    #f8f9fa;
+      --bg-hover:  #f0f4f8;
+      --text:      #1a1d23;
+      --text2:     #3d4350;
+      --text3:     #7a8194;
       --brand:     #0078d4;
-      --border:    #d1d1d1;
-      --border-s:  #e0e0e0;
-      --input-bg:  #f5f5f5;
+      --brand-light: #e8f4fd;
+      --border:    #e2e5eb;
+      --border-s:  #edf0f4;
+      --input-bg:  #f4f6f9;
+      --header-bg: #fafbfc;
+      --avatar-bg: #e8edf5;
 
       --chip-office-bg:   #e8f5e9; --chip-office-fg:   #2e7d32;
       --chip-wfh-bg:      #e3f2fd; --chip-wfh-fg:      #1565c0;
       --chip-leave-bg:    #fff8e1; --chip-leave-fg:    #f57f17;
       --chip-client-bg:   #ede7f6; --chip-client-fg:   #4527a0;
       --chip-absent-bg:   #ffebee; --chip-absent-fg:   #c62828;
+      --chip-floater-bg:  #fff0f6; --chip-floater-fg:  #9d174d;
+      --chip-pending-bg:  #f4f4f5; --chip-pending-fg:  #52525b;
     }
     [data-theme="dark"] {
-      --bg:        #292929;
-      --bg-sec:    #3d3d3d;
-      --bg-hover:  #454545;
-      --text:      #ffffff;
-      --text2:     #d6d6d6;
-      --text3:     #adadad;
+      --bg:        #1e2028;
+      --bg-sec:    #272a35;
+      --bg-hover:  #2f3342;
+      --text:      #e8eaf0;
+      --text2:     #b8bdd0;
+      --text3:     #7e849a;
       --brand:     #479ef5;
-      --border:    #525252;
-      --border-s:  #3d3d3d;
-      --input-bg:  #3d3d3d;
+      --brand-light: #0d2a45;
+      --border:    #363a4a;
+      --border-s:  #2c3040;
+      --input-bg:  #272a35;
+      --header-bg: #22252f;
+      --avatar-bg: #2f3447;
 
       --chip-office-bg:   #1b5e20; --chip-office-fg:   #a5d6a7;
       --chip-wfh-bg:      #0d47a1; --chip-wfh-fg:      #90caf9;
       --chip-leave-bg:    #4e2300; --chip-leave-fg:    #ffcc80;
       --chip-client-bg:   #1a0050; --chip-client-fg:   #ce93d8;
       --chip-absent-bg:   #4e0000; --chip-absent-fg:   #ef9a9a;
+      --chip-floater-bg:  #2d0f1e; --chip-floater-fg:  #f9a8d4;
+      --chip-pending-bg:  #2a2c35; --chip-pending-fg:  #9ca3af;
     }
     [data-theme="contrast"] {
       --bg:        #000000;
-      --bg-sec:    #1f1f1f;
-      --bg-hover:  #2a2a2a;
+      --bg-sec:    #111111;
+      --bg-hover:  #1a1a1a;
       --text:      #ffffff;
       --text2:     #ffffff;
-      --text3:     #ffffff;
+      --text3:     #cccccc;
       --brand:     #1aebff;
+      --brand-light: #001a1f;
       --border:    #ffffff;
-      --border-s:  #ffffff;
+      --border-s:  #444444;
       --input-bg:  #0d0d0d;
+      --header-bg: #0d0d0d;
+      --avatar-bg: #1a1a1a;
 
       --chip-office-bg:   #1f1f1f; --chip-office-fg:   #00ff00;
       --chip-wfh-bg:      #1f1f1f; --chip-wfh-fg:      #1aebff;
       --chip-leave-bg:    #1f1f1f; --chip-leave-fg:    #ffff00;
       --chip-client-bg:   #1f1f1f; --chip-client-fg:   #ce93d8;
       --chip-absent-bg:   #1f1f1f; --chip-absent-fg:   #ff6666;
+      --chip-floater-bg:  #1a0010; --chip-floater-fg:  #ff88cc;
+      --chip-pending-bg:  #111111; --chip-pending-fg:  #cccccc;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -73,7 +88,7 @@
       height: 100%;
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
       font-size: 14px;
-      line-height: 1.4;
+      line-height: 1.5;
       background: var(--bg);
       color: var(--text);
     }
@@ -95,29 +110,22 @@
     /* ── Dashboard view ──────────────────────────────────────────────────────── */
     #dash-view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
     .dash-inner {
-      max-width: 860px; width: 100%;
+      max-width: 900px; width: 100%;
       margin: 0 auto;
       display: flex; flex-direction: column;
       flex: 1; overflow: hidden;
     }
 
-    /* ── Info bar (date + editable indicator) ───────────────────────────────── */
+    /* ── Info bar ────────────────────────────────────────────────────────────── */
     .info-bar {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 16px 6px;
+      padding: 10px 20px 8px;
       flex-shrink: 0;
     }
-    .data-date {
-      font-size: 0.8rem; color: var(--text3); font-weight: 500;
-    }
-    .edit-indicator {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 0.78rem; color: var(--text3);
-    }
-    .edit-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      flex-shrink: 0;
-    }
+    .info-left { display: flex; flex-direction: column; gap: 1px; }
+    .page-title { font-size: 1rem; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+    .data-date { font-size: 0.75rem; color: var(--text3); font-weight: 400; }
+    .edit-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
     .edit-dot.green {
       background: #22c55e;
       box-shadow: 0 0 0 2px rgba(34,197,94,0.25);
@@ -128,15 +136,17 @@
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.35; }
     }
-    .info-right {
-      display: flex; align-items: center; gap: 8px;
+    .info-right { display: flex; align-items: center; gap: 8px; }
+    .last-synced {
+      font-size: 0.72rem; color: var(--text3); white-space: nowrap;
+      background: var(--bg-sec); border: 1px solid var(--border-s);
+      padding: 3px 8px; border-radius: 20px;
     }
-    .last-synced { font-size: 0.75rem; color: var(--text3); white-space: nowrap; }
 
     /* ── Summary pills ───────────────────────────────────────────────────────── */
     .summary-bar {
-      display: flex; flex-wrap: wrap; gap: 10px;
-      padding: 14px 16px 12px;
+      display: flex; flex-wrap: wrap; gap: 8px;
+      padding: 0 20px 14px;
       border-bottom: 1px solid var(--border-s);
       flex-shrink: 0;
     }
@@ -144,11 +154,12 @@
       display: inline-flex; flex-direction: column; align-items: center;
       justify-content: center;
       flex: 1;
-      padding: 10px 8px; border-radius: 10px;
-      min-width: 60px;
+      padding: 10px 10px 9px; border-radius: 12px;
+      min-width: 62px;
       cursor: pointer; user-select: none;
       opacity: 0.55;
       transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
+      border: 1px solid transparent;
     }
     .sum-pill:hover { opacity: 0.82; transform: translateY(-1px); }
     .sum-pill.active {
@@ -156,35 +167,35 @@
       transform: translateY(-1px);
       box-shadow: 0 0 0 2px currentColor;
     }
-    .sum-pill .pill-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.02em; }
-    .sum-pill .pill-count { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+    .sum-pill .pill-label { font-size: 0.67rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.75; }
+    .sum-pill .pill-count { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin-top: 1px; }
 
-    /* ── Table header row with search + filter ───────────────────────────────── */
+    /* ── Table header row ────────────────────────────────────────────────────── */
     .table-header-row {
-      display: flex; align-items: center;
-      padding: 8px 16px;
-      border-bottom: 1px solid var(--border-s);
+      display: flex; align-items: stretch;
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
-      background: var(--bg);
+      background: var(--header-bg);
       position: sticky; top: 0; z-index: 2;
     }
     .th-num-col {
       width: 10%;
-      text-align: left;
-      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+      display: flex; align-items: center; padding: 0 20px;
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em;
       color: var(--text3);
       flex-shrink: 0;
+      border-right: 1px solid var(--border-s);
     }
     .th-search-wrap {
-      position: relative;
-      width: 50%;
+      flex: 1;
       display: flex; align-items: center;
+      border-right: 1px solid var(--border-s);
     }
     .th-search {
       width: 100%;
-      padding: 5px 10px;
-      border: 1px solid var(--border-s);
-      border-radius: 6px;
+      padding: 5px 16px;
+      border: none;
+      border-radius: 0;
       background: transparent;
       color: var(--text);
       font-size: 0.78rem;
@@ -193,7 +204,7 @@
       text-transform: uppercase;
       font-family: inherit;
       outline: none;
-      transition: border-color 0.15s, background 0.15s, font-size 0.15s, font-weight 0.15s, text-transform 0.15s;
+      transition: font-size 0.15s, font-weight 0.15s, text-transform 0.15s, letter-spacing 0.15s;
     }
     .th-search::placeholder {
       color: var(--text3);
@@ -203,8 +214,6 @@
       text-transform: uppercase;
     }
     .th-search:focus {
-      border-color: var(--brand);
-      background: var(--input-bg);
       font-size: 0.875rem;
       font-weight: 400;
       letter-spacing: 0;
@@ -220,16 +229,22 @@
       width: 40%;
       display: flex; align-items: center; justify-content: flex-start;
       gap: 10px;
+      padding: 0 12px;
     }
-    .result-count { font-size: 0.78rem; color: var(--text3); white-space: nowrap; }
-    /* ── Column headings (search + filter) ──────────────────────────────────── */
+    .result-count {
+      font-size: 0.7rem; color: var(--text3); white-space: nowrap;
+      background: var(--bg-sec); padding: 2px 7px; border-radius: 10px;
+      border: 1px solid var(--border-s);
+    }
+
+    /* ── Filter btn ──────────────────────────────────────────────────────────── */
     .filter-wrap { position: relative; flex-shrink: 0; margin-left: auto; }
     .filter-btn {
       display: flex; align-items: center; gap: 5px;
       padding: 5px 10px;
       border: 1px solid var(--border-s);
       border-radius: 6px;
-      background: transparent;
+      background: var(--bg);
       color: var(--text3);
       font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
       font-family: inherit;
@@ -243,57 +258,99 @@
     .filter-btn.dropdown-open svg { transform: rotate(180deg); }
     .filter-dropdown {
       display: none;
-      position: absolute; left: 0; top: calc(100% + 4px);
-      min-width: 160px;
+      position: absolute; right: 0; top: calc(100% + 5px);
+      min-width: 170px;
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
       z-index: 100;
       overflow: hidden;
+      padding: 4px;
     }
     .filter-dropdown.open { display: block; }
     .filter-option {
-      padding: 9px 14px;
-      font-size: 0.875rem;
+      padding: 8px 12px;
+      font-size: 0.82rem;
       cursor: pointer;
+      border-radius: 6px;
       transition: background 0.1s;
+      display: flex; align-items: center; gap: 8px;
     }
     .filter-option:hover { background: var(--bg-hover); }
-    .filter-option.selected { color: var(--brand); font-weight: 600; }
+    .filter-option.selected { color: var(--brand); font-weight: 600; background: var(--brand-light); }
+    .filter-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
 
     /* ── Table ───────────────────────────────────────────────────────────────── */
     .table-wrap { flex: 1; overflow-y: auto; scrollbar-gutter: stable; }
+    .table-wrap::-webkit-scrollbar { width: 5px; }
+    .table-wrap::-webkit-scrollbar-track { background: transparent; }
+    .table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
     table { width: 100%; border-collapse: collapse; }
+    tbody tr { transition: background 0.1s; cursor: default; }
+    tbody tr:hover td { background: var(--bg-hover); }
+    tr:last-child td { border-bottom: none; }
+
     td {
-      padding: 10px 16px;
+      padding: 0;
       border-bottom: 1px solid var(--border-s);
       font-size: 0.875rem;
     }
-    tr:last-child td { border-bottom: none; }
-    tbody tr:hover td { background: var(--bg-hover); }
-    .col-num    { width: 10%; color: var(--text3); font-size: 0.78rem; text-align: left; }
-    .col-name   { width: 50%; }
+    .col-num {
+      width: 10%; text-align: center;
+      font-size: 0.72rem; font-weight: 600; color: var(--text3);
+      border-right: 1px solid var(--border-s);
+      vertical-align: middle;
+    }
+    .col-name { border-right: 1px solid var(--border-s); }
     .col-status { width: 40%; }
+
+    .cell-num { display: flex; align-items: center; justify-content: center; height: 52px; }
+    .cell-name { display: flex; align-items: center; gap: 12px; padding: 10px 20px; }
+    .cell-status { padding: 10px 20px; }
+
+    /* ── Avatar ──────────────────────────────────────────────────────────────── */
+    .avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--avatar-bg);
+      color: var(--brand);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+      border: 1.5px solid var(--border);
+    }
+    .emp-name { font-size: 0.875rem; color: var(--text); font-weight: 500; }
 
     /* ── Status chip ─────────────────────────────────────────────────────────── */
     .chip {
-      display: inline-block;
-      padding: 2px 10px; border-radius: 12px;
-      font-size: 0.78rem; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 11px; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .chip::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; opacity: 0.6; flex-shrink: 0;
     }
     .chip-Office          { background: var(--chip-office-bg);  color: var(--chip-office-fg);  }
     .chip-WFH             { background: var(--chip-wfh-bg);     color: var(--chip-wfh-fg);     }
     .chip-Leave           { background: var(--chip-leave-bg);   color: var(--chip-leave-fg);   }
     .chip-Client-Location { background: var(--chip-client-bg);  color: var(--chip-client-fg);  }
+    .chip-Floater-Holiday { background: var(--chip-floater-bg); color: var(--chip-floater-fg); }
     .chip-Absent          { background: var(--chip-absent-bg);  color: var(--chip-absent-fg);  }
+    .chip-Pending         { background: var(--chip-pending-bg); color: var(--chip-pending-fg); }
 
     .empty-msg {
-      padding: 48px 16px;
+      padding: 60px 16px;
       text-align: center;
       color: var(--text3);
       font-size: 0.875rem;
     }
+    .empty-msg svg { opacity: 0.25; margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -309,9 +366,12 @@
 
   <div id="dash-view">
    <div class="dash-inner">
-    <!-- Date + editable indicator -->
+    <!-- Info bar -->
     <div class="info-bar">
-      <span class="data-date" id="data-date"></span>
+      <div class="info-left">
+        <span class="page-title">People Pulse</span>
+        <span class="data-date" id="data-date"></span>
+      </div>
       <div class="info-right">
         <span class="last-synced" id="last-synced"></span>
         <span class="edit-dot" id="edit-dot"></span>
@@ -321,31 +381,31 @@
     <!-- Summary pills -->
     <div class="summary-bar" id="summary-bar"></div>
 
-    <!-- Table header: # | employee search heading | status filter heading -->
+    <!-- Table header: # | employee search | status filter -->
     <div class="table-header-row">
-      <div class="th-num-col" style="text-transform:none">S.No.</div>
+      <div class="th-num-col">S.No.</div>
       <div class="th-search-wrap">
         <input id="search-input" class="th-search" type="text"
                placeholder="Employees" oninput="applyFilters()" autocomplete="off" />
       </div>
       <div class="th-status-col">
-      <div class="filter-wrap">
-        <button class="filter-btn" id="filter-btn" onclick="toggleFilter(event)">
-          <span id="filter-label">Status</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M7 10l5 5 5-5z"/>
-          </svg>
-        </button>
-        <div class="filter-dropdown" id="filter-dropdown">
-          <div class="filter-option selected" data-value="all" onclick="selectFilter(this)">All</div>
-          <div class="filter-option" data-value="Absent"          onclick="selectFilter(this)">Absent</div>
-          <div class="filter-option" data-value="Client Location" onclick="selectFilter(this)">Client Location</div>
-          <div class="filter-option" data-value="Leave"           onclick="selectFilter(this)">Leave</div>
-          <div class="filter-option" data-value="Office"          onclick="selectFilter(this)">Office</div>
-          <div class="filter-option" data-value="WFH"             onclick="selectFilter(this)">Home</div>
+        <div class="filter-wrap">
+          <button class="filter-btn" id="filter-btn" onclick="toggleFilter(event)">
+            <span id="filter-label">Status</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 10l5 5 5-5z"/>
+            </svg>
+          </button>
+          <div class="filter-dropdown" id="filter-dropdown">
+            <div class="filter-option selected" data-value="all" onclick="selectFilter(this)"><span class="filter-dot" style="background:#94a3b8"></span>All statuses</div>
+            <div class="filter-option" data-value="Absent"          onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--chip-absent-fg)"></span>Absent</div>
+            <div class="filter-option" data-value="Client Location" onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--chip-client-fg)"></span>Client Location</div>
+            <div class="filter-option" data-value="Leave"           onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--chip-leave-fg)"></span>Leave</div>
+            <div class="filter-option" data-value="Office"          onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--chip-office-fg)"></span>Office</div>
+            <div class="filter-option" data-value="WFH"             onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--chip-wfh-fg)"></span>Home</div>
+          </div>
         </div>
-      </div>
-      <span class="result-count" id="result-count"></span>
+        <span class="result-count" id="result-count" style="display:none"></span>
       </div>
     </div>
 
@@ -389,6 +449,10 @@
     function chipClass(bucket) {
       return "chip chip-" + (bucket || "").replace(/ /g, "-");
     }
+
+    /* ── Display name overrides ─────────────────────────────────────────────── */
+    var DISPLAY_NAME = { "WFH": "Home" };
+    function displayName(bucket) { return DISPLAY_NAME[bucket] || bucket; }
 
     /* ── Filter dropdown ────────────────────────────────────────────────────── */
     function toggleFilter(e) {
@@ -435,10 +499,6 @@
       btn.classList.remove("dropdown-open");
     });
 
-    /* ── Display name overrides (internal bucket → UI label) ───────────────── */
-    var DISPLAY_NAME = { "WFH": "Home" };
-    function displayName(bucket) { return DISPLAY_NAME[bucket] || bucket; }
-
     /* ── Summary pills ──────────────────────────────────────────────────────── */
     var PILL_STYLE = {
       "Office":          { bg: "var(--chip-office-bg)",  fg: "var(--chip-office-fg)"  },
@@ -459,7 +519,7 @@
       var total = document.createElement("span");
       total.className = "sum-pill";
       total.setAttribute("data-bucket", "__total");
-      total.style.cssText = "background:var(--bg-sec);color:var(--text2)";
+      total.style.cssText = "background:var(--bg-sec);color:var(--text2);border-color:var(--border-s)";
       total.innerHTML = "<span class='pill-label'>Total</span><span class='pill-count'>" + records.length + "</span>";
       total.onclick = function() { selectFilterByValue("all"); };
       bar.appendChild(total);
@@ -469,7 +529,7 @@
         var pill = document.createElement("span");
         pill.className = "sum-pill";
         pill.setAttribute("data-bucket", b);
-        pill.style.cssText = "background:" + s.bg + ";color:" + s.fg;
+        pill.style.cssText = "background:" + s.bg + ";color:" + s.fg + ";border-color:" + s.fg + "22";
         pill.innerHTML = "<span class='pill-label'>" + esc(displayName(b)) + "</span><span class='pill-count'>" + (counts[b] || 0) + "</span>";
         pill.onclick = (function(bucket) { return function() { selectFilterByValue(bucket); }; })(b);
         bar.appendChild(pill);
@@ -491,10 +551,17 @@
 
     function updatePillActive() {
       document.querySelectorAll(".sum-pill").forEach(function(p) {
-        var b = p.getAttribute("data-bucket");
+        var b  = p.getAttribute("data-bucket");
         var on = _activeFilter === "all" ? b === "__total" : b === _activeFilter;
         p.classList.toggle("active", on);
       });
+    }
+
+    /* ── Initials avatar ────────────────────────────────────────────────────── */
+    function initials(name) {
+      var parts = (name || "").trim().split(/\s+/);
+      if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      return (parts[0] || "?").slice(0, 2).toUpperCase();
     }
 
     /* ── Table ──────────────────────────────────────────────────────────────── */
@@ -508,9 +575,9 @@
       });
 
       var cnt = document.getElementById("result-count");
-      cnt.textContent = (filtered.length < _allRecords.length)
-        ? filtered.length + " of " + _allRecords.length
-        : "";
+      var isFiltered = filtered.length < _allRecords.length;
+      cnt.textContent  = isFiltered ? filtered.length + " of " + _allRecords.length : "";
+      cnt.style.display = isFiltered ? "" : "none";
 
       renderTable(filtered);
     }
@@ -518,14 +585,19 @@
     function renderTable(records) {
       var tbody = document.getElementById("table-body");
       if (!records.length) {
-        tbody.innerHTML = '<tr><td colspan="3"><div class="empty-msg">No employees match the current filter.</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3"><div class="empty-msg">' +
+          '<svg width="36" height="36" viewBox="0 0 24 24" fill="var(--text3)" style="display:block;margin:0 auto 8px"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>' +
+          'No employees match the current filter.</div></td></tr>';
         return;
       }
       tbody.innerHTML = records.map(function(r, i) {
         return "<tr>" +
-          "<td class='col-num'>" + (i + 1) + "</td>" +
-          "<td class='col-name'>"   + esc(r.name) + "</td>" +
-          "<td class='col-status'><span class='" + chipClass(r.bucket) + "'>" + esc(displayName(r.bucket)) + "</span></td>" +
+          "<td class='col-num'><div class='cell-num'>" + (i + 1) + "</div></td>" +
+          "<td class='col-name'><div class='cell-name'>" +
+            "<div class='avatar'>" + esc(initials(r.name)) + "</div>" +
+            "<span class='emp-name'>" + esc(r.name) + "</span>" +
+          "</div></td>" +
+          "<td class='col-status'><div class='cell-status'><span class='" + chipClass(r.bucket) + "'>" + esc(displayName(r.bucket)) + "</span></div></td>" +
           "</tr>";
       }).join("");
     }
@@ -549,7 +621,6 @@
             return (a.name || "").localeCompare(b.name || "");
           });
 
-          // Show the date of the fetched data
           var dateEl = document.getElementById("data-date");
           try {
             var p = (data.date || "").split("-");
@@ -557,7 +628,6 @@
               .toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
           } catch(e) { dateEl.textContent = data.date || ""; }
 
-          // Last synced time
           document.getElementById("last-synced").textContent =
             "Last Synced " + new Date().toLocaleTimeString("en-IN",
               { hour: "2-digit", minute: "2-digit", hour12: false });
