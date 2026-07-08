@@ -210,7 +210,7 @@
       outline: none;
       height: 40px;
     }
-    .th-search::placeholder { color: var(--text3); font-style: italic; }
+    .th-search::placeholder { color: var(--text3); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.72rem; }
     .th-search:not(:placeholder-shown) { font-size: 0.875rem; }
     .th-status-col {
       width: 40%;
@@ -375,7 +375,7 @@
           <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
         </svg>
         <input id="search-input" class="th-search" type="text"
-               placeholder="Search employees…" oninput="applyFilters()" autocomplete="off" />
+               placeholder="Employees" oninput="applyFilters()" autocomplete="off" />
       </div>
       <div class="th-status-col">
         <div class="filter-wrap">
