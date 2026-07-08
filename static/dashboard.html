@@ -568,13 +568,27 @@
       document.getElementById("hero-card").innerHTML =
         "<div class='hero'>" +
           "<div class='hv'>" + present + " <small>/ " + records.length + "</small></div>" +
-          "<div class='hl'>present &amp; working \u00b7 " + away + " away</div>" +
+          "<div class='hl'>Present &amp; Working \u00b7 " + away + " away</div>" +
           "<div class='track'><span style='width:" + rate + "%'></span></div>" +
         "</div>";
 
       // Stat rows (clickable filters)
       var rows = document.getElementById("stat-rows");
       rows.innerHTML = "";
+
+      // Total card
+      var totalCard = document.createElement("div");
+      totalCard.className = "rcard" + (_activeFilter === "all" ? " active" : "");
+      totalCard.setAttribute("data-bucket", "__total");
+      totalCard.style.color = "var(--text2)";
+      totalCard.innerHTML =
+        "<span class='r-dot' style='background:var(--text3)'></span>" +
+        "<div class='r-mid'><div class='r-lbl'>Total</div>" +
+        "<div class='r-bar'><span style='width:100%;background:var(--text3)'></span></div></div>" +
+        "<div class='r-val'>" + records.length + "</div>";
+      totalCard.onclick = function() { selectFilterByValue("all"); };
+      rows.appendChild(totalCard);
+
       BUCKET_ORDER.forEach(function(b) {
         var s = PILL_STYLE[b] || { fg: "var(--text2)" };
         var v = counts[b] || 0;
@@ -611,7 +625,8 @@
     function updatePillActive() {
       document.querySelectorAll(".rcard").forEach(function(p) {
         var b  = p.getAttribute("data-bucket");
-        p.classList.toggle("active", _activeFilter !== "all" && b === _activeFilter);
+        var on = b === "__total" ? _activeFilter === "all" : b === _activeFilter;
+        p.classList.toggle("active", on);
       });
     }
 
