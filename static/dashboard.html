@@ -31,7 +31,6 @@
       --chip-floater-bg:  #fff8e1; --chip-floater-fg:  #f57f17;
       --chip-client-bg:   #ede7f6; --chip-client-fg:   #4527a0;
       --chip-absent-bg:   #ffebee; --chip-absent-fg:   #c62828;
-      --chip-pending-bg:  #f5f5f5; --chip-pending-fg:  #616161;
     }
     [data-theme="dark"] {
       --bg:        #292929;
@@ -51,7 +50,6 @@
       --chip-floater-bg:  #4e2300; --chip-floater-fg:  #ffcc80;
       --chip-client-bg:   #1a0050; --chip-client-fg:   #ce93d8;
       --chip-absent-bg:   #4e0000; --chip-absent-fg:   #ef9a9a;
-      --chip-pending-bg:  #3d3d3d; --chip-pending-fg:  #adadad;
     }
     [data-theme="contrast"] {
       --bg:        #000000;
@@ -71,7 +69,6 @@
       --chip-floater-bg:  #1f1f1f; --chip-floater-fg:  #ffff00;
       --chip-client-bg:   #1f1f1f; --chip-client-fg:   #ce93d8;
       --chip-absent-bg:   #1f1f1f; --chip-absent-fg:   #ff6666;
-      --chip-pending-bg:  #1f1f1f; --chip-pending-fg:  #ffffff;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -295,7 +292,6 @@
     .chip-Client-Location { background: var(--chip-client-bg);  color: var(--chip-client-fg);  }
     .chip-Floater-Holiday { background: var(--chip-floater-bg); color: var(--chip-floater-fg); }
     .chip-Absent          { background: var(--chip-absent-bg);  color: var(--chip-absent-fg);  }
-    .chip-Pending         { background: var(--chip-pending-bg); color: var(--chip-pending-fg); }
 
     .empty-msg {
       padding: 48px 16px;
@@ -397,7 +393,7 @@
     }
 
     function chipClass(bucket) {
-      return "chip chip-" + (bucket || "Pending").replace(/ /g, "-");
+      return "chip chip-" + (bucket || "").replace(/ /g, "-");
     }
 
     /* ── Filter dropdown ────────────────────────────────────────────────────── */
@@ -457,9 +453,8 @@
       "Client Location": { bg: "var(--chip-client-bg)",  fg: "var(--chip-client-fg)"  },
       "Floater Holiday": { bg: "var(--chip-floater-bg)", fg: "var(--chip-floater-fg)" },
       "Absent":          { bg: "var(--chip-absent-bg)",  fg: "var(--chip-absent-fg)"  },
-      "Pending":         { bg: "var(--chip-pending-bg)", fg: "var(--chip-pending-fg)" },
     };
-    var BUCKET_ORDER = ["Office", "WFH", "Client Location", "Leave", "Floater Holiday", "Absent", "Pending"];
+    var BUCKET_ORDER = ["Office", "WFH", "Client Location", "Leave", "Floater Holiday", "Absent"];
 
     function renderSummary(records) {
       var counts = {};
@@ -557,7 +552,9 @@
       fetch(BASE + "/tabs/dashboard-data")
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          _allRecords = (data.records || []).slice().sort(function(a, b) {
+          _allRecords = (data.records || []).filter(function(r) {
+            return r.bucket !== "Pending";
+          }).sort(function(a, b) {
             return (a.name || "").localeCompare(b.name || "");
           });
 
