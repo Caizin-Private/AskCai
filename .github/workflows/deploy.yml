@@ -3,7 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches:
-      - caizin-insync-v2.0
+      - caizin-insync-V2.0
 
 jobs:
   deploy:
