@@ -14,70 +14,82 @@
     })();
   </script>
   <style>
-    /* ── Fluent UI–aligned tokens (3 Teams themes) ─────────────────────── */
+    /* ── Fluent UI–aligned tokens (3 Teams themes) ─────────────────────────── */
     :root, [data-theme="default"] {
-      --bg:        #ffffff;
-      --bg-msg:    #f5f5f5;
-      --bg-user:   #0078d4;
-      --bg-card:   #f0f0f0;
-      --bg-hover:  #e8e8e8;
-      --text:      #242424;
-      --text2:     #424242;
-      --text3:     #616161;
-      --text-user: #ffffff;
-      --brand:     #0078d4;
-      --border:    #d1d1d1;
-      --border-s:  #e0e0e0;
-      --avatar-bg: #0078d4;
-      --avatar-fg: #ffffff;
-      --input-bg:  #f5f5f5;
-      --send-bg:   transparent;
-      --send-fg:   #0078d4;
+      --bg:         #ffffff;
+      --bg-msg:     #f5f5f5;
+      --bg-user:    #5b5fc7;
+      --bg-card:    #ffffff;
+      --card-border:#e0e0e0;
+      --bg-hover:   #eaeaea;
+      --text:       #242424;
+      --text2:      #242424;
+      --text3:      #616161;
+      --text-user:  #ffffff;
+      --brand:      #5b5fc7;
+      --chip-bg:    rgba(91,95,199,0.06);
+      --chip-fg:    #5b5fc7;
+      --link:       #0f6cbd;
+      --divider:    #e0e0e0;
+      --border:     #d1d1d1;
+      --avatar-bg:  #0b1e3f;
+      --avatar-fg:  #ffffff;
+      --input-bg:   #ffffff;
+      --tool-fg:    #616161;
+      --accent:     #5b5fc7;
     }
     [data-theme="dark"] {
-      --bg:        #1f1f1f;
-      --bg-msg:    #2d2d2d;
-      --bg-user:   #3d5a9e;
-      --bg-card:   #2d2d2d;
-      --bg-hover:  #383838;
-      --text:      #ffffff;
-      --text2:     #d6d6d6;
-      --text3:     #9e9e9e;
-      --text-user: #ffffff;
-      --brand:     #479ef5;
-      --border:    #404040;
-      --border-s:  #2d2d2d;
-      --avatar-bg: #4f6bed;
-      --avatar-fg: #ffffff;
-      --input-bg:  #2d2d2d;
-      --send-bg:   transparent;
-      --send-fg:   #479ef5;
+      --bg:         #1b1b1f;
+      --bg-msg:     #26262b;
+      --bg-user:    #3a3a6b;
+      --bg-card:    #1e1e23;
+      --card-border:#3a3a41;
+      --bg-hover:   #2f2f36;
+      --text:       #e8e8e8;
+      --text2:      #ffffff;
+      --text3:      #9c9ca4;
+      --text-user:  #ffffff;
+      --brand:      #7f85e8;
+      --chip-bg:    rgba(127,133,232,0.10);
+      --chip-fg:    #a6a9f0;
+      --link:       #6cb8f6;
+      --divider:    #3a3a41;
+      --border:     #3a3a41;
+      --avatar-bg:  #0b1e3f;
+      --avatar-fg:  #ffffff;
+      --input-bg:   #1e1e23;
+      --tool-fg:    #a0a0a8;
+      --accent:     #7f85e8;
     }
     [data-theme="contrast"] {
-      --bg:        #000000;
-      --bg-msg:    #1f1f1f;
-      --bg-user:   #1f1f1f;
-      --bg-card:   #0d0d0d;
-      --bg-hover:  #2a2a2a;
-      --text:      #ffffff;
-      --text2:     #ffffff;
-      --text3:     #ffffff;
-      --text-user: #ffffff;
-      --brand:     #1aebff;
-      --border:    #ffffff;
-      --border-s:  #ffffff;
-      --avatar-bg: #1aebff;
-      --avatar-fg: #000000;
-      --input-bg:  #0d0d0d;
-      --send-bg:   transparent;
-      --send-fg:   #1aebff;
+      --bg:         #000000;
+      --bg-msg:     #1f1f1f;
+      --bg-user:    #1f1f1f;
+      --bg-card:    #000000;
+      --card-border:#ffffff;
+      --bg-hover:   #2a2a2a;
+      --text:       #ffffff;
+      --text2:      #ffffff;
+      --text3:      #ffffff;
+      --text-user:  #ffffff;
+      --brand:      #1aebff;
+      --chip-bg:    transparent;
+      --chip-fg:    #1aebff;
+      --link:       #ffff00;
+      --divider:    #ffffff;
+      --border:     #ffffff;
+      --avatar-bg:  #1aebff;
+      --avatar-fg:  #000000;
+      --input-bg:   #000000;
+      --tool-fg:    #ffffff;
+      --accent:     #1aebff;
     }
 
-    /* ── Reset ───────────────────────────────────────────────────────────── */
+    /* ── Reset ──────────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       height: 100%;
-      font-family: "Segoe UI", -apple-system, sans-serif;
+      font-family: "Segoe UI", "Segoe UI Web (West European)", -apple-system, sans-serif;
       font-size: 14px;
       line-height: 1.4;
       background: var(--bg);
@@ -85,7 +97,7 @@
     }
     body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    /* ── Gate ──────────────────────────────────────────────────────────────── */
+    /* ── Gate ───────────────────────────────────────────────────────────────── */
     #gate-view {
       display: none; flex: 1; flex-direction: column;
       align-items: center; justify-content: center; text-align: center; gap: 8px;
@@ -93,46 +105,59 @@
     #gate-view h1 { font-size: 1.1rem; }
     #gate-view p  { color: var(--text3); font-size: 0.875rem; }
 
-    /* ── Chat shell ────────────────────────────────────────────────────────── */
+    /* ── Chat shell ─────────────────────────────────────────────────────────── */
     #chat-view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
 
     /* ── Message list ──────────────────────────────────────────────────────── */
     #messages {
       flex: 1; overflow-y: auto;
-      padding: 16px 12px 8px;
-      display: flex; flex-direction: column; gap: 4px;
+      padding: 8px 24px 8px;
+      display: flex; flex-direction: column;
+    }
+    #messages::-webkit-scrollbar { width: 14px; }
+    #messages::-webkit-scrollbar-track { background: transparent; }
+    #messages::-webkit-scrollbar-thumb {
+      background: var(--border); border-radius: 7px; border: 4px solid var(--bg);
+    }
+
+    /* ── Day separator ─────────────────────────────────────────────────────── */
+    .day-sep {
+      display: flex; align-items: center; justify-content: center;
+      margin: 16px 0 12px; color: var(--text3); font-size: 0.8rem;
     }
 
     /* ── Message row ───────────────────────────────────────────────────────── */
-    .row { display: flex; gap: 10px; margin-bottom: 6px; }
+    .row { display: flex; gap: 12px; margin-bottom: 10px; }
     .row.user-row { flex-direction: row-reverse; }
 
     /* Avatar */
     .av {
-      width: 36px; height: 36px; border-radius: 8px;
-      background: transparent;
+      width: 32px; height: 32px; border-radius: 4px;
+      background: var(--avatar-bg);
       display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; margin-top: 18px;
+      flex-shrink: 0; margin-top: 22px;
       overflow: hidden;
+      font-size: 8px; font-weight: 800; color: var(--avatar-fg); letter-spacing: .3px;
     }
-    .av img { width: 36px; height: 36px; display: block; object-fit: cover; }
+    .av img { width: 32px; height: 32px; display: block; object-fit: cover; }
 
     /* Bubble group (sender name + bubble) */
-    .bgroup { display: flex; flex-direction: column; max-width: 78%; }
-    .user-row .bgroup { align-items: flex-end; }
+    .bgroup { display: flex; flex-direction: column; max-width: 82%; }
+    .user-row .bgroup { align-items: flex-end; max-width: 60%; }
 
     .sender-line {
-      font-size: 0.72rem; font-weight: 600;
+      font-size: 0.8rem;
       color: var(--text3);
       display: flex; gap: 8px; align-items: baseline;
-      margin-bottom: 3px; padding-left: 2px;
+      margin-bottom: 4px; padding-left: 2px;
     }
     .user-row .sender-line { padding-left: 0; padding-right: 2px; }
+    .sender-line .name { font-weight: 400; color: var(--text3); }
     .sender-line .ts { font-weight: 400; }
 
     .bubble {
-      padding: 9px 13px;
-      border-radius: 12px;
+      padding: 11px 15px;
+      border-radius: 4px;
       font-size: 0.875rem;
       line-height: 1.55;
       word-break: break-word;
@@ -140,12 +165,10 @@
     .bubble.bot-bubble {
       background: var(--bg-msg);
       color: var(--text);
-      border-bottom-left-radius: 4px;
     }
     .bubble.user-bubble {
       background: var(--bg-user);
       color: var(--text-user);
-      border-bottom-right-radius: 4px;
     }
     .bubble.typing {
       background: var(--bg-msg);
@@ -153,92 +176,94 @@
       font-style: italic;
     }
 
+    /* Read receipt on sent messages */
+    .receipt { display: flex; justify-content: flex-end; align-items: center;
+      gap: 4px; margin-top: 4px; padding-right: 2px; }
+    .receipt svg { width: 15px; height: 15px; stroke: var(--text3); fill: none; }
+
     /* Markdown inside bot bubbles */
-    .bubble strong { font-weight: 700; }
-    .bubble em     { font-style: italic; }
-    .bubble ul { padding-left: 18px; margin: 6px 0; }
-    .bubble li { margin-bottom: 3px; }
-    .bubble p  { margin-bottom: 6px; }
+    .bubble strong { font-weight: 700; color: var(--text2); }
+    .bubble em     { font-style: italic; color: var(--text3); }
+    .bubble ol, .bubble ul { padding-left: 22px; margin: 4px 0; }
+    .bubble li { margin-bottom: 6px; }
+    .bubble li::marker { color: var(--text2); font-weight: 600; }
+    .bubble p  { margin-bottom: 10px; }
     .bubble p:last-child { margin-bottom: 0; }
-    .bubble h4 { font-size: 0.875rem; font-weight: 700; margin: 8px 0 3px; }
+    .bubble h4 { font-size: 0.9375rem; font-weight: 700; margin: 4px 0 8px; }
+    .bubble a  { color: var(--link); text-decoration: underline; word-break: break-all; }
+    .bubble a:hover { opacity: 0.85; }
+    .bubble hr { border: none; border-top: 1px solid var(--divider); margin: 14px 0; }
 
     /* Markdown tables */
     .bubble table {
-      border-collapse: collapse;
-      width: 100%;
-      margin: 8px 0;
-      font-size: 0.82rem;
+      border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 0.82rem;
     }
-    .bubble th, .bubble td {
-      border: 1px solid var(--border);
-      padding: 5px 10px;
-      text-align: left;
-    }
-    .bubble th {
-      background: var(--bg-hover);
-      font-weight: 600;
-      color: var(--text2);
-    }
-    .bubble tr:nth-child(even) td { background: var(--bg-card); }
+    .bubble th, .bubble td { border: 1px solid var(--border); padding: 5px 10px; text-align: left; }
+    .bubble th { background: var(--bg-hover); font-weight: 600; color: var(--text2); }
 
-    /* ── Quickstart card ───────────────────────────────────────────────────── */
+    /* ── Topic card ─────────────────────────────────────────────────────────── */
     .qs-card {
-      background: var(--bg-msg);
-      border-radius: 12px;
-      border-bottom-left-radius: 4px;
-      padding: 12px 14px;
-      max-width: 340px;
+      background: var(--bg-card);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 16px 18px;
+      max-width: 420px;
     }
-    .qs-card .card-title { font-weight: 700; font-size: 0.925rem; margin-bottom: 6px; }
-    .qs-card .card-sub   { font-size: 0.8rem; color: var(--text3); margin-bottom: 12px; }
-    .qs-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .qs-card .card-title {
+      font-weight: 700; font-size: 0.9375rem; margin-bottom: 8px; color: var(--text2);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .qs-card .card-title::before {
+      content: ""; width: 13px; height: 13px; border-radius: 2px;
+      background: var(--link); flex-shrink: 0;
+    }
+    .qs-card .card-sub { font-size: 0.875rem; color: var(--text); margin-bottom: 14px; }
+    .qs-grid { display: flex; flex-wrap: wrap; gap: 10px; }
     .qs-chip {
-      padding: 5px 12px;
-      border: 1.5px solid var(--brand);
-      border-radius: 20px;
-      background: transparent;
-      color: var(--brand);
-      font-size: 0.8rem; font-weight: 600;
+      padding: 7px 15px;
+      border: 1px solid var(--brand);
+      border-radius: 4px;
+      background: var(--chip-bg);
+      color: var(--chip-fg);
+      font-size: 0.8125rem; font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
       transition: background 0.12s, color 0.12s;
       white-space: nowrap;
     }
-    .qs-chip:hover {
-      background: var(--brand);
-      color: var(--bg);
-    }
+    .qs-chip:hover { background: var(--brand); color: #fff; }
 
-    /* ── Input bar ─────────────────────────────────────────────────────────── */
-    .input-bar {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 16px 16px;
-      background: var(--bg);
-      border-top: 1px solid var(--border-s);
-    }
-    .input-bar input {
-      flex: 1;
-      padding: 10px 14px;
-      background: var(--input-bg);
+    /* ── Composer ───────────────────────────────────────────────────────────── */
+    .composer-wrap { padding: 10px 24px 16px; background: var(--bg); }
+    .composer {
       border: 1px solid var(--border);
-      border-radius: 24px;
-      font-size: 0.875rem;
-      font-family: inherit;
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.12s;
+      border-top: 2px solid var(--accent);
+      border-radius: 4px;
+      background: var(--input-bg);
+      display: flex; flex-direction: column;
     }
-    .input-bar input::placeholder { color: var(--text3); }
-    .input-bar input:focus { border-color: var(--brand); }
-    .send-btn {
-      width: 36px; height: 36px; border: none; border-radius: 50%;
-      background: var(--send-bg); color: var(--send-fg);
+    .composer input {
+      border: none; outline: none; background: transparent;
+      padding: 14px 16px 6px; font-size: 0.9375rem; font-family: inherit; color: var(--text);
+    }
+    .composer input::placeholder { color: var(--text3); }
+    .composer-tools {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 8px 8px 8px;
+    }
+    .tool {
+      width: 30px; height: 30px; border: none; background: transparent;
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; flex-shrink: 0;
-      transition: background 0.12s;
+      border-radius: 4px; cursor: pointer; color: var(--tool-fg);
     }
-    .send-btn:hover { background: var(--bg-hover); }
-    .send-btn:disabled { opacity: 0.35; cursor: default; }
-    .send-btn svg { width: 18px; height: 18px; fill: currentColor; }
+    .tool:hover { background: var(--bg-hover); }
+    .tool svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.7; }
+    .tool.send { margin-left: auto; }
+    .tool.send:disabled { opacity: 0.35; cursor: default; }
+    .tool.gif {
+      font-size: 0.6rem; font-weight: 800; letter-spacing: .5px;
+      border: 1.5px solid currentColor; width: auto; padding: 0 5px; height: 18px; border-radius: 3px;
+    }
   </style>
 </head>
 <body>
@@ -252,13 +277,25 @@
   <!-- Chat -->
   <div id="chat-view">
     <div id="messages"></div>
-    <div class="input-bar">
-      <input id="q-input" type="text" placeholder="Type a message" autocomplete="off" />
-      <button class="send-btn" id="send-btn" onclick="sendQuestion()" title="Send">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
-        </svg>
-      </button>
+    <div class="composer-wrap">
+      <div class="composer">
+        <input id="q-input" type="text" placeholder="Type a message" autocomplete="off" />
+        <div class="composer-tools">
+          <button class="tool" title="Format" tabindex="-1">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h16"/></svg>
+          </button>
+          <button class="tool" title="Emoji" tabindex="-1">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4 4 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>
+          </button>
+          <button class="tool gif" title="GIF" tabindex="-1">GIF</button>
+          <button class="tool" title="Attach" tabindex="-1">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button class="tool send" id="send-btn" onclick="sendQuestion()" title="Send">
+            <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3.5-6.5L4 12z"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -268,8 +305,8 @@
     var BASE = window.location.origin;
     var BOT_NAME = "HrOps Test";
     var BOT_ICON = "/icon.png";
-    var BOT_INITIAL = "C";
     var _userEmail = "";
+    var _lastDay = null;
 
     var PILOT = new Set([
       "maitreyee.joshi@caizin.com",
@@ -292,33 +329,36 @@
         t === "dark" ? "dark" : t === "contrast" ? "contrast" : "default");
     }
 
-    /* ── Time ──────────────────────────────────────────────────────────────── */
+    /* ── Time / date ───────────────────────────────────────────────────────── */
     function nowTime() {
       return new Date().toLocaleTimeString("en-IN", {
         hour: "2-digit", minute: "2-digit", hour12: false,
       });
     }
+    function dayLabel(d) {
+      var now = new Date();
+      var t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      var d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      var diff = Math.round((t0 - d0) / 86400000);
+      if (diff === 0) return "Today";
+      if (diff === 1) return "Yesterday";
+      return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
 
-    /* ── Simple markdown → HTML ─────────────────────────────────────────────
-     *  Handles: **bold**, ### headings, - bullets, blank-line paragraphs.
-     *  No external lib needed for the bot's typical output.
-     * ─────────────────────────────────────────────────────────────────────── */
+    /* ── Simple markdown → HTML ────────────────────────────────────────────── */
     function mdToHtml(text) {
       var lines = text.split("\n");
       var html  = "";
-      var inUl  = false;
+      var listType = null; // 'ul' | 'ol' | null
       var inTbl = false;
-      var tblHead = false;
 
       function isTableRow(l) { return /^\|.+\|/.test(l.trim()); }
       function isSeparator(l) { return /^\|[\s\-|:]+\|/.test(l.trim()); }
-
+      function closeList() { if (listType) { html += "</" + listType + ">"; listType = null; } }
       function renderTableRow(l, isHeader) {
         var cells = l.trim().replace(/^\||\|$/g, "").split("|");
-        var tag   = isHeader ? "th" : "td";
-        return "<tr>" + cells.map(function(c) {
-          return "<" + tag + ">" + inlineMd(c.trim()) + "</" + tag + ">";
-        }).join("") + "</tr>";
+        var tag = isHeader ? "th" : "td";
+        return "<tr>" + cells.map(function(c){ return "<" + tag + ">" + inlineMd(c.trim()) + "</" + tag + ">"; }).join("") + "</tr>";
       }
 
       for (var i = 0; i < lines.length; i++) {
@@ -326,114 +366,120 @@
 
         // Table
         if (isTableRow(line)) {
-          if (isSeparator(line)) {
-            // separator row — already handled (header row emitted as <th>)
-            continue;
-          }
-          if (!inTbl) {
-            if (inUl) { html += "</ul>"; inUl = false; }
-            html += "<table><thead>";
-            html += renderTableRow(line, true);
-            html += "</thead><tbody>";
-            inTbl = true;
-            tblHead = true;
-          } else {
-            html += renderTableRow(line, false);
-          }
+          if (isSeparator(line)) continue;
+          if (!inTbl) { closeList(); html += "<table><thead>" + renderTableRow(line, true) + "</thead><tbody>"; inTbl = true; }
+          else html += renderTableRow(line, false);
           continue;
         }
+        if (inTbl) { html += "</tbody></table>"; inTbl = false; }
 
-        if (inTbl) { html += "</tbody></table>"; inTbl = false; tblHead = false; }
+        // Horizontal rule
+        if (/^\s*([-_*])\1{2,}\s*$/.test(line)) { closeList(); html += "<hr>"; continue; }
 
-        // Bullet
-        if (/^[-*]\s+/.test(line)) {
-          if (!inUl) { html += "<ul>"; inUl = true; }
-          html += "<li>" + inlineMd(line.replace(/^[-*]\s+/, "")) + "</li>";
+        // Ordered list
+        var om = line.match(/^\s*\d+\.\s+(.*)/);
+        if (om) {
+          if (listType !== "ol") { closeList(); html += "<ol>"; listType = "ol"; }
+          html += "<li>" + inlineMd(om[1]) + "</li>";
           continue;
         }
-
-        if (inUl) { html += "</ul>"; inUl = false; }
+        // Unordered list
+        var um = line.match(/^\s*[-*]\s+(.*)/);
+        if (um) {
+          if (listType !== "ul") { closeList(); html += "<ul>"; listType = "ul"; }
+          html += "<li>" + inlineMd(um[1]) + "</li>";
+          continue;
+        }
+        closeList();
 
         // Heading
         var hMatch = line.match(/^#{1,4}\s+(.*)/);
         if (hMatch) { html += "<h4>" + inlineMd(hMatch[1]) + "</h4>"; continue; }
 
-        // Blank line
-        if (!line.trim()) { continue; }
-
+        if (!line.trim()) continue;
         html += "<p>" + inlineMd(line) + "</p>";
       }
-
-      if (inUl)  html += "</ul>";
+      closeList();
       if (inTbl) html += "</tbody></table>";
       return html;
     }
 
     function inlineMd(text) {
-      // **bold**
       text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-      // *italic*
       text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
-      // [text](url)
       text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--brand)">$1</a>');
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      // bare URLs
+      text = text.replace(/(^|[^"'>])(https?:\/\/[^\s<]+)/g,
+        '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
       return text;
     }
 
-    /* ── Build a message row ────────────────────────────────────────────────── */
-    function makeRow(role, htmlContent, isCard) {
-      var row     = document.createElement("div");
-      var bgroup  = document.createElement("div");
-      var sline   = document.createElement("div");
-      var bubble  = document.createElement("div");
+    /* ── Day separator ─────────────────────────────────────────────────────── */
+    var msgList = document.getElementById("messages");
+    function ensureDaySep() {
+      var label = dayLabel(new Date());
+      if (label !== _lastDay) {
+        _lastDay = label;
+        var sep = document.createElement("div");
+        sep.className = "day-sep";
+        sep.textContent = label;
+        msgList.appendChild(sep);
+      }
+    }
+
+    /* ── Build a message row ──────────────────────────────────────────────── */
+    function makeRow(role, htmlContent) {
+      var row    = document.createElement("div");
+      var bgroup = document.createElement("div");
+      var sline  = document.createElement("div");
+      var bubble = document.createElement("div");
 
       row.className    = "row" + (role === "user" ? " user-row" : "");
-      bgroup.className = "bgroup";
-      sline.className  = "sender-line";
+      bgroup.className  = "bgroup";
+      sline.className   = "sender-line";
 
       if (role === "bot") {
-        var av       = document.createElement("div");
+        var av = document.createElement("div");
         av.className = "av";
-        av.innerHTML = '<img src="' + BOT_ICON + '" alt="Caizin">';
+        av.innerHTML = '<img src="' + BOT_ICON + '" alt="Caizin" onerror="this.replaceWith(document.createTextNode(\'caizin\'))">';
         row.appendChild(av);
-
-        sline.innerHTML =
-          "<span>" + BOT_NAME + "</span><span class='ts'>" + nowTime() + "</span>";
+        sline.innerHTML = "<span class='name'>" + BOT_NAME + "</span><span class='ts'>" + nowTime() + "</span>";
       } else {
         sline.innerHTML = "<span class='ts'>" + nowTime() + "</span>";
       }
 
-      if (isCard) {
-        bubble.appendChild(htmlContent);
-      } else {
-        bubble.className = "bubble " + (role === "bot" ? "bot-bubble" : "user-bubble");
-        bubble.innerHTML = htmlContent;
-      }
+      bubble.className = "bubble " + (role === "bot" ? "bot-bubble" : "user-bubble");
+      bubble.innerHTML = htmlContent;
 
       bgroup.appendChild(sline);
       bgroup.appendChild(bubble);
+      if (role === "user") {
+        var rcpt = document.createElement("div");
+        rcpt.className = "receipt";
+        rcpt.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        bgroup.appendChild(rcpt);
+      }
       row.appendChild(bgroup);
       return row;
     }
 
-    /* ── Append message ─────────────────────────────────────────────────────── */
-    var msgList = document.getElementById("messages");
-
     function appendBot(htmlContent) {
-      var row = makeRow("bot", htmlContent, false);
+      ensureDaySep();
+      var row = makeRow("bot", htmlContent);
       msgList.appendChild(row);
       msgList.scrollTop = msgList.scrollHeight;
       return row;
     }
-
     function appendUser(text) {
-      var row = makeRow("user", esc(text), false);
+      ensureDaySep();
+      var row = makeRow("user", esc(text));
       msgList.appendChild(row);
       msgList.scrollTop = msgList.scrollHeight;
     }
-
     function appendTyping() {
-      var row    = makeRow("bot", "Thinking…", false);
+      ensureDaySep();
+      var row = makeRow("bot", "Thinking…");
       var bubble = row.querySelector(".bubble");
       bubble.classList.add("typing");
       bubble.classList.remove("bot-bubble");
@@ -441,20 +487,18 @@
       msgList.scrollTop = msgList.scrollHeight;
       return row;
     }
-
     function appendCard(cardEl) {
+      ensureDaySep();
       var row    = document.createElement("div");
       var bgroup = document.createElement("div");
       var sline  = document.createElement("div");
       var av     = document.createElement("div");
-
       row.className    = "row";
-      bgroup.className = "bgroup";
-      sline.className  = "sender-line";
-      av.className     = "av";
-      av.innerHTML     = '<img src="' + BOT_ICON + '" alt="Caizin">';
-
-      sline.innerHTML  = "<span>" + BOT_NAME + "</span><span class='ts'>" + nowTime() + "</span>";
+      bgroup.className  = "bgroup";
+      sline.className   = "sender-line";
+      av.className      = "av";
+      av.innerHTML      = '<img src="' + BOT_ICON + '" alt="Caizin" onerror="this.replaceWith(document.createTextNode(\'caizin\'))">';
+      sline.innerHTML   = "<span class='name'>" + BOT_NAME + "</span><span class='ts'>" + nowTime() + "</span>";
       bgroup.appendChild(sline);
       bgroup.appendChild(cardEl);
       row.appendChild(av);
@@ -469,22 +513,18 @@
         .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     }
 
-    /* ── Topic picker card ───────────────────────────────────────────────────── */
+    /* ── Topic picker card ─────────────────────────────────────────────────── */
     function addTopicPicker() {
       var card  = document.createElement("div");
       card.className = "qs-card";
-
       var title = document.createElement("div");
       title.className = "card-title";
       title.textContent = "Caizin Policy Assistant";
-
       var sub = document.createElement("div");
       sub.className = "card-sub";
       sub.textContent = "Please select a policy topic:";
-
       var grid = document.createElement("div");
       grid.className = "qs-grid";
-
       TOPICS.forEach(function(t) {
         var chip = document.createElement("button");
         chip.className   = "qs-chip";
@@ -492,20 +532,19 @@
         chip.onclick     = function() { fireQuestion(t.q); };
         grid.appendChild(chip);
       });
-
       card.appendChild(title);
       card.appendChild(sub);
       card.appendChild(grid);
       appendCard(card);
     }
 
-    /* ── Quickstart card ─────────────────────────────────────────────────────  */
+    /* ── Greeting ──────────────────────────────────────────────────────────── */
     function addGreeting() {
       appendBot(esc("Good day! How can I help you with Caizin's policies today?"));
       addTopicPicker();
     }
 
-    /* ── Send ────────────────────────────────────────────────────────────────── */
+    /* ── Send ──────────────────────────────────────────────────────────────── */
     function fireQuestion(text) {
       var input = document.getElementById("q-input");
       var btn   = document.getElementById("send-btn");
@@ -524,9 +563,7 @@
         typingRow.remove();
         var answer = data.answer || "Sorry, I couldn't find an answer to that.";
         appendBot(mdToHtml(answer));
-        if (data.intent === "greeting") {
-          addTopicPicker();
-        }
+        if (data.intent === "greeting") addTopicPicker();
       })
       .catch(function() {
         typingRow.remove();
@@ -537,22 +574,21 @@
         input.focus();
       });
     }
-
     function sendQuestion() {
       var text = document.getElementById("q-input").value.trim();
       if (!text) return;
       fireQuestion(text);
     }
 
-    /* ── Input listeners ─────────────────────────────────────────────────────── */
     document.getElementById("q-input").addEventListener("keydown", function(e) {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
     });
 
-    /* ── Init ────────────────────────────────────────────────────────────────── */
+    /* ── Init ──────────────────────────────────────────────────────────────── */
     function showChat() {
       document.getElementById("chat-view").style.display = "flex";
       document.getElementById("gate-view").style.display = "none";
+      if (!msgList.children.length) addGreeting();
       document.getElementById("q-input").focus();
     }
     function showGate() {
@@ -572,7 +608,7 @@
           var theme = (ctx.app && ctx.app.theme) || ctx.theme || "default";
           applyTheme(theme);
           try { microsoftTeams.app.registerOnThemeChangeHandler(applyTheme); } catch(_) {}
-          if (!email || PILOT.has(email)) { showChat(); } else { showGate(); }
+          if (!email || PILOT.has(email)) showChat(); else showGate();
         })
         .catch(function() { showChat(); });
     } else {
