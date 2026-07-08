@@ -28,7 +28,6 @@
       --chip-office-bg:   #e8f5e9; --chip-office-fg:   #2e7d32;
       --chip-wfh-bg:      #e3f2fd; --chip-wfh-fg:      #1565c0;
       --chip-leave-bg:    #fff8e1; --chip-leave-fg:    #f57f17;
-      --chip-floater-bg:  #fff8e1; --chip-floater-fg:  #f57f17;
       --chip-client-bg:   #ede7f6; --chip-client-fg:   #4527a0;
       --chip-absent-bg:   #ffebee; --chip-absent-fg:   #c62828;
     }
@@ -47,7 +46,6 @@
       --chip-office-bg:   #1b5e20; --chip-office-fg:   #a5d6a7;
       --chip-wfh-bg:      #0d47a1; --chip-wfh-fg:      #90caf9;
       --chip-leave-bg:    #4e2300; --chip-leave-fg:    #ffcc80;
-      --chip-floater-bg:  #4e2300; --chip-floater-fg:  #ffcc80;
       --chip-client-bg:   #1a0050; --chip-client-fg:   #ce93d8;
       --chip-absent-bg:   #4e0000; --chip-absent-fg:   #ef9a9a;
     }
@@ -66,7 +64,6 @@
       --chip-office-bg:   #1f1f1f; --chip-office-fg:   #00ff00;
       --chip-wfh-bg:      #1f1f1f; --chip-wfh-fg:      #1aebff;
       --chip-leave-bg:    #1f1f1f; --chip-leave-fg:    #ffff00;
-      --chip-floater-bg:  #1f1f1f; --chip-floater-fg:  #ffff00;
       --chip-client-bg:   #1f1f1f; --chip-client-fg:   #ce93d8;
       --chip-absent-bg:   #1f1f1f; --chip-absent-fg:   #ff6666;
     }
@@ -221,9 +218,8 @@
     }
     .th-status-col {
       width: 40%;
-      display: flex; align-items: center; justify-content: flex-start;
+      display: flex; align-items: center; justify-content: flex-end;
       gap: 10px;
-      padding-left: 6px;
     }
     .result-count { font-size: 0.78rem; color: var(--text3); white-space: nowrap; }
     /* ── Column headings (search + filter) ──────────────────────────────────── */
@@ -290,7 +286,6 @@
     .chip-WFH             { background: var(--chip-wfh-bg);     color: var(--chip-wfh-fg);     }
     .chip-Leave           { background: var(--chip-leave-bg);   color: var(--chip-leave-fg);   }
     .chip-Client-Location { background: var(--chip-client-bg);  color: var(--chip-client-fg);  }
-    .chip-Floater-Holiday { background: var(--chip-floater-bg); color: var(--chip-floater-fg); }
     .chip-Absent          { background: var(--chip-absent-bg);  color: var(--chip-absent-fg);  }
 
     .empty-msg {
@@ -345,7 +340,6 @@
           <div class="filter-option selected" data-value="all" onclick="selectFilter(this)">All</div>
           <div class="filter-option" data-value="Absent"          onclick="selectFilter(this)">Absent</div>
           <div class="filter-option" data-value="Client Location" onclick="selectFilter(this)">Client Location</div>
-          <div class="filter-option" data-value="Floater Holiday" onclick="selectFilter(this)">Floater Holiday</div>
           <div class="filter-option" data-value="Leave"           onclick="selectFilter(this)">Leave</div>
           <div class="filter-option" data-value="Office"          onclick="selectFilter(this)">Office</div>
           <div class="filter-option" data-value="WFH"             onclick="selectFilter(this)">Home</div>
@@ -451,10 +445,9 @@
       "WFH":             { bg: "var(--chip-wfh-bg)",     fg: "var(--chip-wfh-fg)"     },
       "Leave":           { bg: "var(--chip-leave-bg)",   fg: "var(--chip-leave-fg)"   },
       "Client Location": { bg: "var(--chip-client-bg)",  fg: "var(--chip-client-fg)"  },
-      "Floater Holiday": { bg: "var(--chip-floater-bg)", fg: "var(--chip-floater-fg)" },
       "Absent":          { bg: "var(--chip-absent-bg)",  fg: "var(--chip-absent-fg)"  },
     };
-    var BUCKET_ORDER = ["Office", "WFH", "Client Location", "Leave", "Floater Holiday", "Absent"];
+    var BUCKET_ORDER = ["Office", "WFH", "Client Location", "Leave", "Absent"];
 
     function renderSummary(records) {
       var counts = {};
