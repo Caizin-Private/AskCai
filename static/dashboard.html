@@ -471,9 +471,7 @@
       total.onclick = function() { selectFilterByValue("all"); };
       bar.appendChild(total);
 
-      var ALWAYS_SHOW = new Set(["Client Location"]);
       BUCKET_ORDER.forEach(function(b) {
-        if (!counts[b] && !ALWAYS_SHOW.has(b)) return;
         var s = PILL_STYLE[b] || { bg: "var(--bg-sec)", fg: "var(--text2)" };
         var pill = document.createElement("span");
         pill.className = "sum-pill";
