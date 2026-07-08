@@ -188,43 +188,30 @@
     }
     .th-search-wrap {
       flex: 1;
-      display: flex; align-items: center;
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 14px;
       border-right: 1px solid var(--border-s);
+      background: var(--input-bg);
+      transition: background 0.15s;
     }
+    .th-search-wrap:focus-within {
+      background: var(--bg);
+      box-shadow: inset 0 -2px 0 var(--brand);
+    }
+    .th-search-icon { color: var(--text3); flex-shrink: 0; }
     .th-search {
-      width: 100%;
-      padding: 5px 16px;
+      flex: 1;
+      padding: 0;
       border: none;
-      border-radius: 0;
       background: transparent;
       color: var(--text);
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      font-size: 0.82rem;
       font-family: inherit;
       outline: none;
-      transition: font-size 0.15s, font-weight 0.15s, text-transform 0.15s, letter-spacing 0.15s;
+      height: 40px;
     }
-    .th-search::placeholder {
-      color: var(--text3);
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .th-search:focus {
-      font-size: 0.875rem;
-      font-weight: 400;
-      letter-spacing: 0;
-      text-transform: none;
-    }
-    .th-search:not(:placeholder-shown) {
-      font-size: 0.875rem;
-      font-weight: 400;
-      letter-spacing: 0;
-      text-transform: none;
-    }
+    .th-search::placeholder { color: var(--text3); font-style: italic; }
+    .th-search:not(:placeholder-shown) { font-size: 0.875rem; }
     .th-status-col {
       width: 40%;
       display: flex; align-items: center; justify-content: flex-start;
@@ -238,7 +225,7 @@
     }
 
     /* ── Filter btn ──────────────────────────────────────────────────────────── */
-    .filter-wrap { position: relative; flex-shrink: 0; margin-left: auto; }
+    .filter-wrap { position: relative; flex-shrink: 0; }
     .filter-btn {
       display: flex; align-items: center; gap: 5px;
       padding: 5px 10px;
@@ -369,7 +356,6 @@
     <!-- Info bar -->
     <div class="info-bar">
       <div class="info-left">
-        <span class="page-title">People Pulse</span>
         <span class="data-date" id="data-date"></span>
       </div>
       <div class="info-right">
@@ -385,8 +371,11 @@
     <div class="table-header-row">
       <div class="th-num-col">S.No.</div>
       <div class="th-search-wrap">
+        <svg class="th-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
         <input id="search-input" class="th-search" type="text"
-               placeholder="Employees" oninput="applyFilters()" autocomplete="off" />
+               placeholder="Search employees…" oninput="applyFilters()" autocomplete="off" />
       </div>
       <div class="th-status-col">
         <div class="filter-wrap">
