@@ -317,7 +317,7 @@ def _build_balance_card(employee_name: str, email: str, balances: list) -> dict:
     }
 
 
-def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = None, card_activity_id: str = "") -> dict:
+def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = None) -> dict:
     prefill = prefill or {}
     choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
     default_id = leave_types[0].id if leave_types else ""
@@ -360,7 +360,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
         "body": body,
-        "actions": [{"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit", "card_activity_id": card_activity_id}}],
+        "actions": [{"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit"}}],
     }
 
 
@@ -638,18 +638,8 @@ async def _handle_cmd_balance(turn_context, email: str) -> None:
 
 
 async def _send_chat_leave_form(turn_context, leave_types: list, prefill: dict = None, error: str = "") -> None:
-    """Send the leave form card and stamp its own activity ID into the submit data for in-place updates."""
     card = _build_chat_leave_form(leave_types, error=error, prefill=prefill)
-    resource = await turn_context.send_activity(
-        MessageFactory.attachment(CardFactory.adaptive_card(card))
-    )
-    logger.info("[leave_form] sent card resource=%s id=%s", resource, resource.id if resource else None)
-    if resource and resource.id:
-        card["actions"][0]["data"]["card_activity_id"] = resource.id
-        stamped = MessageFactory.attachment(CardFactory.adaptive_card(card))
-        stamped.id = resource.id
-        await turn_context.update_activity(stamped)
-        logger.info("[leave_form] stamped card_activity_id=%s", resource.id)
+    await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(card)))
 
 
 async def _handle_cmd_leave(turn_context, email: str) -> None:
@@ -894,8 +884,8 @@ async def messages(req: Request):
                     "This feature is not enabled for your account."
                 ))
                 return
-            card_activity_id = act.value.get("card_activity_id") or ""
-            logger.info("[leave_form] submit received card_activity_id=%r", card_activity_id)
+            card_activity_id = getattr(act, "reply_to_id", None) or act.value.get("card_activity_id") or ""
+            logger.info("[leave_form] submit card_activity_id=%r (reply_to_id=%r)", card_activity_id, getattr(act, "reply_to_id", None))
 
             async def _update_or_send(card: dict) -> None:
                 if card_activity_id:
@@ -915,7 +905,7 @@ async def messages(req: Request):
                 return
             if error:
                 leave_types = await leave_service.get_leave_types()
-                await _update_or_send(_build_chat_leave_form(leave_types, error=error, prefill=act.value, card_activity_id=card_activity_id))
+                await _update_or_send(_build_chat_leave_form(leave_types, error=error, prefill=act.value))
                 return
             if result.success:
                 leave_types = await leave_service.get_leave_types()
@@ -941,7 +931,7 @@ async def messages(req: Request):
                 await _update_or_send(ack_card)
             else:
                 leave_types = await leave_service.get_leave_types()
-                await _update_or_send(_build_chat_leave_form(leave_types, error=result.message, prefill=act.value, card_activity_id=card_activity_id))
+                await _update_or_send(_build_chat_leave_form(leave_types, error=result.message, prefill=act.value))
             return
 
         # Strip @mention tags Teams injects when the bot is mentioned
