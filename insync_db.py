@@ -203,31 +203,3 @@ def record_attendance_response(employee_id: str, status_verb: str) -> bool:
         return False
 
 
-def get_dashboard_data() -> dict:
-    """
-    Returns attendance data shaped for build_dashboard_card().
-    {date, records: [{employee_id, status, employee_response, check_in_time}],
-           employees: [{employee_id, name}]}
-    """
-    today = datetime.now(IST).strftime("%Y-%m-%d")
-    try:
-        conn = _get_conn()
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT a.employee_id, a.status, a.employee_response, a.check_in_time,
-                       e.name
-                  FROM attendance a
-                  JOIN employees e ON a.employee_id = e.employee_id
-                 WHERE a.date = %s AND e.is_active = 'active'
-                 ORDER BY e.name
-                """,
-                (today,),
-            )
-            rows = cur.fetchall()
-        records   = [dict(r) for r in rows]
-        employees = [{"employee_id": r["employee_id"], "name": r["name"]} for r in records]
-        return {"date": today, "records": records, "employees": employees}
-    except Exception as exc:
-        logger.error("[InSyncDB] get_dashboard_data: %s", exc)
-        return {"date": today, "records": [], "employees": []}

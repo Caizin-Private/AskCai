@@ -132,10 +132,9 @@ def search_documents(query: str):
 # =========================
 def _classify_intent(question: str) -> str:
     """
-    Classify intent into one of five categories:
+    Classify intent into one of four categories:
       - 'greeting'     : casual small talk
       - 'list_policies': user wants to see all available policies
-      - 'hr_action'    : live HRMS action (leave balance, apply/view/cancel leave)
       - 'rag'          : policy knowledge question
       - 'other'        : off-topic, gibberish, slogans, or anything unrelated to HR/policies
 
@@ -156,10 +155,6 @@ def _classify_intent(question: str) -> str:
                     "opinion, slogan, or non-greeting content, even if it is short or casual.\n"
                     "- \"list_policies\" — user wants to see all or available company policies "
                     "(e.g. list all policies, what policies do you have, show me all docs)\n"
-                    "- \"hr_action\" — a live HR system action: checking leave balance, "
-                    "applying/cancelling leave, viewing leave requests or history "
-                    "(e.g. 'what is my leave balance', 'apply casual leave from June 10 to 12', "
-                    "'show my leaves', 'cancel my leave')\n"
                     "- \"rag\" — a genuine question about Caizin company policy rules, eligibility, "
                     "or entitlements (e.g. 'what is the leave policy', 'how many sick days am I entitled to', "
                     "'tell me about travel policy')\n"
@@ -175,7 +170,7 @@ def _classify_intent(question: str) -> str:
             }],
         )
         intent = next((b.text for b in response.content if b.type == "text"), "").strip().lower()
-        return intent if intent in ("greeting", "list_policies", "hr_action", "rag", "other") else "other"
+        return intent if intent in ("greeting", "list_policies", "rag", "other") else "other"
     except Exception as e:
         print(f"[intent] classifier failed, defaulting to rag: {e}")
         return "rag"
@@ -321,9 +316,7 @@ Question:
 # =========================
 # MAIN QUERY ROUTER
 # =========================
-async def ask_policy_question(question: str, employee_email: str = "", policy_only: bool = False):
-    from keka.mcp_agent import ask_keka_mcp
-
+async def ask_policy_question(question: str):
     intent = _classify_intent(question)
 
     # 1. Greeting
@@ -343,11 +336,7 @@ async def ask_policy_question(question: str, employee_email: str = "", policy_on
     if intent == "list_policies":
         return list_all_policies(), intent
 
-    # 4. Live HR action — skip when policy_only=True (AskCAI tab serves policy docs only)
-    if intent == "hr_action" and not policy_only:
-        return await ask_keka_mcp(question, employee_email, _get_anthropic_api_key()), intent
-
-    # 5. RAG pipeline — policy knowledge question
+    # 4. RAG pipeline — policy knowledge question
     docs, all_sources, chunk_sources = search_documents(question)
     answer, used_policies = generate_answer(question, docs, chunk_sources)
 

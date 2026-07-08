@@ -1032,12 +1032,7 @@ async def messages(req: Request):
 async def ask(req: Request):
     body     = await req.json()
     question = body.get("question", "")
-    email    = body.get("employee_email", "")
-    answer, intent = await ask_policy_question(
-        question,
-        employee_email=email,
-        policy_only=bool(body.get("policy_only", False)),
-    )
+    answer, intent = await ask_policy_question(question)
     return {"answer": answer, "intent": intent}
 
 
