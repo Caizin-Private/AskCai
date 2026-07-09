@@ -630,6 +630,13 @@
       });
     }
 
+    /* ── Name formatting ────────────────────────────────────────────────────── */
+    function toTitleCase(name) {
+      return (name || "").trim().replace(/\S+/g, function(w) {
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      });
+    }
+
     /* ── Initials avatar ────────────────────────────────────────────────────── */
     function initials(name) {
       var parts = (name || "").trim().split(/\s+/);
@@ -668,7 +675,7 @@
           "<td class='col-num'><div class='cell-num'>" + (i + 1) + "</div></td>" +
           "<td class='col-name'><div class='cell-name'>" +
             "<div class='avatar'>" + esc(initials(r.name)) + "</div>" +
-            "<span class='emp-name'>" + esc(r.name) + "</span>" +
+            "<span class='emp-name'>" + esc(toTitleCase(r.name)) + "</span>" +
           "</div></td>" +
           "<td class='col-status'><div class='cell-status'><span class='" + chipClass(r.bucket) + "'>" + esc(displayName(r.bucket)) + "</span></div></td>" +
           "</tr>";
