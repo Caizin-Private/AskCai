@@ -18,7 +18,7 @@ from botbuilder.core import (
 from botbuilder.core.teams import TeamsInfo
 from botbuilder.schema import Activity, InvokeResponse
 
-from features import surface_enabled, is_pilot, COMMAND_FLAGS
+from features import surface_enabled, is_pilot, COMMAND_FLAGS, _FLAGS
 from rag import ask_policy_question, _classify_intent, extract_leave_request
 from keka.leave_service import leave_service
 from keka.models import SessionType
@@ -1060,7 +1060,7 @@ async def tab_askcai():
 
 @app.get("/tabs/dashboard")
 async def tab_dashboard():
-    dashboard_on = os.getenv("FEATURE_DASHBOARD", "1") != "0"
+    dashboard_on = _FLAGS.get("dashboard", False) and os.getenv("FEATURE_DASHBOARD", "1") != "0"
     filename = "dashboard.html" if dashboard_on else "coming_soon.html"
     r = FileResponse(os.path.join("static", filename))
     r.headers["Content-Security-Policy"] = _TAB_CSP
@@ -1069,7 +1069,7 @@ async def tab_dashboard():
 
 @app.get("/tabs/people-pulse")
 async def tab_people_pulse():
-    dashboard_on = os.getenv("FEATURE_DASHBOARD", "1") != "0"
+    dashboard_on = _FLAGS.get("dashboard", False) and os.getenv("FEATURE_DASHBOARD", "1") != "0"
     filename = "dashboard.html" if dashboard_on else "coming_soon.html"
     r = FileResponse(os.path.join("static", filename))
     r.headers["Content-Security-Policy"] = _TAB_CSP
