@@ -572,6 +572,8 @@ async def _execute_leave_submission(email: str, data: dict):
         return None, "Please fill in both From and To dates.", None
     if datetime.strptime(to_date, "%Y-%m-%d") < datetime.strptime(from_date, "%Y-%m-%d"):
         return None, "To Date cannot be earlier than From Date.", None
+    if session_type != SessionType.FULL_DAY and from_date != to_date:
+        return None, "Half-day leave can only be applied for a single day. Please select the same date in both From and To fields.", None
     if session_type != SessionType.FULL_DAY:
         to_date = from_date
 
@@ -932,7 +934,7 @@ async def messages(req: Request):
             await _handle_cmd_help(turn_context)
 
         else:
-            _LEAVE_KEYWORDS = ("leave", "apply", "off", "balance", "vacation", "sick", "casual", "annual", "holiday")
+            _LEAVE_KEYWORDS = ("leave", "apply", "off", "balance", "vacation", "sick", "casual", "annual", "holiday", "cancel", "withdraw", "revoke")
             if email and surface_enabled("leave_management", email) and any(kw in text.lower() for kw in _LEAVE_KEYWORDS):
                 today_str  = datetime.now(IST).strftime("%Y-%m-%d")
                 leave_types = await leave_service.get_leave_types()
@@ -943,6 +945,12 @@ async def messages(req: Request):
                 if parsed:
                     if parsed.get("action") == "check_balance":
                         await _handle_cmd_balance(turn_context, email)
+                        return
+                    if parsed.get("action") == "cancel_leave":
+                        await turn_context.send_activity(
+                            "Cancel leave is not supported in this system. "
+                            "Please cancel your leave directly from **Keka**."
+                        )
                         return
                     if parsed.get("action") == "apply_leave":
                         hint = (parsed.get("leave_type_hint") or "").strip().lower()

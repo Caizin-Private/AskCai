@@ -207,6 +207,7 @@ def extract_leave_request(text: str, today: str, leave_type_names: list = None) 
                     "  leave_type_hint: pick the closest match from this list if a leave type is mentioned, else empty string.\n"
                     f"  Available leave types: {', '.join(leave_type_names) if leave_type_names else 'casual, sick, annual, earned'}\n"
                     "  If only one date is mentioned, set both from_date and to_date to that date.\n"
+                    '- Cancelling/withdrawing/revoking an existing leave → {"action":"cancel_leave"}\n'
                     '- Neither → {"action":null}'
                 ),
             }],
