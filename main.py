@@ -348,7 +348,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         {
             "type": "Input.Text",
             "id": "reason",
-            "label": "Reason (optional)",
+            "label": "Reason *",
             "isMultiline": True,
             "placeholder": "e.g. Personal work",
             "value": prefill.get("reason") or "",
@@ -470,7 +470,7 @@ def _build_apply_leave_card(leave_types: list, prefill: dict = None) -> dict:
             {
                 "type": "Input.Text",
                 "id": "reason",
-                "label": "Reason (optional)",
+                "label": "Reason *",
                 "isMultiline": True,
                 "placeholder": "e.g. Personal work",
                 "value": prefill.get("reason") or "",
@@ -564,11 +564,13 @@ async def _execute_leave_submission(email: str, data: dict):
     from_date     = data.get("from_date", "")
     to_date       = data.get("to_date", "")
     session_type  = SessionType(data.get("session_type") or "full_day")
-    reason        = data.get("reason") or "Not specified"
+    reason        = (data.get("reason") or "").strip()
 
     logger.info("[apply_leave] email=%s leave_type_id=%s from=%s to=%s session=%s",
                 email, leave_type_id, from_date, to_date, session_type)
 
+    if not reason:
+        return None, "Reason is required. Please provide a reason for your leave.", None
     if not from_date or not to_date:
         return None, "Please fill in both From and To dates.", None
     if datetime.strptime(to_date, "%Y-%m-%d") < datetime.strptime(from_date, "%Y-%m-%d"):
