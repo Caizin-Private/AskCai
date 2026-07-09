@@ -935,7 +935,15 @@ async def messages(req: Request):
 
         else:
             _LEAVE_KEYWORDS = ("leave", "apply", "off", "balance", "vacation", "sick", "casual", "annual", "holiday", "cancel", "withdraw", "revoke")
-            if email and surface_enabled("leave_management", email) and any(kw in text.lower() for kw in _LEAVE_KEYWORDS):
+            _CANCEL_KEYWORDS = ("cancel", "withdraw", "revoke")
+            text_lower = text.lower()
+            if email and surface_enabled("leave_management", email) and any(kw in text_lower for kw in _LEAVE_KEYWORDS):
+                if any(kw in text_lower for kw in _CANCEL_KEYWORDS) and "leave" in text_lower:
+                    await turn_context.send_activity(
+                        "Cancel leave is not supported in this system. "
+                        "Please cancel your leave directly from **Keka**."
+                    )
+                    return
                 today_str  = datetime.now(IST).strftime("%Y-%m-%d")
                 leave_types = await leave_service.get_leave_types()
                 lt_names    = [lt.name for lt in leave_types]
