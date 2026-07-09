@@ -291,7 +291,7 @@ def _build_balance_card(employee_name: str, email: str, balances: list) -> dict:
     }
 
     rows = []
-    for b in balances:
+    for b in sorted(balances, key=lambda x: x.used, reverse=True):
         avail_color = "Good" if b.available > 0 else "Default"
         rows.append({
             "type": "ColumnSet", "spacing": "Small",
