@@ -271,7 +271,7 @@ def _fmt_days(n: float) -> str:
     return str(int(n)) if n == int(n) else str(n)
 
 
-def _build_balance_card(employee_name: str, email: str, balances: list) -> dict:
+def _build_balance_card(employee_name: str, balances: list) -> dict:
     def _col(text, width, color=None, bold=False, align="Left"):
         tb = {"type": "TextBlock", "text": text, "size": "Small", "wrap": False,
               "horizontalAlignment": align}
@@ -302,10 +302,11 @@ def _build_balance_card(employee_name: str, email: str, balances: list) -> dict:
             ],
         })
 
+    first_name = _first_name(employee_name)
     body = [
         {"type": "TextBlock", "text": "Leave Balance", "weight": "Bolder", "size": "Large"},
-        {"type": "TextBlock", "text": f"{employee_name}  ·  {email}",
-         "isSubtle": True, "size": "Small", "spacing": "None"},
+        {"type": "TextBlock", "text": f"Hey {first_name}, here's a summary of your leave balance.",
+         "isSubtle": True, "size": "Small", "spacing": "None", "wrap": True},
         header_row,
         *rows,
     ]
@@ -622,7 +623,7 @@ async def _handle_cmd_balance(turn_context, email: str) -> None:
     emp_name, balances = await leave_service.get_leave_balance(_leave_email(email))
     await turn_context.send_activity(
         MessageFactory.attachment(CardFactory.adaptive_card(
-            _build_balance_card(emp_name, _leave_email(email), balances)
+            _build_balance_card(emp_name, balances)
         ))
     )
 
@@ -659,7 +660,7 @@ async def _handle_cmd_help(turn_context) -> None:
 
 async def _fetch_balance(turn_context, email: str) -> dict:
     emp_name, balances = await leave_service.get_leave_balance(_leave_email(email))
-    return _task_continue("Leave Balance", _build_balance_card(emp_name, _leave_email(email), balances))
+    return _task_continue("Leave Balance", _build_balance_card(emp_name, balances))
 
 
 async def _fetch_apply_leave(turn_context, email: str) -> dict:
