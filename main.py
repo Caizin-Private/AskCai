@@ -882,7 +882,7 @@ async def messages(req: Request):
                         {"type": "FactSet", "facts": [
                             {"title": "Type",     "value": lt_name},
                             {"title": "Date",     "value": date_str},
-                            {"title": "Duration", "value": session},
+                            {"title": "Session",  "value": session},
                         ]},
                     ],
                 }
