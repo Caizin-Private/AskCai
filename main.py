@@ -285,9 +285,8 @@ def _build_balance_card(employee_name: str, email: str, balances: list) -> dict:
         "type": "ColumnSet", "separator": True, "spacing": "Small",
         "columns": [
             _col("Leave Type", "stretch", bold=True),
-            _col("Accrued", "80px", bold=True, align="Center"),
-            _col("Used",    "60px", bold=True, align="Center"),
-            _col("Available","80px", bold=True, align="Center"),
+            _col("Used",      "60px", bold=True, align="Center"),
+            _col("Available", "80px", bold=True, align="Center"),
         ],
     }
 
@@ -297,10 +296,9 @@ def _build_balance_card(employee_name: str, email: str, balances: list) -> dict:
         rows.append({
             "type": "ColumnSet", "spacing": "Small",
             "columns": [
-                _col(b.leave_type_name,       "stretch"),
-                _col(_fmt_days(b.total),       "80px", align="Center"),
-                _col(_fmt_days(b.used),        "60px", align="Center"),
-                _col(_fmt_days(b.available),   "80px", color=avail_color, align="Center"),
+                _col(b.leave_type_name,      "stretch"),
+                _col(_fmt_days(b.used),      "60px", align="Center"),
+                _col(_fmt_days(b.available), "80px", color=avail_color, align="Center"),
             ],
         })
 
