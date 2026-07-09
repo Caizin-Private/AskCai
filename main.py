@@ -606,13 +606,13 @@ async def _nlp_leave_submit(turn_context, data: dict) -> dict:
         )
 
     if error:
-        leave_types = await leave_service.get_leave_types()
+        leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
         return _card_action_response(_build_chat_leave_form(leave_types, error=error))
     if result.success:
         return _card_action_response(
             _build_text_card("Leave Applied", "Your leave request has been submitted successfully.")
         )
-    leave_types = await leave_service.get_leave_types()
+    leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
     return _card_action_response(_build_chat_leave_form(leave_types, error=result.message))
 
 
@@ -633,7 +633,7 @@ async def _send_chat_leave_form(turn_context, leave_types: list, prefill: dict =
 
 
 async def _handle_cmd_leave(turn_context, email: str) -> None:
-    leave_types = await leave_service.get_leave_types()
+    leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
     await _send_chat_leave_form(turn_context, leave_types)
 
 
@@ -663,7 +663,7 @@ async def _fetch_balance(turn_context, email: str) -> dict:
 
 
 async def _fetch_apply_leave(turn_context, email: str) -> dict:
-    leave_types = await leave_service.get_leave_types()
+    leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
     return _task_continue("Apply for Leave", _build_apply_leave_card(leave_types))
 
 
@@ -710,19 +710,19 @@ async def _compose_leave_submit(turn_context, data: dict, email: str) -> dict:
         result, error, _ = await _execute_leave_submission(email, data)
     except Exception as exc:
         logger.error("[apply_leave] service error: %s", exc, exc_info=True)
-        leave_types = await leave_service.get_leave_types()
+        leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
         card = _build_apply_leave_card(leave_types)
         card["body"].insert(0, {"type": "TextBlock", "text": f"Could not submit leave: {exc}", "color": "Attention", "wrap": True})
         return _task_continue("Apply for Leave", card)
 
     if error:
-        leave_types = await leave_service.get_leave_types()
+        leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
         card = _build_apply_leave_card(leave_types)
         card["body"].insert(0, {"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
         return _task_continue("Apply for Leave", card)
     if result.success:
         return _task_message("Your leave request has been submitted successfully.")
-    leave_types = await leave_service.get_leave_types()
+    leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
     card = _build_apply_leave_card(leave_types)
     card["body"].insert(0, {"type": "TextBlock", "text": result.message, "color": "Attention", "wrap": True})
     return _task_continue("Apply for Leave", card)
@@ -865,11 +865,11 @@ async def messages(req: Request):
                 await _update_or_send(_build_text_card("Error", f"Could not submit leave request: {exc}"))
                 return
             if error:
-                leave_types = await leave_service.get_leave_types()
+                leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
                 await _update_or_send(_build_chat_leave_form(leave_types, error=error, prefill=act.value))
                 return
             if result.success:
-                leave_types = await leave_service.get_leave_types()
+                leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
                 lt_map = {lt.id: lt.name for lt in leave_types}
                 lt_name     = lt_map.get(act.value.get("leave_type_id") or "", "Leave")
                 from_date   = act.value.get("from_date", "")
@@ -891,7 +891,7 @@ async def messages(req: Request):
                 }
                 await _update_or_send(ack_card)
             else:
-                leave_types = await leave_service.get_leave_types()
+                leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
                 await _update_or_send(_build_chat_leave_form(leave_types, error=result.message, prefill=act.value))
             return
 
@@ -948,7 +948,7 @@ async def messages(req: Request):
                     )
                     return
                 today_str  = datetime.now(IST).strftime("%Y-%m-%d")
-                leave_types = await leave_service.get_leave_types()
+                leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
                 lt_names    = [lt.name for lt in leave_types]
                 parsed = await asyncio.get_event_loop().run_in_executor(
                     None, extract_leave_request, text, today_str, lt_names

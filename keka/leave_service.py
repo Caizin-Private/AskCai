@@ -46,6 +46,12 @@ class KekaLeaveService:
         raw = fetch_leave_types()
         return [LeaveType(id=lt["identifier"], name=lt["name"]) for lt in raw]
 
+    async def get_applicable_leave_types(self, email: str) -> list:
+        # Keka filters leave balance per employee (gender, policy, etc.).
+        # Deriving leave types from balance gives only what this user can apply for.
+        _, balances = await self.get_leave_balance(email)
+        return [LeaveType(id=b.leave_type_id, name=b.leave_type_name) for b in balances]
+
     async def get_leave_balance(self, email: str) -> tuple:
         """Returns (employee_name, list[LeaveBalance])."""
         loop = asyncio.get_event_loop()
