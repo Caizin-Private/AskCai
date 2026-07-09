@@ -18,7 +18,7 @@ from botbuilder.core import (
 from botbuilder.core.teams import TeamsInfo
 from botbuilder.schema import Activity, InvokeResponse
 
-from features import surface_enabled, is_pilot, COMMAND_FLAGS
+from features import surface_enabled, COMMAND_FLAGS
 from rag import ask_policy_question, _classify_intent, extract_leave_request
 from keka.leave_service import leave_service
 from keka.models import SessionType
@@ -919,7 +919,7 @@ async def messages(req: Request):
             await _handle_cmd_leave(turn_context, email)
 
         elif cmd in ("/attendance", "attendance"):
-            if not email or not is_pilot(email):
+            if not email or not surface_enabled("attendance_card", email):
                 await turn_context.send_activity(MessageFactory.text(
                     "This feature is coming soon to your account."
                 ))

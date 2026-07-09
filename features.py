@@ -32,7 +32,6 @@ def is_pilot(email: str) -> bool:
     return (email or "").strip().lower() in PILOT_ALLOWLIST
 
 
-def surface_enabled(flag: str, email: str) -> bool:
-    """True only if the feature flag is on AND the user is in the pilot allowlist."""
-    flag_on = os.getenv(f"FEATURE_{flag.upper()}", "1") != "0" and _FLAGS.get(flag, False)
-    return flag_on and is_pilot(email)
+def surface_enabled(flag: str, email: str = "") -> bool:
+    """True if the feature flag is on."""
+    return os.getenv(f"FEATURE_{flag.upper()}", "1") != "0" and _FLAGS.get(flag, False)
