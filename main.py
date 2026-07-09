@@ -391,7 +391,7 @@ def _build_help_card(header: str = "", footer: str = "") -> dict:
         ]},
         {
             "type": "TextBlock",
-            "text": footer or "For policy questions, switch to the **AskCAI** tab.",
+            "text": footer or "Use the commands above to manage your leave.",
             "wrap": True,
             "isSubtle": True,
             "spacing": "Medium",
@@ -991,8 +991,7 @@ async def messages(req: Request):
                 await turn_context.send_activity(
                     MessageFactory.attachment(CardFactory.adaptive_card(
                         _build_help_card(
-                            header="This chat supports **work location and leave** only. "
-                                   "For policy questions, please use the **AskCAI** tab."
+                            header="This chat supports **work location and leave** only."
                         )
                     ))
                 )
