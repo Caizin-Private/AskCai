@@ -41,7 +41,7 @@ TENANT_ID         = os.getenv("MicrosoftAppTenantId")
 # To test against a fixed Keka account instead of the real Teams user, set this to that email.
 # Leave empty ("") in production so each employee's own email is used for all Keka operations.
 # _KEKA_EMAIL_OVERRIDE = "recruiter@caizin.com"  # example test account
-_KEKA_EMAIL_OVERRIDE = ""
+_KEKA_EMAIL_OVERRIDE = "recruiter@caizin.com"
 
 adapter = BotFrameworkAdapter(BotFrameworkAdapterSettings(
     app_id=APP_ID,
