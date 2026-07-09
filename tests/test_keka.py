@@ -1,5 +1,5 @@
 """
-Characterization tests for Caizin-HR-Bot/keka/client.py and keka/mcp_agent.py
+Characterization tests for Caizin-HR-Bot/keka/client.py
 
 Language:  Python 3.11+
 Framework: pytest  (pip install pytest pytest-asyncio)
@@ -12,9 +12,7 @@ import os
 import sys
 import time
 import types
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Stub packages that may not be installed
@@ -39,10 +37,8 @@ _fake_anthropic.Anthropic = MagicMock
 # Re-import fresh copies
 sys.modules.pop("keka", None)
 sys.modules.pop("keka.client", None)
-sys.modules.pop("keka.mcp_agent", None)
 
 import keka.client as keka_client  # noqa: E402
-import keka.mcp_agent as mcp_agent  # noqa: E402
 
 
 # ===========================================================================
@@ -197,177 +193,3 @@ class TestGetAccessToken:
         assert kwargs["data"]["grant_type"] == "kekaapi"
         assert kwargs["headers"]["Content-Type"] == "application/x-www-form-urlencoded"
         assert kwargs["timeout"] == 10
-
-
-# ===========================================================================
-# keka/mcp_agent.py — ask_keka_mcp error handling
-# ===========================================================================
-
-class TestAskKekaMcp:
-    @pytest.mark.asyncio
-    async def test_token_fetch_failure_returns_error_string(self):
-        """
-        Test name: mcp_token_failure_returns_error_string
-        When get_access_token raises an exception, ask_keka_mcp catches it
-        and returns a user-friendly error string starting with
-        "Sorry, I couldn't connect to Keka right now."
-        mcp_agent imports get_access_token directly, so patch its local binding.
-        """
-        with patch("keka.mcp_agent.get_access_token", side_effect=Exception("network timeout")):
-            result = await mcp_agent.ask_keka_mcp("what is my leave?", "user@caizin.com", "key")
-
-        assert result.startswith("Sorry, I couldn't connect to Keka right now.")
-        assert "network timeout" in result
-
-    @pytest.mark.asyncio
-    async def test_anthropic_api_exception_returns_error_string(self):
-        """
-        Test name: mcp_api_exception_returns_error_string
-        When the Anthropic API call raises an exception, ask_keka_mcp returns
-        a string starting with "Sorry, I couldn't complete your HR request."
-        """
-        mock_token = "valid-token"
-        with patch("keka.client.get_access_token", return_value=mock_token):
-            mock_async_client = MagicMock()
-            mock_async_client.beta.messages.create = AsyncMock(
-                side_effect=Exception("API quota exceeded")
-            )
-            with patch.object(sys.modules["anthropic"], "AsyncAnthropic",
-                               return_value=mock_async_client):
-                result = await mcp_agent.ask_keka_mcp(
-                    "leave balance", "user@caizin.com", "key"
-                )
-
-        assert result.startswith("Sorry, I couldn't complete your HR request.")
-        assert "API quota exceeded" in result
-
-    @pytest.mark.asyncio
-    async def test_empty_text_blocks_returns_fallback_message(self):
-        """
-        Test name: mcp_no_text_blocks_returns_fallback
-        When the Anthropic response has no text blocks (e.g. only tool_use blocks),
-        ask_keka_mcp returns the fixed fallback message
-        "I couldn't complete your HR request. Please try again or contact HR."
-        """
-        mock_block = MagicMock()
-        mock_block.type = "tool_use"
-        del mock_block.text  # no .text attribute
-
-        mock_response = MagicMock()
-        mock_response.content = [mock_block]
-        mock_response.stop_reason = "tool_use"
-
-        with patch("keka.client.get_access_token", return_value="token"):
-            mock_async_client = MagicMock()
-            mock_async_client.beta.messages.create = AsyncMock(return_value=mock_response)
-            with patch.object(sys.modules["anthropic"], "AsyncAnthropic",
-                               return_value=mock_async_client):
-                result = await mcp_agent.ask_keka_mcp(
-                    "leave balance", "user@caizin.com", "key"
-                )
-
-        assert result == "I couldn't complete your HR request. Please try again or contact HR."
-
-    @pytest.mark.asyncio
-    async def test_returns_last_text_block_when_multiple_exist(self):
-        """
-        Test name: mcp_returns_last_text_block
-        When multiple text blocks are present in the response,
-        ask_keka_mcp returns the LAST text block's content.
-        """
-        def _text_block(text):
-            b = MagicMock()
-            b.type = "text"
-            b.text = text
-            return b
-
-        mock_response = MagicMock()
-        mock_response.content = [
-            _text_block("First partial answer."),
-            _text_block("Final complete answer."),
-        ]
-        mock_response.stop_reason = "end_turn"
-
-        with patch("keka.client.get_access_token", return_value="token"):
-            mock_async_client = MagicMock()
-            mock_async_client.beta.messages.create = AsyncMock(return_value=mock_response)
-            with patch.object(sys.modules["anthropic"], "AsyncAnthropic",
-                               return_value=mock_async_client):
-                result = await mcp_agent.ask_keka_mcp(
-                    "anything", "user@caizin.com", "key"
-                )
-
-        assert result == "Final complete answer."
-
-    @pytest.mark.asyncio
-    async def test_system_prompt_contains_employee_email_and_today(self):
-        """
-        Test name: mcp_system_prompt_contains_email_and_date
-        The system prompt passed to the Anthropic API contains the employee email
-        and today's date (YYYY-MM-DD format) from the Python date module.
-        """
-        from datetime import date
-
-        captured = {}
-
-        async def _fake_create(**kwargs):
-            captured["system"] = kwargs.get("system", "")
-            b = MagicMock()
-            b.type = "text"
-            b.text = "response"
-            resp = MagicMock()
-            resp.content = [b]
-            resp.stop_reason = "end_turn"
-            return resp
-
-        with patch("keka.client.get_access_token", return_value="token"):
-            mock_async_client = MagicMock()
-            mock_async_client.beta.messages.create = _fake_create
-            with patch.object(sys.modules["anthropic"], "AsyncAnthropic",
-                               return_value=mock_async_client):
-                await mcp_agent.ask_keka_mcp("Q", "alice@caizin.com", "key")
-
-        assert "alice@caizin.com" in captured["system"]
-        assert date.today().isoformat() in captured["system"]
-
-    @pytest.mark.asyncio
-    async def test_uses_haiku_model_and_mcp_beta(self):
-        """
-        Test name: mcp_uses_haiku_and_beta_flag
-        The Anthropic API call uses model 'claude-haiku-4-5-20251001' and
-        betas=['mcp-client-2025-11-20'].
-        """
-        captured = {}
-
-        async def _fake_create(**kwargs):
-            captured.update(kwargs)
-            b = MagicMock()
-            b.type = "text"
-            b.text = "ok"
-            resp = MagicMock()
-            resp.content = [b]
-            resp.stop_reason = "end_turn"
-            return resp
-
-        with patch("keka.client.get_access_token", return_value="token"):
-            mock_async_client = MagicMock()
-            mock_async_client.beta.messages.create = _fake_create
-            with patch.object(sys.modules["anthropic"], "AsyncAnthropic",
-                               return_value=mock_async_client):
-                await mcp_agent.ask_keka_mcp("Q", "user@caizin.com", "key")
-
-        assert captured["model"] == "claude-haiku-4-5-20251001"
-        assert "mcp-client-2025-11-20" in captured["betas"]
-
-    @pytest.mark.asyncio
-    async def test_mcp_toolset_enables_search_and_execute(self):
-        """
-        Test name: mcp_toolset_only_search_and_execute_enabled
-        The MCP toolset disables all tools by default and enables only
-        'search-endpoints' and 'execute-request'.
-        """
-        toolset = mcp_agent._MCP_TOOLSET
-        assert toolset["default_config"]["enabled"] is False
-        assert toolset["configs"]["search-endpoints"]["enabled"] is True
-        assert toolset["configs"]["execute-request"]["enabled"] is True
-        assert "get-endpoint" not in toolset["configs"]

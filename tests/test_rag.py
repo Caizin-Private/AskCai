@@ -282,29 +282,6 @@ class TestAskPolicyQuestion:
         assert "Good day" in result or "How can I help" in result
 
     @pytest.mark.asyncio
-    async def test_hr_action_always_uses_test_employee_email(self):
-        """
-        Test name: ask_policy_hr_action_uses_test_email
-        PHASE-1 QUIRK: regardless of the employee_email argument passed in,
-        ask_policy_question substitutes TEST_EMPLOYEE_EMAIL for hr_action intents.
-        The caller-supplied email is silently ignored.
-        """
-        captured_email = {}
-
-        async def fake_mcp(question, email, api_key):
-            captured_email["email"] = email
-            return "leave balance result"
-
-        with patch("rag._classify_intent", return_value="hr_action"), \
-             patch("rag._get_anthropic_api_key", return_value="key"), \
-             patch("keka.mcp_agent.ask_keka_mcp", new=fake_mcp), \
-             patch("keka.client.TEST_EMPLOYEE_EMAIL", "recruiter@caizin.com"):
-            await rag.ask_policy_question("what is my leave balance?",
-                                          employee_email="real.user@caizin.com")
-
-        assert captured_email.get("email") == "recruiter@caizin.com"
-
-    @pytest.mark.asyncio
     async def test_out_of_scope_answer_has_no_disclaimer_or_sources(self):
         """
         Test name: ask_policy_out_of_scope_no_footer

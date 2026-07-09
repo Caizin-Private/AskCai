@@ -38,6 +38,9 @@ IST = timezone(timedelta(hours=5, minutes=30))
 APP_ID            = os.getenv("MicrosoftAppId")
 APP_PASSWORD      = os.getenv("MicrosoftAppPassword")
 TENANT_ID         = os.getenv("MicrosoftAppTenantId")
+# To test against a fixed Keka account instead of the real Teams user, set this to that email.
+# Leave empty ("") in production so each employee's own email is used for all Keka operations.
+# _KEKA_EMAIL_OVERRIDE = "recruiter@caizin.com"  # example test account
 _KEKA_EMAIL_OVERRIDE = "recruiter@caizin.com"
 
 adapter = BotFrameworkAdapter(BotFrameworkAdapterSettings(
@@ -488,7 +491,7 @@ def _build_apply_leave_card(leave_types: list, prefill: dict = None) -> dict:
 # ── User email helper ────────────────────────────────────────────────────────
 
 def _leave_email(user_email: str) -> str:
-    """Return KEKA_TEST_EMAIL override if set, otherwise the real user email."""
+    # Returns override email if set (for local testing), otherwise the real Teams user email.
     return _KEKA_EMAIL_OVERRIDE or user_email
 
 

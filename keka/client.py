@@ -25,7 +25,7 @@ KEKA_CLIENT_ID      = os.getenv("KEKA_CLIENT_ID",     "")
 KEKA_CLIENT_SECRET  = os.getenv("KEKA_CLIENT_SECRET", "")
 KEKA_API_KEY        = os.getenv("KEKA_API_KEY",       "")
 KEKA_MCP_URL        = "https://developers.keka.com/mcp"
-TEST_EMPLOYEE_EMAIL = os.getenv("KEKA_TEST_EMAIL",    "recruiter@caizin.com")
+# TEST_EMPLOYEE_EMAIL = os.getenv("KEKA_TEST_EMAIL",    "recruiter@caizin.com")
 
 _token_cache = {"access_token": None, "expires_at": 0.0}
 
