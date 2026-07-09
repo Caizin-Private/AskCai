@@ -965,12 +965,19 @@ async def messages(req: Request):
                         return
                     if parsed.get("action") == "apply_leave":
                         hint = (parsed.get("leave_type_hint") or "").strip().lower()
+                        form_error = ""
                         if hint:
                             for lt in leave_types:
                                 if lt.name.lower() == hint:
                                     parsed["leave_type_id"] = lt.id
                                     break
-                        await _send_chat_leave_form(turn_context, leave_types, prefill=parsed)
+                            else:
+                                raw_hint = (parsed.get("leave_type_hint") or hint).strip()
+                                form_error = (
+                                    f"**'{raw_hint}'** is not an available leave type for you. "
+                                    "Please select from the options below."
+                                )
+                        await _send_chat_leave_form(turn_context, leave_types, prefill=parsed, error=form_error)
                         return
 
             intent = await asyncio.get_event_loop().run_in_executor(None, _classify_intent, text)
