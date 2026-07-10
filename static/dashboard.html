@@ -437,7 +437,7 @@
             </svg>
           </button>
           <div class="filter-dropdown" id="filter-dropdown">
-            <div class="filter-option selected" data-value="all" onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--text3)"></span>All statuses</div>
+            <div class="filter-option selected" data-value="all" onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--text3)"></span>All Statuses</div>
             <div class="filter-option" data-value="Absent"          onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--st-absent-fg)"></span>Absent</div>
             <div class="filter-option" data-value="Client Location" onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--st-client-fg)"></span>Client Location</div>
             <div class="filter-option" data-value="Leave"           onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--st-leave-fg)"></span>Leave</div>
@@ -562,7 +562,7 @@
       document.getElementById("hero-card").innerHTML =
         "<div class='hero'>" +
           "<div class='hv'>" + present + " <small>/ " + records.length + "</small></div>" +
-          "<div class='hl'>Present &amp; Working \u00b7 " + away + " away</div>" +
+          "<div class='hl'>Present &amp; Working \u00b7 " + away + " Away</div>" +
           "<div class='track'><span style='width:" + rate + "%'></span></div>" +
         "</div>";
 
@@ -703,7 +703,7 @@
           } catch(e) { dateEl.textContent = data.date || ""; }
 
           document.getElementById("last-synced").textContent =
-            "Last synced " + new Date().toLocaleTimeString("en-IN",
+            "Last Synced " + new Date().toLocaleTimeString("en-IN",
               { hour: "2-digit", minute: "2-digit", hour12: false });
 
           renderSummary(_allRecords);
@@ -712,7 +712,7 @@
           document.getElementById("dash-view").style.display   = "flex";
         })
         .catch(function() {
-          document.getElementById("last-synced").textContent = "Sync failed";
+          document.getElementById("last-synced").textContent = "Sync Failed";
           document.getElementById("loading-view").style.display = "none";
           document.getElementById("dash-view").style.display   = "flex";
         })
