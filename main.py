@@ -944,8 +944,8 @@ async def messages(req: Request):
             if email and surface_enabled("leave_management", email) and any(kw in text_lower for kw in _LEAVE_KEYWORDS):
                 if any(kw in text_lower for kw in _CANCEL_KEYWORDS) and "leave" in text_lower:
                     await turn_context.send_activity(
-                        "Cancel leave is not supported in this system. "
-                        "Please cancel your leave directly from **Keka**."
+                        "Leave cancellation is currently not available in Caizin InSync. "
+                        "Please cancel your leave request in **Keka**."
                     )
                     return
                 today_str  = datetime.now(IST).strftime("%Y-%m-%d")
