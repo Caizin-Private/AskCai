@@ -1,23 +1,23 @@
-name: Deploy to EC2
+name: Deploy to Test EC2
 
 on:
   push:
     branches:
-      - 'release*'
+      - caizin-insync-V2.0
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
+      - name: Deploy via SSH to Test
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST_PROD }}
-          username: ${{ secrets.EC2_USER_PROD }}
-          key: ${{ secrets.EC2_SSH_KEY_PROD }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/${{ secrets.EC2_USER_PROD }}/Caizin-HR-Bot
+            cd /home/${{ secrets.EC2_USER }}/Caizin-HR-Bot
             git fetch origin
             git checkout ${{ github.ref_name }}
             git pull origin ${{ github.ref_name }}
