@@ -911,7 +911,7 @@ async def messages(req: Request):
                 return
             await _handle_cmd_balance(turn_context, email)
 
-        elif cmd in ("/leave", "leave", "/applyleave", "applyleave"):
+        elif cmd in ("/leave", "/applyleave", "applyleave") or text.lower() == "leave":
             if not email or not surface_enabled("leave_management", email):
                 await turn_context.send_activity(MessageFactory.text(
                     "This feature is not enabled for your account."
