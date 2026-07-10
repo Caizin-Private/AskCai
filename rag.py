@@ -188,6 +188,11 @@ def extract_leave_request(text: str, today: str, leave_type_names: list = None) 
       {"action": "check_balance"}
       None — if the message is not a leave action.
     """
+    _tl = text.strip().lower()
+    _BALANCE_PHRASES = ("leave balance", "my balance", "check balance", "view balance", "show balance", "balance")
+    if any(_tl == p or _tl.startswith(p) or _tl.endswith(p) for p in _BALANCE_PHRASES):
+        return {"action": "check_balance"}
+
     try:
         response = _get_anthropic_client().messages.create(
             model=CLAUDE_MODEL,
