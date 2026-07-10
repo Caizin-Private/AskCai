@@ -294,12 +294,6 @@
     var _userEmail = "";
     var _lastDay = null;
 
-    var PILOT = new Set([
-      "maitreyee.joshi@caizin.com",
-      "yash.nikam@caizin.com",
-      "rohan.lande@caizin.com",
-      "nikhil.negi@caizin.com",
-    ]);
 
     var TOPICS = [
       { label: "Leaves",          q: "Tell me about Caizin's leave policy." },
@@ -594,7 +588,7 @@
           var theme = (ctx.app && ctx.app.theme) || ctx.theme || "default";
           applyTheme(theme);
           try { microsoftTeams.app.registerOnThemeChangeHandler(applyTheme); } catch(_) {}
-          if (!email || PILOT.has(email)) showChat(); else showGate();
+          showChat();
         })
         .catch(function() { showChat(); });
     } else {

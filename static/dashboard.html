@@ -471,12 +471,6 @@
 
     var BASE = window.location.origin;
 
-    var PILOT = new Set([
-      "maitreyee.joshi@caizin.com",
-      "yash.nikam@caizin.com",
-      "rohan.lande@caizin.com",
-      "nikhil.negi@caizin.com",
-    ]);
 
     var _allRecords   = [];
     var _activeFilter = "all";
@@ -760,7 +754,7 @@
           var theme = (ctx.app && ctx.app.theme) || ctx.theme || "default";
           applyTheme(theme);
           try { microsoftTeams.app.registerOnThemeChangeHandler(applyTheme); } catch (_) {}
-          if (!email || PILOT.has(email)) { showDash(); } else { showGate(); }
+          showDash();
         })
         .catch(function() { showDash(); });
     } else {
