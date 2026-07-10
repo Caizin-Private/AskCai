@@ -586,13 +586,13 @@ async def _execute_leave_submission(email: str, data: dict):
                 email, leave_type_id, from_date, to_date, session_type)
 
     if not reason:
-        return None, "Reason is required. Please provide a reason for your leave.", None
+        return None, "Please provide a reason for your leave.", None
     if not from_date or not to_date:
-        return None, "Please fill in both From and To dates.", None
+        return None, "Please select both the From and To dates.", None
     if datetime.strptime(to_date, "%Y-%m-%d") < datetime.strptime(from_date, "%Y-%m-%d"):
-        return None, "To Date cannot be earlier than From Date.", None
+        return None, "The To date cannot be earlier than the From date.", None
     if session_type != SessionType.FULL_DAY and from_date != to_date:
-        return None, "Half-day leave can only be applied for a single day. Please select the same date in both From and To fields.", None
+        return None, "Half-day leave can only be applied for a single day. Please select the same date for both the From and To fields.", None
     if session_type != SessionType.FULL_DAY:
         to_date = from_date
 
