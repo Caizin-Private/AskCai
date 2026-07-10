@@ -349,7 +349,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         {
             "type": "Input.Text",
             "id": "reason",
-            "label": "Reason *",
+            "label": "Reason",
             "isMultiline": True,
             "placeholder": "e.g. Personal work",
             "value": prefill.get("reason") or "",
@@ -471,7 +471,7 @@ def _build_apply_leave_card(leave_types: list, prefill: dict = None) -> dict:
             {
                 "type": "Input.Text",
                 "id": "reason",
-                "label": "Reason *",
+                "label": "Reason",
                 "isMultiline": True,
                 "placeholder": "e.g. Personal work",
                 "value": prefill.get("reason") or "",
