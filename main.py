@@ -319,10 +319,23 @@ def _build_balance_card(employee_name: str, balances: list) -> dict:
     }
 
 
+def _sort_leave_types(leave_types: list) -> list:
+    priority = ["paid leave", "casual leave"]
+    def _key(lt):
+        name = lt.name.lower()
+        for i, p in enumerate(priority):
+            if p in name:
+                return i
+        return len(priority)
+    return sorted(leave_types, key=_key)
+
+
 def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = None) -> dict:
     prefill = prefill or {}
+    leave_types = _sort_leave_types(leave_types)
     choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
-    default_id = leave_types[0].id if leave_types else ""
+    paid = next((lt for lt in leave_types if "paid leave" in lt.name.lower()), None)
+    default_id = paid.id if paid else (leave_types[0].id if leave_types else "")
     body = [
         {
             "type": "Input.ChoiceSet",
@@ -349,14 +362,14 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         {
             "type": "Input.Text",
             "id": "reason",
-            "label": "Reason *",
+            "label": "Reason",
             "isMultiline": True,
             "placeholder": "e.g. Personal work",
             "value": prefill.get("reason") or "",
         },
     ]
     if error:
-        body.insert(0, {"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
+        body.append({"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -439,8 +452,10 @@ def _task_message(text: str) -> dict:
 def _build_apply_leave_card(leave_types: list, prefill: dict = None) -> dict:
     """Apply leave card for task modules (compose extension + chat trigger). Uses Action.Submit."""
     prefill = prefill or {}
+    leave_types = _sort_leave_types(leave_types)
     choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
-    default_id = leave_types[0].id if leave_types else ""
+    paid = next((lt for lt in leave_types if "paid leave" in lt.name.lower()), None)
+    default_id = paid.id if paid else (leave_types[0].id if leave_types else "")
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -471,7 +486,7 @@ def _build_apply_leave_card(leave_types: list, prefill: dict = None) -> dict:
             {
                 "type": "Input.Text",
                 "id": "reason",
-                "label": "Reason *",
+                "label": "Reason",
                 "isMultiline": True,
                 "placeholder": "e.g. Personal work",
                 "value": prefill.get("reason") or "",
@@ -571,13 +586,13 @@ async def _execute_leave_submission(email: str, data: dict):
                 email, leave_type_id, from_date, to_date, session_type)
 
     if not reason:
-        return None, "Reason is required. Please provide a reason for your leave.", None
+        return None, "Please provide a reason for your leave.", None
     if not from_date or not to_date:
-        return None, "Please fill in both From and To dates.", None
+        return None, "Please select both the From and To dates.", None
     if datetime.strptime(to_date, "%Y-%m-%d") < datetime.strptime(from_date, "%Y-%m-%d"):
-        return None, "To Date cannot be earlier than From Date.", None
+        return None, "The To date cannot be earlier than the From date.", None
     if session_type != SessionType.FULL_DAY and from_date != to_date:
-        return None, "Half-day leave can only be applied for a single day. Please select the same date in both From and To fields.", None
+        return None, "Half-day leave can only be applied for a single day. Please select the same date for both the From and To fields.", None
     if session_type != SessionType.FULL_DAY:
         to_date = from_date
 
@@ -713,19 +728,19 @@ async def _compose_leave_submit(turn_context, data: dict, email: str) -> dict:
         logger.error("[apply_leave] service error: %s", exc, exc_info=True)
         leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
         card = _build_apply_leave_card(leave_types)
-        card["body"].insert(0, {"type": "TextBlock", "text": f"Could not submit leave: {exc}", "color": "Attention", "wrap": True})
+        card["body"].append({"type": "TextBlock", "text": f"Could not submit leave: {exc}", "color": "Attention", "wrap": True})
         return _task_continue("Apply for Leave", card)
 
     if error:
         leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
         card = _build_apply_leave_card(leave_types)
-        card["body"].insert(0, {"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
+        card["body"].append({"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
         return _task_continue("Apply for Leave", card)
     if result.success:
         return _task_message("Your leave request has been submitted successfully.")
     leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
     card = _build_apply_leave_card(leave_types)
-    card["body"].insert(0, {"type": "TextBlock", "text": result.message, "color": "Attention", "wrap": True})
+    card["body"].append({"type": "TextBlock", "text": result.message, "color": "Attention", "wrap": True})
     return _task_continue("Apply for Leave", card)
 
 
