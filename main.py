@@ -402,9 +402,9 @@ def _build_help_card(header: str = "", footer: str = "") -> dict:
     body += [
         {"type": "TextBlock", "text": "InSync — Available Commands", "weight": "Bolder", "size": "Medium", "spacing": "Medium" if header else "None"},
         {"type": "FactSet", "facts": [
-            {"title": "/balance",    "value": "Check your leave balance"},
-            {"title": "/leave",      "value": "Apply for leave"},
-            {"title": "/help",       "value": "Show this help"},
+            {"title": "balance",    "value": "Check your leave balance"},
+            {"title": "leave",      "value": "Apply for leave"},
+            {"title": "help",       "value": "Show this help"},
         ]},
         {
             "type": "TextBlock",
