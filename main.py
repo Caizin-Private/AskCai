@@ -305,7 +305,7 @@ def _build_balance_card(employee_name: str, balances: list) -> dict:
     first_name = _first_name(employee_name)
     body = [
         {"type": "TextBlock", "text": "Leave Balance", "weight": "Bolder", "size": "Large"},
-        {"type": "TextBlock", "text": f"Hey **{first_name}**, here's a summary of your leave balance.",
+        {"type": "TextBlock", "text": f"Hi {first_name}, here's a summary of your leave balance.",
          "isSubtle": True, "size": "Small", "spacing": "None", "wrap": True},
         header_row,
         *rows,
