@@ -356,7 +356,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         },
     ]
     if error:
-        body.insert(0, {"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
+        body.append({"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -713,19 +713,19 @@ async def _compose_leave_submit(turn_context, data: dict, email: str) -> dict:
         logger.error("[apply_leave] service error: %s", exc, exc_info=True)
         leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
         card = _build_apply_leave_card(leave_types)
-        card["body"].insert(0, {"type": "TextBlock", "text": f"Could not submit leave: {exc}", "color": "Attention", "wrap": True})
+        card["body"].append({"type": "TextBlock", "text": f"Could not submit leave: {exc}", "color": "Attention", "wrap": True})
         return _task_continue("Apply for Leave", card)
 
     if error:
         leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
         card = _build_apply_leave_card(leave_types)
-        card["body"].insert(0, {"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
+        card["body"].append({"type": "TextBlock", "text": error, "color": "Attention", "wrap": True})
         return _task_continue("Apply for Leave", card)
     if result.success:
         return _task_message("Your leave request has been submitted successfully.")
     leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
     card = _build_apply_leave_card(leave_types)
-    card["body"].insert(0, {"type": "TextBlock", "text": result.message, "color": "Attention", "wrap": True})
+    card["body"].append({"type": "TextBlock", "text": result.message, "color": "Attention", "wrap": True})
     return _task_continue("Apply for Leave", card)
 
 
