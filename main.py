@@ -319,10 +319,23 @@ def _build_balance_card(employee_name: str, balances: list) -> dict:
     }
 
 
+def _sort_leave_types(leave_types: list) -> list:
+    priority = ["paid leave", "casual leave"]
+    def _key(lt):
+        name = lt.name.lower()
+        for i, p in enumerate(priority):
+            if p in name:
+                return i
+        return len(priority)
+    return sorted(leave_types, key=_key)
+
+
 def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = None) -> dict:
     prefill = prefill or {}
+    leave_types = _sort_leave_types(leave_types)
     choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
-    default_id = leave_types[0].id if leave_types else ""
+    paid = next((lt for lt in leave_types if "paid leave" in lt.name.lower()), None)
+    default_id = paid.id if paid else (leave_types[0].id if leave_types else "")
     body = [
         {
             "type": "Input.ChoiceSet",
@@ -439,8 +452,10 @@ def _task_message(text: str) -> dict:
 def _build_apply_leave_card(leave_types: list, prefill: dict = None) -> dict:
     """Apply leave card for task modules (compose extension + chat trigger). Uses Action.Submit."""
     prefill = prefill or {}
+    leave_types = _sort_leave_types(leave_types)
     choices = [{"title": lt.name, "value": lt.id} for lt in leave_types]
-    default_id = leave_types[0].id if leave_types else ""
+    paid = next((lt for lt in leave_types if "paid leave" in lt.name.lower()), None)
+    default_id = paid.id if paid else (leave_types[0].id if leave_types else "")
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
