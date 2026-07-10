@@ -10,17 +10,49 @@ Required env vars: TRACKER_DB_HOST, TRACKER_DB_NAME, TRACKER_DB_USER, TRACKER_DB
 Optional: TRACKER_DB_PORT (default 5432)
 """
 
+import json
 import logging
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
 
 IST = timezone(timedelta(hours=5, minutes=30))
+
+_REDACT_BUCKET = os.getenv("REDACT_LIST_BUCKET", "att-reports-126697143036")
+_REDACT_KEY    = os.getenv("REDACT_LIST_KEY", "config/report_ignore_list.json")
+_REDACT_TTL    = 3600  # refresh every hour
+
+_redact_names: set[str] = set()
+_redact_loaded_at: float = 0.0
+
+
+def _load_redact_list() -> None:
+    """Fetch the redact list from S3 and cache it. Silently no-ops on error."""
+    global _redact_names, _redact_loaded_at
+    try:
+        s3 = boto3.client("s3", region_name=os.getenv("AWS_REGION", "ap-south-1"))
+        obj = s3.get_object(Bucket=_REDACT_BUCKET, Key=_REDACT_KEY)
+        data = json.loads(obj["Body"].read())
+        names = data["employee_ids"] if isinstance(data, dict) else data
+        _redact_names = {str(n).strip() for n in names}
+        _redact_loaded_at = time.monotonic()
+        logger.info("[InSyncDB] redact list loaded: %d names", len(_redact_names))
+    except Exception as exc:
+        logger.warning("[InSyncDB] could not load redact list from S3: %s", exc)
+
+
+def _get_redact_names() -> set[str]:
+    """Return cached redact set, refreshing from S3 if the TTL has expired."""
+    if time.monotonic() - _redact_loaded_at > _REDACT_TTL:
+        _load_redact_list()
+    return _redact_names
 
 _TRACKER_CFG = {
     "host":            os.getenv("TRACKER_DB_HOST", "att-postgres.cbc000k2gx7d.ap-south-1.rds.amazonaws.com"),
@@ -88,7 +120,7 @@ def _get_records_for_date(date: str) -> list:
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT e.name, a.status, a.employee_response, a.response_time
+            SELECT e.employee_id, e.name, a.status, a.employee_response, a.response_time
               FROM attendance a
               JOIN employees e ON a.employee_id = e.employee_id
              WHERE a.date = %s AND e.is_active = 'active'
@@ -97,8 +129,11 @@ def _get_records_for_date(date: str) -> list:
             (date,),
         )
         rows = cur.fetchall()
+    redacted = _get_redact_names()
     result = []
     for row in rows:
+        if str(row["employee_id"]) in redacted:
+            continue
         bkt = _bucket(row["status"], row["employee_response"])
         rt  = str(row["response_time"]) if row["response_time"] else None
         result.append({"name": row["name"], "bucket": bkt, "response_time": rt})
