@@ -945,7 +945,7 @@ async def messages(req: Request):
                 if any(kw in text_lower for kw in _CANCEL_KEYWORDS) and "leave" in text_lower:
                     await turn_context.send_activity(
                         "Leave cancellation is currently not available in Caizin InSync. "
-                        "Please cancel your leave request in **Keka**."
+                        "Please cancel your leave request in Keka."
                     )
                     return
                 today_str  = datetime.now(IST).strftime("%Y-%m-%d")
