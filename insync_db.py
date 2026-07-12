@@ -155,31 +155,13 @@ def get_today_all_records() -> list:
 
 def get_latest_records() -> tuple[list, str]:
     """
-    Returns attendance records for today if data exists, otherwise for the most
-    recent date that has records. Falls back to empty list if no data at all.
+    Returns attendance records for today. Falls back to empty list if no data.
     Returns: (records, date_str)
     """
     today = datetime.now(IST).strftime("%Y-%m-%d")
     try:
-        conn = _get_conn()
         rows = _get_records_for_date(today)
-        if rows:
-            return rows, today
-
-        # No data today — find the latest date that has any rows
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT MAX(date) FROM attendance WHERE date < %s",
-                (today,),
-            )
-            row = cur.fetchone()
-        latest = str(row[0]) if row and row[0] else None
-        if not latest:
-            return [], today
-
-        rows = _get_records_for_date(latest)
-        return rows, latest
-
+        return rows, today
     except Exception as exc:
         logger.error("[InSyncDB] get_latest_records: %s", exc)
         return [], today
