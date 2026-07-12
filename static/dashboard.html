@@ -445,7 +445,6 @@
             <div class="filter-option" data-value="WFH"             onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--st-wfh-fg)"></span>Home</div>
           </div>
         </div>
-        <span class="result-count" id="result-count" style="display:none"></span>
       </div>
     </div>
 
@@ -648,10 +647,6 @@
                (flt === "all" || r.bucket === flt);
       });
 
-      var cnt = document.getElementById("result-count");
-      var isFiltered = filtered.length < _allRecords.length;
-      cnt.textContent  = isFiltered ? filtered.length + " of " + _allRecords.length : "";
-      cnt.style.display = isFiltered ? "" : "none";
 
       renderTable(filtered);
     }
