@@ -697,9 +697,36 @@
               .toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
           } catch(e) { dateEl.textContent = data.date || ""; }
 
-          document.getElementById("last-synced").textContent =
-            "Last Synced " + new Date().toLocaleTimeString("en-IN",
+          var _now = new Date();
+          var _dow = _now.getDay(); // 0=Sun, 6=Sat
+          var _h   = _now.getHours();
+          var _syncLabel;
+
+          function nextWorkingDayName(from) {
+            var d = new Date(from);
+            do { d.setDate(d.getDate() + 1); }
+            while (d.getDay() === 0 || d.getDay() === 6);
+            return d.toLocaleDateString("en-IN", { weekday: "long" });
+          }
+
+          if (_dow === 0 || _dow === 6) {
+            // Weekend — next sync is Monday 11 AM
+            var _mon = new Date(_now);
+            while (_mon.getDay() !== 1) { _mon.setDate(_mon.getDate() + 1); }
+            _syncLabel = "Next sync will be at 11:00 AM on Monday";
+          } else if (_h >= 15) {
+            // Weekday 3 PM – 11:59 PM
+            _syncLabel = "Last Synced 3:00 PM  ·  Next sync at 11:00 AM on " + nextWorkingDayName(_now);
+          } else if (_h < 11) {
+            // Weekday midnight – 10:59 AM
+            _syncLabel = "Next sync will be at 11:00 AM";
+          } else {
+            // Weekday 11 AM – 2:59 PM (normal working hours)
+            _syncLabel = "Last Synced " + _now.toLocaleTimeString("en-IN",
               { hour: "2-digit", minute: "2-digit", hour12: false });
+          }
+
+          document.getElementById("last-synced").textContent = _syncLabel;
 
           renderSummary(_allRecords);
           applyFilters();
