@@ -742,9 +742,17 @@
     }
 
     /* ── Auto-refresh every 60 s ────────────────────────────────────────────── */
+    function isWithinSyncWindow() {
+      var d = new Date();
+      var day = d.getDay();
+      var h   = d.getHours();
+      return day >= 1 && day <= 5 && h >= 11 && h < 15;
+    }
+
     function startAutoRefresh() {
       if (_refreshTimer) clearInterval(_refreshTimer);
       _refreshTimer = setInterval(function() {
+        if (!isWithinSyncWindow()) return;
         loadData();
         updateEditIndicator();
       }, 60000);
