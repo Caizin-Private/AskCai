@@ -37,7 +37,7 @@
       --st-leave-bg:   #fbf1dc; --st-leave-fg:   #97671a;
       --st-client-bg:  #efeafa; --st-client-fg:  #5e46a8;
       --st-absent-bg:  #fceaec; --st-absent-fg:  #b3283f;
-      --st-pending-bg: #f2f3f5; --st-pending-fg: #5c6370;
+      --st-pending-bg: #e2f5f4; --st-pending-fg: #0a8a80;
 
       --pl-office:  #eef7f1; --pl-wfh:     #eef4fc; --pl-leave:   #fbf4e3;
       --pl-client:  #f2eefb; --pl-absent:  #fcedef; --pl-total:   #f4f6f9;
@@ -67,7 +67,7 @@
       --st-leave-bg:   rgba(224,182,96,0.14);  --st-leave-fg:   #e0b660;
       --st-client-bg:  rgba(173,150,224,0.15); --st-client-fg:  #ad96e0;
       --st-absent-bg:  rgba(228,120,140,0.14); --st-absent-fg:  #e4788c;
-      --st-pending-bg: rgba(255,255,255,0.05); --st-pending-fg: #9aa0ab;
+      --st-pending-bg: rgba(10,138,128,0.12);  --st-pending-fg: #3db8b0;
 
       --pl-office:  rgba(94,196,132,0.08); --pl-wfh:    rgba(90,162,236,0.09);
       --pl-leave:   rgba(224,182,96,0.08); --pl-client: rgba(173,150,224,0.09);
@@ -98,7 +98,7 @@
       --st-leave-bg:   #0d0d0d; --st-leave-fg:   #ffe600;
       --st-client-bg:  #0d0d0d; --st-client-fg:  #d9a6ff;
       --st-absent-bg:  #0d0d0d; --st-absent-fg:  #ff6b6b;
-      --st-pending-bg: #0d0d0d; --st-pending-fg: #cccccc;
+      --st-pending-bg: #0d0d0d; --st-pending-fg: #00e5b0;
 
       --pl-office: #0d0d0d; --pl-wfh: #0d0d0d; --pl-leave: #0d0d0d;
       --pl-client: #0d0d0d; --pl-absent: #0d0d0d; --pl-total: #0d0d0d;
@@ -159,6 +159,19 @@
       50%       { opacity: 0.4; }
     }
     .info-right { display: flex; align-items: center; gap: 10px; }
+    .reload-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text3);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.3s;
+      flex-shrink: 0;
+    }
+    .reload-btn:hover { color: var(--brand); border-color: var(--brand); background: var(--brand-light); }
+    .reload-btn.spinning svg { animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .last-synced {
       font-size: 0.74rem; color: var(--text3); white-space: nowrap; font-weight: 500;
       background: var(--bg-sec); border: 1px solid var(--border-s);
@@ -411,6 +424,11 @@
       <span class="data-date" id="data-date"></span>
       <div class="info-right">
         <span class="last-synced" id="last-synced"></span>
+        <button class="reload-btn" id="reload-btn" title="Sync now" onclick="manualReload()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+        </button>
         <span class="edit-dot" id="edit-dot"></span>
       </div>
     </div>
@@ -438,7 +456,7 @@
           </button>
           <div class="filter-dropdown" id="filter-dropdown">
             <div class="filter-option selected" data-value="all" onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--text3)"></span>All Statuses</div>
-            <div class="filter-option" data-value="Absent"          onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--st-absent-fg)"></span>Absent</div>
+            <div class="filter-option" data-value="Absent"          onclick="selectFilter(this)"><span class="filter-dot" id="absent-filter-dot" style="background:var(--st-pending-fg)"></span><span id="absent-filter-label">Yet to Check In</span></div>
             <div class="filter-option" data-value="Client Location" onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--st-client-fg)"></span>Client Location</div>
             <div class="filter-option" data-value="Leave"           onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--st-leave-fg)"></span>Leave</div>
             <div class="filter-option" data-value="Office"          onclick="selectFilter(this)"><span class="filter-dot" style="background:var(--st-office-fg)"></span>Office</div>
@@ -494,7 +512,41 @@
 
     /* ── Display name overrides ─────────────────────────────────────────────── */
     var DISPLAY_NAME = { "WFH": "Home" };
-    function displayName(bucket) { return DISPLAY_NAME[bucket] || bucket; }
+    function isBeforeFlip() {
+      var now = new Date();
+      var dow = now.getDay();
+      return (dow >= 1 && dow <= 5) && now.getHours() < 15;
+    }
+    function displayName(bucket) {
+      if (bucket === "Pending") return "Yet to Check In";
+      return DISPLAY_NAME[bucket] || bucket;
+    }
+
+    function updateAbsentLabel() {
+      // At 3 PM flip: remap any remaining Pending records to Absent
+      _allRecords = _allRecords.map(function(r) {
+        return r.bucket === "Pending" ? Object.assign({}, r, { bucket: "Absent" }) : r;
+      });
+      // Update filter dropdown label and dot to "Absent"
+      var span = document.getElementById("absent-filter-label");
+      if (span) span.textContent = "Absent";
+      var dot = document.getElementById("absent-filter-dot");
+      if (dot) dot.style.background = "var(--st-absent-fg)";
+      // Update filter button label if it was showing "Yet to Check In"
+      if (_activeFilter === "Absent") {
+        document.getElementById("filter-label").textContent = "Absent";
+      }
+      // Re-render everything
+      if (_allRecords.length) { renderSummary(_allRecords); applyFilters(); }
+    }
+
+    function scheduleFlipAt3PM() {
+      var now  = new Date();
+      var flip = new Date(now);
+      flip.setHours(15, 0, 0, 0);
+      var ms = flip - now;
+      if (ms > 0) setTimeout(function() { updateAbsentLabel(); }, ms);
+    }
 
     /* ── Filter dropdown ────────────────────────────────────────────────────── */
     function toggleFilter(e) {
@@ -546,8 +598,12 @@
       "Leave":           { bg: "var(--pl-leave)",   fg: "var(--st-leave-fg)"   },
       "Client Location": { bg: "var(--pl-client)",  fg: "var(--st-client-fg)"  },
       "Absent":          { bg: "var(--pl-absent)",  fg: "var(--st-absent-fg)"  },
+      "Pending":         { bg: "var(--st-pending-bg)", fg: "var(--st-pending-fg)" },
     };
-    var BUCKET_ORDER = ["Office", "WFH", "Client Location", "Leave", "Absent"];
+    function getBucketOrder() {
+      if (isBeforeFlip()) return ["Office", "WFH", "Client Location", "Leave", "Pending"];
+      return ["Office", "WFH", "Client Location", "Leave", "Absent"];
+    }
 
     function renderSummary(records) {
       var counts = {};
@@ -582,7 +638,7 @@
       totalCard.onclick = function() { selectFilterByValue("all"); };
       rows.appendChild(totalCard);
 
-      BUCKET_ORDER.forEach(function(b) {
+      getBucketOrder().forEach(function(b) {
         var s = PILL_STYLE[b] || { fg: "var(--text2)" };
         var v = counts[b] || 0;
         var p = Math.round(v / total * 100);
@@ -642,9 +698,10 @@
       var q   = (document.getElementById("search-input").value || "").trim().toLowerCase();
       var flt = _activeFilter;
 
+      var effectiveFlt = (flt === "Absent" && isBeforeFlip()) ? "Pending" : flt;
       var filtered = _allRecords.filter(function(r) {
         return (!q   || (r.name || "").toLowerCase().includes(q)) &&
-               (flt === "all" || r.bucket === flt);
+               (effectiveFlt === "all" || r.bucket === effectiveFlt);
       });
 
 
@@ -684,8 +741,12 @@
       fetch(BASE + "/tabs/dashboard-data")
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          _allRecords = (data.records || []).filter(function(r) {
-            return r.bucket !== "Pending";
+          _allRecords = (data.records || []).map(function(r) {
+            // After 3 PM, unsubmitted (Pending) employees become Absent
+            if (r.bucket === "Pending" && !isBeforeFlip()) {
+              return Object.assign({}, r, { bucket: "Absent" });
+            }
+            return r;
           }).sort(function(a, b) {
             return (a.name || "").localeCompare(b.name || "");
           });
@@ -741,7 +802,19 @@
         .finally(function() {});
     }
 
-    /* ── Auto-refresh every 60 s ────────────────────────────────────────────── */
+    /* ── Manual reload ──────────────────────────────────────────────────────── */
+    function manualReload() {
+      var btn = document.getElementById("reload-btn");
+      btn.classList.add("spinning");
+      btn.disabled = true;
+      loadData();
+      setTimeout(function() {
+        btn.classList.remove("spinning");
+        btn.disabled = false;
+      }, 1000);
+    }
+
+    /* ── Auto-refresh every 15 min ──────────────────────────────────────────── */
     function isWithinSyncWindow() {
       var d = new Date();
       var day = d.getDay();
@@ -755,7 +828,7 @@
         if (!isWithinSyncWindow()) return;
         loadData();
         updateEditIndicator();
-      }, 60000);
+      }, 900000); // 15 minutes
     }
 
     /* ── Init ───────────────────────────────────────────────────────────────── */
@@ -764,6 +837,17 @@
       document.getElementById("loading-view").style.display = "flex";
       document.getElementById("dash-view").style.display    = "none";
       updateEditIndicator();
+      // Set correct label on load (before data arrives)
+      var _initSpan = document.getElementById("absent-filter-label");
+      var _initDot  = document.getElementById("absent-filter-dot");
+      if (isBeforeFlip()) {
+        if (_initSpan) _initSpan.textContent = "Yet to Check In";
+        if (_initDot)  _initDot.style.background = "var(--st-pending-fg)";
+      } else {
+        if (_initSpan) _initSpan.textContent = "Absent";
+        if (_initDot)  _initDot.style.background = "var(--st-absent-fg)";
+      }
+      scheduleFlipAt3PM();
       loadData();
       startAutoRefresh();
     }
