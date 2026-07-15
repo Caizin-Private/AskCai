@@ -158,7 +158,7 @@
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.4; }
     }
-    .info-right { display: flex; align-items: center; gap: 10px; }
+    .info-right { display: flex; align-items: center; gap: 8px; }
     .reload-btn {
       display: flex; align-items: center; justify-content: center;
       width: 28px; height: 28px; border-radius: 50%;
@@ -175,7 +175,7 @@
     .last-synced {
       font-size: 0.74rem; color: var(--text3); white-space: nowrap; font-weight: 500;
       background: var(--bg-sec); border: 1px solid var(--border-s);
-      padding: 4px 10px; border-radius: 20px;
+      padding: 4px 10px 4px 12px; border-radius: 20px;
     }
 
     /* ── Main split: roster (left) + stats sidebar (right) ───────────────────── */
@@ -519,6 +519,7 @@
     }
     function displayName(bucket) {
       if (bucket === "Pending") return "Yet to Check In";
+      if (bucket === "Absent" && isBeforeFlip()) return "Yet to Check In";
       return DISPLAY_NAME[bucket] || bucket;
     }
 
@@ -534,7 +535,7 @@
       if (dot) dot.style.background = "var(--st-absent-fg)";
       // Update filter button label if it was showing "Yet to Check In"
       if (_activeFilter === "Absent") {
-        document.getElementById("filter-label").textContent = "Absent";
+        document.getElementById("filter-label").textContent = displayName("Absent");
       }
       // Re-render everything
       if (_allRecords.length) { renderSummary(_allRecords); applyFilters(); }
