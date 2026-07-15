@@ -839,6 +839,7 @@
       document.getElementById("loading-view").style.display = "flex";
       document.getElementById("dash-view").style.display    = "none";
       updateEditIndicator();
+      document.getElementById("reload-btn").style.display = isWithinSyncWindow() ? "flex" : "none";
       // Set correct label on load (before data arrives)
       var _initSpan = document.getElementById("absent-filter-label");
       var _initDot  = document.getElementById("absent-filter-dot");
