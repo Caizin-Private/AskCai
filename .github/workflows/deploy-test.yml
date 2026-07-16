@@ -1,16 +1,16 @@
-name: Deploy to Test EC2
+name: Deploy to Dev EC2
 
 on:
   push:
     branches:
-      - caizin-insync-V2.0
+      - develop
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH to Test
+      - name: Deploy via SSH to Dev
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}

@@ -1,9 +1,9 @@
-name: Deploy to EC2
+name: Deploy to Production EC2
 
 on:
   push:
     branches:
-      - 'release/**'
+      - 'caizin-insync-V2.0'
 
 jobs:
   deploy:
