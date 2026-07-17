@@ -381,7 +381,10 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
         "body": body,
-        "actions": [{"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit"}}],
+        "actions": [
+            {"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit"}},
+            {"type": "Action.Submit", "title": "✕ Discard", "style": "destructive", "data": {"form_type": "chat_leave_discard"}},
+        ],
     }
 
 
@@ -921,6 +924,18 @@ async def messages(req: Request):
             else:
                 leave_types = await leave_service.get_applicable_leave_types(_leave_email(email))
                 await _update_or_send(_build_chat_leave_form(leave_types, error=result.message, prefill=act.value))
+            return
+
+        # ── Chat leave form discard ──
+        if isinstance(act.value, dict) and act.value.get("form_type") == "chat_leave_discard":
+            card_activity_id = getattr(act, "reply_to_id", None) or act.value.get("card_activity_id") or ""
+            help_card = _build_help_card(header="Changed your mind? Here's what I can help you with:")
+            if card_activity_id:
+                msg = MessageFactory.attachment(CardFactory.adaptive_card(help_card))
+                msg.id = card_activity_id
+                await turn_context.update_activity(msg)
+            else:
+                await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(help_card)))
             return
 
         # Strip @mention tags Teams injects when the bot is mentioned
