@@ -383,7 +383,7 @@ def _build_chat_leave_form(leave_types: list, error: str = "", prefill: dict = N
         "body": body,
         "actions": [
             {"type": "Action.Submit", "title": "Apply Leave", "data": {"form_type": "chat_leave_submit"}},
-            {"type": "Action.Submit", "title": "✕ Discard", "style": "destructive", "data": {"form_type": "chat_leave_discard"}},
+            {"type": "Action.Submit", "title": "✕ Discard", "style": "destructive", "associatedInputs": "none", "data": {"form_type": "chat_leave_discard"}},
         ],
     }
 
