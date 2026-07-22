@@ -86,6 +86,26 @@ _BUCKET_COLOR = {
     "Pending":         "Default",
 }
 
+_BUCKET_TEXT = {
+    "Office":          lambda n: f"{n} is in the office today.",
+    "WFH":             lambda n: f"{n} is WFH today.",
+    "Client Location": lambda n: f"{n} is at a client location today.",
+    "Leave":           lambda n: f"{n} is on leave today.",
+    "Floater Holiday": lambda n: f"{n} is on a floater holiday today.",
+    "Absent":          lambda n: f"{n} is absent today.",
+    "Pending":         lambda n: f"{n} is yet to check in today.",
+}
+
+_BUCKET_TEXT_SELF = {
+    "Office":          "You have been marked as working from the office today.",
+    "WFH":             "You have been marked as working from home today.",
+    "Client Location": "You have been marked as working from a client location today.",
+    "Leave":           "You have been marked as on leave today.",
+    "Floater Holiday": "You have been marked as on a floater holiday today.",
+    "Absent":          "You have been marked as absent today.",
+    "Pending":         "You are yet to check in today.",
+}
+
 
 # ── Card builders ────────────────────────────────────────────────────────────
 
@@ -404,14 +424,19 @@ def _build_text_card(title: str, text: str) -> dict:
     }
 
 
-def _build_work_status_card(results: list[dict]) -> dict:
+def _build_work_status_card(results: list[dict], is_self: bool = False) -> dict:
     """Adaptive Card showing today's work status for one or more employees."""
     if not results:
-        return _build_text_card("Work Status", "No attendance record found for today.")
+        return _build_text_card("", "No attendance record found for today.")
 
     if len(results) == 1:
         person = results[0]
-        color  = _BUCKET_COLOR.get(person["bucket"], "Default")
+        bucket = person["bucket"]
+        color  = _BUCKET_COLOR.get(bucket, "Default")
+        if is_self:
+            text = _BUCKET_TEXT_SELF.get(bucket, f"You are {bucket} today.")
+        else:
+            text = _BUCKET_TEXT.get(bucket, lambda n: f"{n} is {bucket} today.")(person["name"])
         return {
             "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
             "type": "AdaptiveCard",
@@ -419,14 +444,7 @@ def _build_work_status_card(results: list[dict]) -> dict:
             "body": [
                 {
                     "type": "TextBlock",
-                    "text": "Work Status Today",
-                    "weight": "Bolder",
-                    "size": "Medium",
-                    "wrap": True,
-                },
-                {
-                    "type": "TextBlock",
-                    "text": f"**{person['name']}** is **{person['bucket']}** today.",
+                    "text": text,
                     "color": color,
                     "wrap": True,
                     "size": "Medium",
@@ -440,12 +458,6 @@ def _build_work_status_card(results: list[dict]) -> dict:
         "type": "AdaptiveCard",
         "version": "1.4",
         "body": [
-            {
-                "type": "TextBlock",
-                "text": "Work Status Today",
-                "weight": "Bolder",
-                "size": "Medium",
-            },
             {
                 "type": "TextBlock",
                 "text": f"Found {len(results)} people matching that name:",
@@ -767,7 +779,7 @@ async def _handle_work_location_query(turn_context, user_email: str, parsed: dic
         )
         return
 
-    card = _build_work_status_card(results)
+    card = _build_work_status_card(results, is_self=(target == "self"))
     await turn_context.send_activity(
         MessageFactory.attachment(CardFactory.adaptive_card(card))
     )
