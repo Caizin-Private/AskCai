@@ -391,3 +391,180 @@ class TestAskPolicyQuestion:
         # Only the first one from relevant_sources dict is shown
         source_lines = [ln for ln in result.split("\n") if "http://" in ln]
         assert len(source_lines) == 1
+
+
+# ===========================================================================
+# extract_leave_request — characterization tests
+# Locks down current behavior so any future refactor is caught immediately.
+# All tests mock rag._anthropic_client — no real Anthropic calls made.
+# ===========================================================================
+
+def _make_llm_response(text: str):
+    """Return a fake Anthropic response whose first text block contains `text`."""
+    block = MagicMock()
+    block.type = "text"
+    block.text = text
+    response = MagicMock()
+    response.content = [block]
+    client = MagicMock()
+    client.messages.create.return_value = response
+    return client
+
+
+class TestExtractLeaveRequestFastPath:
+    """Balance phrases must return {"action": "check_balance"} with zero LLM calls."""
+
+    @pytest.mark.parametrize("text", [
+        "balance",
+        "Balance",
+        "BALANCE",
+        "leave balance",
+        "my balance",
+        "check balance",
+        "view balance",
+        "show balance",
+        "  balance  ",
+        "leave balance please",
+    ])
+    def test_balance_phrase_returns_check_balance_without_llm(self, text):
+        mock_client = MagicMock()
+        rag._anthropic_client = mock_client
+
+        result = rag.extract_leave_request(text, "2026-07-22")
+
+        assert result == {"action": "check_balance"}
+        mock_client.messages.create.assert_not_called()
+
+    def test_non_standalone_balance_word_hits_llm(self):
+        """'unbalanced' contains 'balance' but must NOT fast-path."""
+        rag._anthropic_client = _make_llm_response('{"action": null}')
+
+        result = rag.extract_leave_request("I feel unbalanced today", "2026-07-22")
+
+        rag._anthropic_client.messages.create.assert_called_once()
+        assert result is None
+
+
+class TestExtractLeaveRequestApplyLeave:
+
+    def test_apply_leave_full_dict_returned(self):
+        import json
+        payload = {
+            "action": "apply_leave",
+            "from_date": "2026-07-25",
+            "to_date": "2026-07-25",
+            "session_type": "full_day",
+            "reason": "",
+            "leave_type_hint": "sick",
+        }
+        rag._anthropic_client = _make_llm_response(json.dumps(payload))
+
+        result = rag.extract_leave_request("I want sick leave tomorrow", "2026-07-22")
+
+        assert result["action"] == "apply_leave"
+        assert result["from_date"] == "2026-07-25"
+        assert result["leave_type_hint"] == "sick"
+
+    def test_null_dates_preserved(self):
+        import json
+        payload = {"action": "apply_leave", "from_date": None,
+                   "to_date": None, "session_type": "full_day", "reason": "", "leave_type_hint": ""}
+        rag._anthropic_client = _make_llm_response(json.dumps(payload))
+
+        result = rag.extract_leave_request("I need a day off", "2026-07-22")
+
+        assert result["from_date"] is None
+        assert result["to_date"] is None
+
+    def test_markdown_code_fence_stripped(self):
+        import json
+        payload = {"action": "apply_leave", "from_date": "2026-07-28",
+                   "to_date": "2026-07-28", "session_type": "full_day", "reason": "", "leave_type_hint": ""}
+        rag._anthropic_client = _make_llm_response(f"```json\n{json.dumps(payload)}\n```")
+
+        result = rag.extract_leave_request("take leave on Monday", "2026-07-22")
+
+        assert result is not None
+        assert result["action"] == "apply_leave"
+
+    def test_leave_type_names_injected_into_prompt(self):
+        rag._anthropic_client = _make_llm_response('{"action": null}')
+
+        rag.extract_leave_request(
+            "take earned leave next week", "2026-07-22",
+            leave_type_names=["Sick Leave", "Earned Leave", "Casual Leave"],
+        )
+
+        prompt = rag._anthropic_client.messages.create.call_args.kwargs["messages"][0]["content"]
+        assert "Earned Leave" in prompt
+        assert "Casual Leave" in prompt
+
+    def test_today_date_injected_into_prompt(self):
+        rag._anthropic_client = _make_llm_response('{"action": null}')
+
+        rag.extract_leave_request("take leave next Monday", "2026-07-22")
+
+        prompt = rag._anthropic_client.messages.create.call_args.kwargs["messages"][0]["content"]
+        assert "2026-07-22" in prompt
+
+
+class TestExtractLeaveRequestCancelLeave:
+
+    def test_cancel_leave_returned(self):
+        rag._anthropic_client = _make_llm_response('{"action": "cancel_leave"}')
+
+        result = rag.extract_leave_request("cancel my leave request", "2026-07-22")
+
+        assert result == {"action": "cancel_leave"}
+
+
+class TestExtractLeaveRequestNullAction:
+
+    def test_null_action_returns_none(self):
+        rag._anthropic_client = _make_llm_response('{"action": null}')
+
+        result = rag.extract_leave_request("hello how are you", "2026-07-22")
+
+        assert result is None
+
+
+class TestExtractLeaveRequestErrorHandling:
+
+    def test_llm_exception_returns_none(self):
+        """A network or API error must never crash the bot — always returns None."""
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = Exception("network error")
+        rag._anthropic_client = mock_client
+
+        result = rag.extract_leave_request("apply leave tomorrow", "2026-07-22")
+
+        assert result is None
+
+    def test_invalid_json_returns_none(self):
+        rag._anthropic_client = _make_llm_response("Sorry, I cannot help.")
+
+        result = rag.extract_leave_request("take leave", "2026-07-22")
+
+        assert result is None
+
+    def test_empty_llm_response_returns_none(self):
+        rag._anthropic_client = _make_llm_response("")
+
+        result = rag.extract_leave_request("apply leave", "2026-07-22")
+
+        assert result is None
+
+
+class TestExtractLeaveRequestLlmParams:
+
+    def test_uses_temperature_0(self):
+        rag._anthropic_client = _make_llm_response('{"action": null}')
+        rag.extract_leave_request("take leave", "2026-07-22")
+        kwargs = rag._anthropic_client.messages.create.call_args.kwargs
+        assert kwargs["temperature"] == 0
+
+    def test_uses_claude_haiku_model(self):
+        rag._anthropic_client = _make_llm_response('{"action": null}')
+        rag.extract_leave_request("take leave", "2026-07-22")
+        kwargs = rag._anthropic_client.messages.create.call_args.kwargs
+        assert kwargs["model"] == "claude-haiku-4-5"
