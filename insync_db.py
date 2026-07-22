@@ -183,6 +183,62 @@ def get_employee_by_email(email: str) -> dict | None:
         return None
 
 
+def get_work_status_by_email(email: str) -> dict | None:
+    """Today's work status for an employee by email. Returns {name, bucket} or None."""
+    today = datetime.now(IST).strftime("%Y-%m-%d")
+    try:
+        conn = _get_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT e.employee_id, e.name, a.status, a.employee_response
+                  FROM attendance a
+                  JOIN employees e ON a.employee_id = e.employee_id
+                 WHERE a.date = %s AND e.is_active = 'active'
+                   AND lower(e.email) = %s
+                """,
+                (today, email.lower()),
+            )
+            row = cur.fetchone()
+        if not row:
+            return None
+        if str(row["employee_id"]) in _get_redact_names():
+            return None
+        return {"name": row["name"], "bucket": _bucket(row["status"], row["employee_response"])}
+    except Exception as exc:
+        logger.error("[InSyncDB] get_work_status_by_email: %s", exc)
+        return None
+
+
+def get_work_status_by_name(name_query: str) -> list[dict]:
+    """Today's work status for employees whose name contains name_query. Returns [{name, bucket}]."""
+    today = datetime.now(IST).strftime("%Y-%m-%d")
+    try:
+        conn = _get_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT e.employee_id, e.name, a.status, a.employee_response
+                  FROM attendance a
+                  JOIN employees e ON a.employee_id = e.employee_id
+                 WHERE a.date = %s AND e.is_active = 'active'
+                   AND lower(e.name) LIKE %s
+                 ORDER BY e.name
+                """,
+                (today, f"%{name_query.strip().lower()}%"),
+            )
+            rows = cur.fetchall()
+        redacted = _get_redact_names()
+        return [
+            {"name": row["name"], "bucket": _bucket(row["status"], row["employee_response"])}
+            for row in rows
+            if str(row["employee_id"]) not in redacted
+        ]
+    except Exception as exc:
+        logger.error("[InSyncDB] get_work_status_by_name: %s", exc)
+        return []
+
+
 def record_attendance_response(employee_id: str, status_verb: str) -> bool:
     """
     Write the employee's attendance response to the tracker DB.
