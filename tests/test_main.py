@@ -44,10 +44,10 @@ sys.modules["azure.core.credentials"].AzureKeyCredential = MagicMock
 sys.modules["openai"].AzureOpenAI = MagicMock
 
 _bc = sys.modules["botbuilder.core"]
-_bc.BotFrameworkAdapter = MagicMock
-_bc.BotFrameworkAdapterSettings = MagicMock
-_bc.CardFactory = MagicMock
-_bc.MessageFactory = MagicMock
+_bc.BotFrameworkAdapter = MagicMock()        # instance — avoids Python 3.14 InvalidSpecError
+_bc.BotFrameworkAdapterSettings = MagicMock()
+_bc.CardFactory = MagicMock()
+_bc.MessageFactory = MagicMock()
 _bc.TurnContext = object
 sys.modules["botbuilder.core.teams"].TeamsInfo = MagicMock
 sys.modules["botbuilder.schema"].Activity = MagicMock
