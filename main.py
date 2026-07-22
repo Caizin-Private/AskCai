@@ -20,12 +20,15 @@ from botbuilder.schema import Activity, InvokeResponse
 
 from features import surface_enabled, COMMAND_FLAGS
 from rag import ask_policy_question, _classify_intent, extract_leave_request
+from chat_intents import extract_work_location_query
 from keka.leave_service import leave_service
 from keka.models import SessionType
 from insync_db import (
     get_today_all_records,
     get_latest_records,
     record_attendance_response,
+    get_work_status_by_email,
+    get_work_status_by_name,
 )
 
 logging.basicConfig(
@@ -401,6 +404,59 @@ def _build_text_card(title: str, text: str) -> dict:
     }
 
 
+def _build_work_status_card(results: list[dict]) -> dict:
+    """Adaptive Card showing today's work status for one or more employees."""
+    if not results:
+        return _build_text_card("Work Status", "No attendance record found for today.")
+
+    if len(results) == 1:
+        person = results[0]
+        color  = _BUCKET_COLOR.get(person["bucket"], "Default")
+        return {
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "type": "AdaptiveCard",
+            "version": "1.4",
+            "body": [
+                {
+                    "type": "TextBlock",
+                    "text": "Work Status Today",
+                    "weight": "Bolder",
+                    "size": "Medium",
+                    "wrap": True,
+                },
+                {
+                    "type": "TextBlock",
+                    "text": f"**{person['name']}** is **{person['bucket']}** today.",
+                    "color": color,
+                    "wrap": True,
+                    "size": "Medium",
+                },
+            ],
+        }
+
+    facts = [{"title": p["name"], "value": p["bucket"]} for p in results[:8]]
+    return {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": "Work Status Today",
+                "weight": "Bolder",
+                "size": "Medium",
+            },
+            {
+                "type": "TextBlock",
+                "text": f"Found {len(results)} people matching that name:",
+                "isSubtle": True,
+                "wrap": True,
+            },
+            {"type": "FactSet", "facts": facts},
+        ],
+    }
+
+
 def _build_help_card(header: str = "", footer: str = "") -> dict:
     body = []
     if header:
@@ -683,6 +739,38 @@ async def _handle_cmd_help(turn_context) -> None:
         MessageFactory.attachment(CardFactory.adaptive_card(_build_help_card()))
     )
 
+
+async def _handle_work_location_query(turn_context, user_email: str, parsed: dict) -> None:
+    """Fetch and send a work status card based on the parsed work location query."""
+    target = parsed.get("target")
+
+    if target == "self":
+        result = await asyncio.get_event_loop().run_in_executor(
+            None, get_work_status_by_email, user_email
+        )
+        results = [result] if result else []
+    else:
+        name = (parsed.get("name") or "").strip()
+        if not name:
+            await turn_context.send_activity(
+                MessageFactory.text("I couldn't identify the person you're asking about. Please include their name.")
+            )
+            return
+        results = await asyncio.get_event_loop().run_in_executor(
+            None, get_work_status_by_name, name
+        )
+
+    if not results:
+        label = "your attendance record" if target == "self" else f"**{parsed.get('name')}**"
+        await turn_context.send_activity(
+            MessageFactory.text(f"No attendance record found for {label} today.")
+        )
+        return
+
+    card = _build_work_status_card(results)
+    await turn_context.send_activity(
+        MessageFactory.attachment(CardFactory.adaptive_card(card))
+    )
 
 
 
@@ -980,9 +1068,23 @@ async def messages(req: Request):
             await _handle_cmd_help(turn_context)
 
         else:
+            text_lower = text.lower()
+            _WORK_LOC_KEYWORDS = (
+                "work location", "working from", "work status",
+                "where is", "where am i", "working today",
+                "in office today", "wfh today", "work from home today",
+                "working remotely",
+            )
+            if email and surface_enabled("attendance_card", email) and any(kw in text_lower for kw in _WORK_LOC_KEYWORDS):
+                parsed_wl = await asyncio.get_event_loop().run_in_executor(
+                    None, extract_work_location_query, text
+                )
+                if parsed_wl:
+                    await _handle_work_location_query(turn_context, email, parsed_wl)
+                    return
+
             _LEAVE_KEYWORDS = ("leave", "apply", "off", "balance", "vacation", "sick", "casual", "annual", "holiday", "cancel", "withdraw", "revoke")
             _CANCEL_KEYWORDS = ("cancel", "withdraw", "revoke")
-            text_lower = text.lower()
             if email and surface_enabled("leave_management", email) and any(kw in text_lower for kw in _LEAVE_KEYWORDS):
                 if any(kw in text_lower for kw in _CANCEL_KEYWORDS) and "leave" in text_lower:
                     await turn_context.send_activity(
