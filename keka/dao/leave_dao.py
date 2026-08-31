@@ -8,6 +8,7 @@ import logging
 import requests
 
 from keka.client import get_access_token, KEKA_BASE_URL
+from keka.dao._http import cached, get_all
 from keka.models import KekaServiceError
 
 logger = logging.getLogger(__name__)
@@ -94,3 +95,34 @@ def post_leave_request(payload: dict) -> dict:
         request_id = None
 
     return {"ok": True, "request_id": request_id}
+
+
+def fetch_leave_requests(employee_id: str, from_date: str, to_date: str) -> list:
+    """
+    GET /time/leaverequests?employeeIds=...&from=...&to=...
+
+    Used by the timesheet dashboard to mark leave days. Returns raw rows:
+      {id, employeeIdentifier, employeeNumber, fromDate, toDate,
+       fromSession, toSession, requestedOn, note, cancelRejectReason,
+       status, selection: [{leaveTypeIdentifier, leaveTypeName, count, duration}],
+       lastActionTakenOn}
+
+    status  0 Pending · 1 Approved · 2 Rejected · 3 Cancelled · 4 InApprovalProcess
+    session 0 first half · 1 second half — a full day is fromSession 0 to toSession 1
+
+    Keka rejects a from/to span wider than 90 days. Callers filter to approved
+    requests; this returns every status so the caller decides.
+    """
+    return cached(
+        "leave",
+        f"{employee_id}|{from_date}|{to_date}",
+        lambda: get_all(
+            "/time/leaverequests",
+            {
+                "employeeIds": employee_id,
+                "from": f"{from_date}T00:00:00",
+                "to": f"{to_date}T23:59:59",
+            },
+            what="GET /time/leaverequests",
+        ),
+    )

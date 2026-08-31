@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="default">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Timesheet</title>
+  <script src="https://unpkg.com/@microsoft/teams-js@2.22.0/dist/MicrosoftTeams.min.js"></script>
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search).get("theme");
+      document.documentElement.setAttribute("data-theme",
+        p === "dark" ? "dark" : p === "contrast" ? "contrast" : "default");
+    })();
+  </script>
+  <style>
+    /* ══════════════════════════════════════════════════════════════════════════
+       LIGHT (default) — tokens lifted from static/dashboard.html so this tab and
+       People Pulse stay identical. Additions for this tab only:
+         --p1 / --p2 / --p3   project hues, validated for colour-vision deficiency
+         --track              unfilled remainder of a day's bar
+         --cal-line           the date-tile outline
+       ══════════════════════════════════════════════════════════════════════════ */
+    :root, [data-theme="default"] {
+      --bg:        #ffffff;
+      --bg-sec:    #f7f8fa;
+      --bg-hover:  #f2f4f7;
+      --text:      #1b1d21;
+      --text2:     #444a55;
+      --text3:     #8a909e;
+      --brand:     #0f6cbd;
+      --brand-light: #eef5fc;
+      --border:    #e4e7ec;
+      --border-s:  #eef0f3;
+      --input-bg:  #f4f6f9;
+      --header-bg: #fbfcfd;
+      --ring:      rgba(15,108,189,0.35);
+
+      --st-office-bg:  #e7f4ec; --st-office-fg:  #1e7a3e;
+      --st-wfh-bg:     #e8f1fb; --st-wfh-fg:     #0f5fa8;
+      --st-leave-bg:   #fbf1dc; --st-leave-fg:   #97671a;
+      --st-client-bg:  #efeafa; --st-client-fg:  #5e46a8;
+      --st-absent-bg:  #fceaec; --st-absent-fg:  #b3283f;
+      --st-pending-bg: #f2f3f5; --st-pending-fg: #5c6370;
+
+      --p1: #1f6fc4; --p2: #d1601f; --p3: #12876a;
+      --track:    #e8ebf0;
+      --cal-line: #e8ebef;
+      --tip-shadow: 0 10px 28px rgba(0,0,0,0.16), 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       DARK — each step selected against the dark surface, not an inversion
+       ══════════════════════════════════════════════════════════════════════════ */
+    [data-theme="dark"] {
+      --bg:        #1b1b1d;
+      --bg-sec:    #232326;
+      --bg-hover:  #2a2a2e;
+      --text:      #e7e8ea;
+      --text2:     #b6b9c0;
+      --text3:     #83868f;
+      --brand:     #5aa2ec;
+      --brand-light: rgba(90,162,236,0.14);
+      --border:    #313236;
+      --border-s:  #292a2e;
+      --input-bg:  #232326;
+      --header-bg: #202023;
+      --ring:      rgba(90,162,236,0.45);
+
+      --st-office-bg:  rgba(94,196,132,0.13);  --st-office-fg:  #6cc98c;
+      --st-wfh-bg:     rgba(90,162,236,0.15);  --st-wfh-fg:     #6fb0f0;
+      --st-leave-bg:   rgba(224,182,96,0.14);  --st-leave-fg:   #e0b660;
+      --st-client-bg:  rgba(173,150,224,0.15); --st-client-fg:  #ad96e0;
+      --st-absent-bg:  rgba(228,120,140,0.14); --st-absent-fg:  #e4788c;
+      --st-pending-bg: rgba(255,255,255,0.05); --st-pending-fg: #9aa0ab;
+
+      --p1: #4a93de; --p2: #c9702e; --p3: #1f9b7c;
+      --track:    #33343a;
+      --cal-line: #2c2d32;
+      --tip-shadow: 0 10px 28px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.35);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       HIGH CONTRAST — tile outlines stay assertive here on purpose
+       ══════════════════════════════════════════════════════════════════════════ */
+    [data-theme="contrast"] {
+      --bg:        #000000;
+      --bg-sec:    #0d0d0d;
+      --bg-hover:  #1a1a1a;
+      --text:      #ffffff;
+      --text2:     #ffffff;
+      --text3:     #cfcfcf;
+      --brand:     #1aebff;
+      --brand-light: #001a1f;
+      --border:    #ffffff;
+      --border-s:  #4a4a4a;
+      --input-bg:  #0d0d0d;
+      --header-bg: #0d0d0d;
+      --ring:      #1aebff;
+
+      --st-office-bg:  #0d0d0d; --st-office-fg:  #3ff23f;
+      --st-wfh-bg:     #0d0d0d; --st-wfh-fg:     #1aebff;
+      --st-leave-bg:   #0d0d0d; --st-leave-fg:   #ffe600;
+      --st-client-bg:  #0d0d0d; --st-client-fg:  #d9a6ff;
+      --st-absent-bg:  #0d0d0d; --st-absent-fg:  #ff6b6b;
+      --st-pending-bg: #0d0d0d; --st-pending-fg: #cccccc;
+
+      --p1: #1aebff; --p2: #ffb000; --p3: #3ff23f;
+      --track:    #1a1a1a;
+      --cal-line: #4a4a4a;
+      --tip-shadow: 0 0 0 1px #ffffff;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    [data-theme="default"] { color-scheme: light; }
+    [data-theme="dark"]    { color-scheme: dark; }
+    [data-theme="contrast"]{ color-scheme: dark; }
+
+    /* ── Gate / loading / error ──────────────────────────────────────────────── */
+    .center-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; gap: 8px; padding: 24px;
+    }
+    .center-state h1 { font-size: 1.1rem; }
+    .center-state p  { color: var(--text3); font-size: 0.875rem; max-width: 44ch; }
+    .retry {
+      margin-top: 6px; padding: 7px 15px; border: 1px solid var(--border); border-radius: 7px;
+      background: var(--bg); color: var(--text2); font-family: inherit;
+      font-size: 0.78rem; font-weight: 650; cursor: pointer;
+    }
+    .retry:hover { background: var(--bg-hover); color: var(--text); }
+
+    /* ── Shell ───────────────────────────────────────────────────────────────── */
+    #ts-view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .shell {
+      max-width: 1180px; width: 100%; margin: 0 auto;
+      display: flex; flex-direction: column; flex: 1; min-height: 0;
+    }
+
+    .info-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px 12px; flex-shrink: 0; gap: 14px; flex-wrap: wrap;
+    }
+    .mnav { display: flex; align-items: center; gap: 8px; }
+    .data-date {
+      font-size: 0.9rem; color: var(--text); font-weight: 650;
+      letter-spacing: -0.01em; white-space: nowrap; min-width: 128px;
+    }
+    .navbtn {
+      width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border); border-radius: 7px; background: var(--bg);
+      color: var(--text2); cursor: pointer; font-family: inherit;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+    .navbtn:hover:not(:disabled) { color: var(--text); border-color: var(--text3); background: var(--bg-hover); }
+    .navbtn:disabled { opacity: .4; cursor: default; }
+    .navbtn:focus-visible, .todaybtn:focus-visible, .cell:focus-visible, .backlink:focus-visible, .retry:focus-visible {
+      outline: 2px solid var(--ring); outline-offset: 1px;
+    }
+    .todaybtn {
+      padding: 5px 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg);
+      color: var(--text2); font-size: 0.72rem; font-weight: 650; letter-spacing: .04em;
+      text-transform: uppercase; font-family: inherit; cursor: pointer;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+    .todaybtn:hover { color: var(--text); border-color: var(--text3); background: var(--bg-hover); }
+    .info-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .pill {
+      font-size: 0.74rem; color: var(--text3); white-space: nowrap; font-weight: 500;
+      background: var(--bg-sec); border: 1px solid var(--border-s);
+      padding: 4px 10px; border-radius: 20px;
+    }
+    .pill b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+    .last-synced { font-size: 0.72rem; color: var(--text3); white-space: nowrap; }
+    .testbadge {
+      display: none; align-items: center; gap: 6px;
+      font-size: 0.7rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase;
+      padding: 4px 10px; border-radius: 20px;
+      background: var(--st-leave-bg); color: var(--st-leave-fg);
+      border: 1px solid currentColor;
+    }
+    .testbadge.on { display: inline-flex; }
+
+    /* ── Split ───────────────────────────────────────────────────────────────── */
+    .main { display: flex; flex: 1; min-height: 0; border-top: 1px solid var(--border); }
+    .cal-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+    .cal-head {
+      display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 7px; padding: 0 14px;
+      background: var(--header-bg); border-bottom: 1px solid var(--border-s); flex-shrink: 0;
+    }
+    .cal-head span {
+      padding: 11px 10px; font-size: 0.72rem; font-weight: 650; letter-spacing: .05em;
+      text-transform: uppercase; color: var(--text3);
+    }
+    .cal-head span.we { opacity: .72; }
+
+    .grid {
+      display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); grid-auto-rows: 1fr;
+      gap: 7px; padding: 12px 14px 14px; flex: 1; min-height: 0;
+    }
+
+    /* ── Date tile ───────────────────────────────────────────────────────────── */
+    .cell {
+      position: relative; display: flex; flex-direction: column; gap: 6px;
+      padding: 9px 10px 10px; min-height: 92px;
+      border: 1px solid var(--cal-line); border-radius: 10px;
+      background: var(--bg); text-align: left; font-family: inherit;
+      cursor: pointer; transition: background .1s, border-color .1s;
+    }
+    .cell:hover { background: var(--bg-hover); border-color: var(--border); z-index: 40; }
+    .cell.sel  { box-shadow: 0 0 0 1px var(--brand); z-index: 30; }
+    .cell.out  { cursor: default; opacity: .38; }
+    .cell.inert { cursor: default; }
+
+    .ctop { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .dnum { font-size: 0.82rem; font-weight: 600; color: var(--text2); font-variant-numeric: tabular-nums; }
+    .cell.out .dnum, .cell.we .dnum { color: var(--text3); font-weight: 500; }
+    .dnum.today {
+      background: var(--brand); color: #fff; border-radius: 50%;
+      width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.76rem; margin: -2px 0;
+    }
+    [data-theme="contrast"] .dnum.today { color: #000; }
+    .dh { font-size: 0.78rem; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+    .dchip {
+      align-self: flex-start; display: inline-flex; align-items: center; gap: 5px;
+      padding: 2px 8px 2px 7px; border-radius: 6px;
+      font-size: 0.7rem; font-weight: 600; max-width: 100%;
+    }
+    .dchip::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .dchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .segwrap { margin-top: auto; }
+    .segs { display: flex; gap: 2px; height: 5px; background: var(--track); border-radius: 3px; overflow: hidden; }
+    .segs i { display: block; border-radius: 2px; min-width: 0; }
+    .segs.dashed { background: transparent; border: 1px dashed var(--border); }
+    .plabels { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .plab { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--text3); font-variant-numeric: tabular-nums; }
+    .plab i { width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── Hover detail ────────────────────────────────────────────────────────── */
+    .tip {
+      position: absolute; top: calc(100% - 4px); left: 8px; width: 234px; z-index: 70;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: var(--tip-shadow); padding: 11px 12px 12px; text-align: left;
+      opacity: 0; visibility: hidden; transform: translateY(-3px);
+      transition: opacity .13s ease, transform .13s ease, visibility .13s;
+      pointer-events: none;
+    }
+    .cell:hover .tip, .cell:focus-visible .tip { opacity: 1; visibility: visible; transform: translateY(0); }
+    .tip.r  { left: auto; right: 8px; }
+    .tip.up { top: auto; bottom: calc(100% - 4px); transform: translateY(3px); }
+    .cell:hover .tip.up, .cell:focus-visible .tip.up { transform: translateY(0); }
+    .tip-h { font-size: 0.8rem; font-weight: 650; color: var(--text); margin-bottom: 7px; letter-spacing: -0.01em; }
+    .tip-rows { display: flex; flex-direction: column; gap: 5px; }
+    .tip-item { display: flex; flex-direction: column; gap: 2px; }
+    .tip-row { display: flex; align-items: center; gap: 7px; font-size: 0.76rem; color: var(--text2); }
+    .tip-row i { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+    .tip-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tip-row b { font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+    .tip-cmt { font-size: 0.71rem; color: var(--text3); line-height: 1.4; padding-left: 14px; }
+    .tip-tot {
+      display: flex; justify-content: space-between; gap: 8px; margin-top: 9px; padding-top: 8px;
+      border-top: 1px solid var(--border-s); font-size: 0.76rem; color: var(--text3);
+    }
+    .tip-tot b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+    .tip-note { font-size: 0.72rem; color: var(--text3); margin-top: 8px; line-height: 1.45; }
+
+    /* ── Legend ──────────────────────────────────────────────────────────────── */
+    .legend {
+      display: flex; align-items: center; gap: 16px; padding: 11px 20px;
+      border-top: 1px solid var(--border); background: var(--header-bg);
+      flex-shrink: 0; flex-wrap: wrap;
+    }
+    .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text2); }
+    .lg i { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; border: 1px solid var(--border); }
+    .lg u { width: 14px; height: 4px; border-radius: 2px; flex-shrink: 0; text-decoration: none; }
+    .lg-sep { width: 1px; height: 15px; background: var(--border); flex-shrink: 0; }
+
+    /* ── Right rail ──────────────────────────────────────────────────────────── */
+    .side {
+      width: 300px; flex-shrink: 0; background: var(--header-bg);
+      border-left: 1px solid var(--border); padding: 18px 18px 22px; overflow-y: auto;
+    }
+    .side::-webkit-scrollbar { width: 6px; }
+    .side::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+    .side h4 {
+      font-size: 0.7rem; font-weight: 650; letter-spacing: .05em;
+      text-transform: uppercase; color: var(--text3); margin-bottom: 15px;
+    }
+    .backlink {
+      display: inline-flex; align-items: center; gap: 5px; background: none; border: none;
+      padding: 0; margin-bottom: 14px; color: var(--brand); font-family: inherit;
+      font-size: 0.76rem; font-weight: 600; cursor: pointer;
+    }
+    .backlink:hover { text-decoration: underline; }
+
+    .hero { background: var(--bg-sec); border: 1px solid var(--border-s); border-radius: 12px; padding: 15px 16px; margin-bottom: 12px; }
+    .hero .hv { font-size: 1.9rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1; color: var(--st-office-fg); font-variant-numeric: tabular-nums; }
+    .hero .hv small { font-size: 0.95rem; font-weight: 600; color: var(--text3); }
+    .hero .hl { font-size: 0.78rem; color: var(--text3); margin-top: 6px; }
+    .hero .track { height: 6px; background: var(--bg-hover); border-radius: 4px; margin-top: 12px; overflow: hidden; }
+    .hero .track i { display: block; height: 100%; background: var(--st-office-fg); border-radius: 4px; transition: width .4s ease; }
+    .warn {
+      display: inline-flex; align-items: center; gap: 6px; margin-top: 11px;
+      font-size: 0.74rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+      background: var(--st-absent-bg); color: var(--st-absent-fg);
+    }
+
+    .stack { display: flex; flex-direction: column; gap: 8px; }
+    .rcard { display: flex; align-items: center; gap: 11px; background: var(--bg-sec); border: 1px solid var(--border-s); border-radius: 11px; padding: 11px 13px; }
+    .rcard .r-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+    .rcard .r-mid { flex: 1; min-width: 0; }
+    .rcard .r-lbl { font-size: 0.78rem; font-weight: 600; color: var(--text2); margin-bottom: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rcard .r-bar { height: 5px; border-radius: 3px; background: var(--bg-hover); overflow: hidden; }
+    .rcard .r-bar i { display: block; height: 100%; border-radius: 3px; transition: width .4s ease; }
+    .rcard .r-val { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+    /* assigned projects */
+    .sect { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .acard {
+      display: flex; flex-direction: column; gap: 5px;
+      background: var(--bg-sec); border: 1px solid var(--border-s);
+      border-radius: 11px; padding: 11px 13px; margin-bottom: 8px;
+    }
+    .acard.idle { background: none; border-style: dashed; }
+    .a-top { display: flex; align-items: center; gap: 9px; }
+    .a-top i { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+    .a-top .a-name { flex: 1; min-width: 0; font-size: 0.8rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .a-top .a-pct { font-size: 0.8rem; font-weight: 700; color: var(--text2); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .a-meta { font-size: 0.72rem; color: var(--text3); line-height: 1.4; padding-left: 18px; }
+    .a-tags { display: flex; gap: 5px; flex-wrap: wrap; padding-left: 18px; }
+    .a-tag {
+      font-size: 0.65rem; font-weight: 650; letter-spacing: .03em; text-transform: uppercase;
+      padding: 1px 6px; border-radius: 4px;
+    }
+
+    /* day detail (read only) */
+    .ehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+    .edate { font-size: 0.95rem; font-weight: 650; color: var(--text); letter-spacing: -0.01em; }
+    .esub { font-size: 0.74rem; color: var(--text3); margin-top: 2px; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px 4px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; flex-shrink: 0; }
+    .chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .drow { display: flex; flex-direction: column; gap: 4px; padding: 11px 0; border-bottom: 1px solid var(--border-s); }
+    .drow-top { display: flex; align-items: center; gap: 9px; }
+    .drow-top i { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+    .drow-top label { flex: 1; min-width: 0; font-size: 0.8rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .drow-top b { font-size: 0.82rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .drow-cmt { font-size: 0.74rem; color: var(--text3); line-height: 1.45; padding-left: 18px; }
+    .etot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .etot-l { font-size: 0.78rem; color: var(--text3); }
+    .etot-v { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .remain { font-size: 0.72rem; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+    .emptymsg { font-size: 0.8rem; color: var(--text3); padding: 14px 0; line-height: 1.5; }
+    .locknote {
+      display: flex; gap: 8px; align-items: flex-start; background: var(--bg-sec);
+      border: 1px solid var(--border-s); border-radius: 10px; padding: 11px 12px;
+      margin-top: 12px; font-size: 0.74rem; color: var(--text2); line-height: 1.45;
+    }
+    .locknote svg { flex-shrink: 0; margin-top: 1px; color: var(--text3); }
+    .readonly {
+      font-size: 0.72rem; color: var(--text3); margin-top: 14px; padding-top: 12px;
+      border-top: 1px solid var(--border-s); line-height: 1.45;
+    }
+
+    /* ── Narrow: stack the rail above the calendar ───────────────────────────── */
+    @media (max-width: 780px) {
+      body { overflow: auto; }
+      #ts-view { overflow: visible; }
+      .shell { overflow: visible; }
+      .main { flex-direction: column; overflow: visible; }
+      .side {
+        width: 100%; order: -1; border-left: none;
+        border-bottom: 1px solid var(--border); overflow: visible;
+      }
+      .cal-pane { overflow: visible; }
+      .grid { grid-auto-rows: minmax(84px, auto); }
+      .cell { min-height: 84px; }
+      .tip { width: 200px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="gate-view" class="center-state" style="display:none">
+    <h1>Access restricted</h1>
+    <p>Timesheet is currently in pilot. Contact HR to request access.</p>
+  </div>
+
+  <div id="loading-view" class="center-state">
+    <p>Loading your timesheet&hellip;</p>
+  </div>
+
+  <div id="error-view" class="center-state" style="display:none">
+    <h1>Timesheet unavailable</h1>
+    <p id="error-msg"></p>
+    <button class="retry" onclick="retry()">Try again</button>
+  </div>
+
+  <div id="ts-view">
+    <div class="shell">
+      <div class="info-bar">
+        <div class="mnav">
+          <button class="navbtn" id="prev-btn" onclick="shiftMonth(-1)" aria-label="Previous month">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+          </button>
+          <button class="navbtn" id="next-btn" onclick="shiftMonth(1)" aria-label="Next month">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.6 7.4 10 6l6 6-6 6-1.4-1.4L13.2 12z"/></svg>
+          </button>
+          <span class="data-date" id="month-label"></span>
+          <button class="todaybtn" onclick="goToday()">Today</button>
+        </div>
+        <div class="info-right">
+          <span class="testbadge" id="test-badge" title="Fixture data from artifacts/examples — not this employee's real timesheet">Test data</span>
+          <span class="pill" id="pill-logged"></span>
+          <span class="pill" id="pill-cap"></span>
+          <span class="last-synced" id="last-synced"></span>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="cal-pane">
+          <div class="cal-head" id="cal-head"></div>
+          <div class="grid" id="grid"></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <aside class="side" id="side"></aside>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    var BASE = window.location.origin;
+
+    var PILOT = new Set([
+      "maitreyee.joshi@caizin.com",
+      "yash.nikam@caizin.com",
+      "rohan.lande@caizin.com",
+      "nikhil.negi@caizin.com",
+    ]);
+
+    /* Where a month comes from.
+         live — GET /api/timesheet/months/{month}, the real contract endpoint
+         test — the checked-in fixture, so the tab can be reviewed with no API
+
+       Resolution order: an explicit ?data=test|live wins; otherwise a real Teams
+       session is live and anything else (a plain browser tab) is test. */
+    var TEST_DATA_URL = "/tabs/timesheet-testdata";
+    var LIVE_DATA_URL = "/api/timesheet/months/";
+    var _mode = new URLSearchParams(location.search).get("data");
+    if (_mode !== "test" && _mode !== "live") _mode = null;
+    var _testMonth = null;   /* the single month the fixture covers */
+
+    var _email = "";
+    var _month = null;    /* 'YYYY-MM' on screen */
+    var _data  = null;    /* last payload from the API */
+    var _sel   = null;    /* selected ISO date, or null for the month summary */
+    var _timer = null;
+    var _busy  = false;
+
+    /* ── Theme ──────────────────────────────────────────────────────────────── */
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme",
+        t === "dark" ? "dark" : t === "contrast" ? "contrast" : "default");
+    }
+
+    /* ── Utilities ──────────────────────────────────────────────────────────── */
+    function esc(v) {
+      return String(v == null ? "" : v)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function fmt(n) { return (Math.round(Number(n) * 10) / 10).toFixed(1); }
+
+    /* Month arithmetic on the 'YYYY-MM' string only — never on a Date, so the
+       browser's timezone can never shift which month we ask for. */
+    function shiftYm(ym, delta) {
+      var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7)) + delta;
+      y += Math.floor((m - 1) / 12);
+      m = ((m - 1) % 12 + 12) % 12 + 1;
+      return y + "-" + (m < 10 ? "0" + m : String(m));
+    }
+
+    /* ── Contract vocabulary → this tab's palette ───────────────────────────── */
+    var TINT = {
+      working:    "var(--bg)",
+      weekend:    "var(--bg-sec)",
+      holiday:    "var(--st-client-bg)",
+      leave:      "var(--st-leave-bg)",
+      half_leave: "var(--st-leave-bg)"
+    };
+    var TYPE_FG = {
+      holiday:    "var(--st-client-fg)",
+      leave:      "var(--st-leave-fg)",
+      half_leave: "var(--st-leave-fg)"
+    };
+    var KIND_BG = { holiday: "var(--st-client-bg)", leave: "var(--st-leave-bg)" };
+    var KIND_FG = { holiday: "var(--st-client-fg)", leave: "var(--st-leave-fg)" };
+    /* An annotation can sit on a day whose type is `working` — a floater holiday is
+       optional, so it is labelled but the day still expects hours. Colour follows the
+       annotation's kind for exactly that reason. */
+    function annBg(d) { return (d.annotation && KIND_BG[d.annotation.kind]) || "var(--st-pending-bg)"; }
+    function annFg(d) { return (d.annotation && KIND_FG[d.annotation.kind]) || "var(--st-pending-fg)"; }
+    var STATUS_FG = {
+      complete: "var(--st-office-fg)",
+      partial:  "var(--brand)",
+      missing:  "var(--st-absent-fg)",
+      empty:    "var(--text3)"
+    };
+    var WD_LABEL = { mon:"Mon", tue:"Tue", wed:"Wed", thu:"Thu", fri:"Fri", sat:"Sat", sun:"Sun" };
+    var WD_LONG  = { mon:"Monday", tue:"Tuesday", wed:"Wednesday", thu:"Thursday",
+                     fri:"Friday", sat:"Saturday", sun:"Sunday" };
+    var MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    function slotColor(slot) {
+      return slot === 1 ? "var(--p1)" : slot === 2 ? "var(--p2)" : slot === 3 ? "var(--p3)"
+           : "var(--text3)";
+    }
+    function railColor(row) {
+      if (row.kind === "holiday") return "var(--st-client-fg)";
+      if (row.kind === "leave")   return "var(--st-leave-fg)";
+      return slotColor(row.color_slot);
+    }
+    /* A missing day is a working day the tint has to shout about, so status wins. */
+    function cellBg(d) {
+      if (!d.in_month) return "transparent";
+      if (d.status === "missing") return "var(--st-absent-bg)";
+      return TINT[d.day_type] || "var(--bg)";
+    }
+    function cellBorder(d, selected) {
+      if (!d.in_month) return "transparent";
+      if (selected) return "var(--brand)";
+      var tinted = d.status === "missing" || d.day_type === "holiday" ||
+                   d.day_type === "leave" || d.day_type === "half_leave";
+      return tinted ? "transparent" : "var(--cal-line)";
+    }
+    function isInert(d) {
+      return !d.in_month || d.day_type === "weekend" ||
+             (d.day_type === "holiday" && d.capacity_hours === 0 && d.logged_hours === 0);
+    }
+
+    /* The API supplies data and state; the copy below belongs to the UI. */
+    function dayNote(d) {
+      if (!d.in_month) return "";
+      if (d.day_type === "weekend")   return "Weekend — not a working day.";
+      if (d.day_type === "holiday")   return d.capacity_hours === 0 && d.annotation && d.annotation.hours === 0
+        ? "Public holiday falling on a weekend — no hours expected."
+        : "Prefilled from the holiday calendar. Nothing to enter.";
+      if (d.day_type === "leave")     return "Approved leave. Prefilled and locked.";
+      if (d.annotation && d.annotation.kind === "holiday" && d.annotation.detail === "Floater")
+        return "Floater holiday — optional, so hours are still expected on this day.";
+      if (d.status === "missing")     return "Working day with no hours logged.";
+      if (d.status === "partial")     return "Partly logged — " + fmt(d.capacity_hours - d.logged_hours) + " h still open.";
+      if (d.status === "empty")       return "Nothing logged yet.";
+      return "";
+    }
+    function chipFor(d) {
+      if (d.status === "missing") return { text: "Hours missing", bg: "var(--st-absent-bg)", fg: "var(--st-absent-fg)" };
+      if (!d.annotation) return null;
+      var half = d.day_type === "half_leave" ? "½ " : "";
+      var detail = (d.annotation.kind === "holiday" && d.annotation.detail === "Floater") ? " (opt)" : "";
+      return { text: half + d.annotation.label + detail, bg: annBg(d), fg: annFg(d) };
+    }
+    function hoursLabel(d) {
+      if (!d.in_month) return null;
+      if (d.day_type === "holiday" || d.day_type === "leave") {
+        var a = d.annotation;
+        return (a && a.hours > 0) ? { text: fmt(a.hours) + "h", color: annFg(d) } : null;
+      }
+      if (d.logged_hours > 0) return { text: fmt(d.logged_hours) + "h", color: STATUS_FG[d.status] || "var(--text3)" };
+      if (d.status === "missing") return { text: "0h", color: "var(--st-absent-fg)" };
+      return null;
+    }
+    function dayTitle(d) {
+      return WD_LONG[d.weekday] + " " + d.day_of_month + " " + MONTH_SHORT[Number(d.date.slice(5, 7)) - 1];
+    }
+
+    /* ── Fetch ──────────────────────────────────────────────────────────────── */
+    function loadMonth(ym, showSpinner) {
+      if (_busy) return;
+      _busy = true;
+      if (showSpinner) show("loading");
+
+      /* In test mode the fixture is one fixed month, so the requested month is
+         ignored — nav is disabled to match.
+
+         X-Mock-Employee only exists while the live API is mocked; the real endpoint
+         derives the employee from the Teams SSO token. Delete this header (and
+         nothing else) when auth lands. */
+      var url = (_mode === "test")
+        ? BASE + TEST_DATA_URL
+        : BASE + LIVE_DATA_URL + encodeURIComponent(ym);
+
+      fetch(url, {
+        headers: { "Accept": "application/json", "X-Mock-Employee": _email }
+      })
+      .then(function (r) {
+        if (r.status === 403) { show("gate"); return null; }
+        if (!r.ok) {
+          return r.json().catch(function () { return null; }).then(function (body) {
+            var msg = body && body.error && body.error.message
+              ? body.error.message
+              : "The timesheet service returned an error (" + r.status + ").";
+            throw new Error(msg);
+          });
+        }
+        return r.json();
+      })
+      .then(function (payload) {
+        if (!payload) return;
+        _data  = payload;
+        _month = payload.month;
+        if (_mode === "test") _testMonth = payload.month;
+        if (_sel && _sel.slice(0, 7) !== _month) _sel = null;
+        render();
+        show("ts");
+      })
+      .catch(function (err) {
+        document.getElementById("error-msg").textContent =
+          (err && err.message) || "Could not reach the timesheet service.";
+        show("error");
+      })
+      .finally(function () { _busy = false; });
+    }
+
+    function show(which) {
+      ["gate", "loading", "error", "ts"].forEach(function (k) {
+        var el = document.getElementById(k === "ts" ? "ts-view" : k + "-view");
+        el.style.display = (k === which) ? (k === "ts" ? "flex" : "flex") : "none";
+      });
+    }
+
+    function retry()            { loadMonth(_month || monthOfToday(), true); }
+    function monthOfToday()     { return (_data && _data.today ? _data.today : new Date().toISOString()).slice(0, 7); }
+    function shiftMonth(delta) {
+      if (_mode === "test") return;          /* one fixture month, nothing to page to */
+      _sel = null;
+      loadMonth(shiftYm(_month, delta), true);
+    }
+    function goToday() {
+      var t = _data && _data.today;
+      _sel = t || null;
+      if (_mode === "test") { renderRail(); renderGrid(); return; }
+      loadMonth(t ? t.slice(0, 7) : monthOfToday(), true);
+    }
+    function selectDay(iso) {
+      var d = dayByDate(iso);
+      if (!d || isInert(d)) return;
+      _sel = (_sel === iso) ? null : iso;
+      renderRail();
+      renderGrid();
+    }
+    function clearSel() { _sel = null; renderRail(); renderGrid(); }
+    function dayByDate(iso) {
+      if (!_data) return null;
+      for (var i = 0; i < _data.days.length; i++) if (_data.days[i].date === iso) return _data.days[i];
+      return null;
+    }
+
+    /* ── Render ─────────────────────────────────────────────────────────────── */
+    function render() {
+      var t = _data.totals;
+      document.getElementById("month-label").textContent = _data.label;
+      document.getElementById("pill-logged").innerHTML =
+        "Logged <b>" + fmt(t.logged_hours) + "</b> of <b>" + fmt(t.capacity_hours) + "</b> h";
+      document.getElementById("pill-cap").innerHTML =
+        "Cap <b>" + fmt(_data.policy.daily_cap_hours) + "</b> h / day";
+      document.getElementById("last-synced").textContent = _mode === "test"
+        ? "Fixture · " + _data.month
+        : "Synced " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+
+      document.getElementById("test-badge").classList.toggle("on", _mode === "test");
+
+      /* The fixture is a single month, so there is nowhere to navigate to. */
+      var frozen = _mode === "test";
+      ["prev-btn", "next-btn"].forEach(function (id) {
+        var b = document.getElementById(id);
+        b.disabled = frozen;
+        b.title = frozen ? "Test data covers " + _data.month + " only" : "";
+      });
+      renderHead();
+      renderGrid();
+      renderLegend();
+      renderRail();
+    }
+
+    function renderHead() {
+      var order = ["mon","tue","wed","thu","fri","sat","sun"];
+      if (_data.policy.week_starts_on === "sun") order = ["sun"].concat(order.slice(0, 6));
+      var work = new Set(_data.policy.working_days);
+      document.getElementById("cal-head").innerHTML = order.map(function (w) {
+        return '<span class="' + (work.has(w) ? "" : "we") + '">' + WD_LABEL[w] + "</span>";
+      }).join("");
+    }
+
+    function renderGrid() {
+      var html = _data.days.map(function (d, i) {
+        var cls = [];
+        if (!d.in_month) cls.push("out");
+        if (d.day_type === "weekend") cls.push("we");
+        if (isInert(d)) cls.push("inert");
+        var selected = d.date === _sel;
+        if (selected) cls.push("sel");
+
+        var h = hoursLabel(d);
+        var out = '<div class="ctop"><span class="dnum' + (d.is_today ? " today" : "") + '">' +
+                  d.day_of_month + "</span>" +
+                  (h ? '<span class="dh" style="color:' + h.color + '">' + esc(h.text) + "</span>" : "") +
+                  "</div>";
+
+        var chip = d.in_month ? chipFor(d) : null;
+        if (chip) {
+          out += '<span class="dchip" style="background:' + chip.bg + ';color:' + chip.fg + '">' +
+                 "<span>" + esc(chip.text) + "</span></span>";
+        }
+
+        var seg = "";
+        if (d.in_month && d.entries.length) {
+          var rem = d.capacity_hours - d.logged_hours;
+          seg = '<div class="segs">' + d.entries.map(function (e) {
+              return '<i style="flex-grow:' + e.hours + ';background:' + slotColor(e.color_slot) + '"></i>';
+            }).join("") +
+            (rem > 0.001 ? '<i style="flex-grow:' + rem + ';background:transparent"></i>' : "") +
+            "</div>";
+        } else if (d.in_month && d.status === "missing") {
+          seg = '<div class="segs"></div>';
+        } else if (d.in_month && d.status === "empty") {
+          seg = '<div class="segs dashed"></div>';
+        }
+        var labels = (d.in_month && d.entries.length > 1)
+          ? '<div class="plabels">' + d.entries.map(function (e) {
+              return '<span class="plab"><i style="background:' + slotColor(e.color_slot) + '"></i>' + fmt(e.hours) + "</span>";
+            }).join("") + "</div>"
+          : "";
+        out += '<div class="segwrap">' + seg + labels + "</div>";
+
+        out += tipHtml(d, i);
+
+        return '<button class="cell ' + cls.join(" ") + '" style="background:' + cellBg(d) +
+               ";border-color:" + cellBorder(d, selected) + '"' +
+               (isInert(d) ? ' tabindex="-1"' : ' onclick="selectDay(\'' + d.date + '\')"') +
+               ">" + out + "</button>";
+      }).join("");
+      document.getElementById("grid").innerHTML = html;
+    }
+
+    function tipHtml(d, i) {
+      if (!d.in_month) return "";
+      var cls = [];
+      if (i % 7 >= 5) cls.push("r");
+      if (i >= 28) cls.push("up");
+
+      var rows = [];
+      if (d.annotation) {
+        rows.push({
+          color: annFg(d),
+          name: d.annotation.label + (d.annotation.detail ? " (" + d.annotation.detail + ")" : ""),
+          h: d.annotation.hours > 0 ? fmt(d.annotation.hours) + " h" : "",
+          note: null
+        });
+      }
+      d.entries.forEach(function (e) {
+        rows.push({ color: slotColor(e.color_slot), name: e.project_name, h: fmt(e.hours) + " h", note: e.comment });
+      });
+
+      var body = rows.length ? '<div class="tip-rows">' + rows.map(function (r) {
+        return '<div class="tip-item"><div class="tip-row"><i style="background:' + r.color + '"></i>' +
+               "<span>" + esc(r.name) + "</span>" + (r.h ? "<b>" + esc(r.h) + "</b>" : "") + "</div>" +
+               (r.note ? '<div class="tip-cmt">' + esc(r.note) + "</div>" : "") + "</div>";
+      }).join("") + "</div>" : "";
+
+      var tot = "";
+      if (d.capacity_hours > 0) {
+        tot = '<div class="tip-tot"><span>Total' + (d.day_type === "half_leave" ? " (half day)" : "") +
+              "</span><b>" + fmt(d.logged_hours) + " / " + fmt(d.capacity_hours) + " h</b></div>";
+      } else if (d.annotation && d.annotation.hours > 0) {
+        tot = '<div class="tip-tot"><span>Total</span><b>' + fmt(d.annotation.hours) + " / " +
+              fmt(_data.policy.daily_cap_hours) + " h</b></div>";
+      }
+
+      var note = dayNote(d);
+      return '<div class="tip ' + cls.join(" ") + '"><div class="tip-h">' + esc(dayTitle(d)) + "</div>" +
+             body + tot + (note ? '<div class="tip-note">' + esc(note) + "</div>" : "") + "</div>";
+    }
+
+    function renderLegend() {
+      var day = [
+        ["Working day",   "var(--bg)",            "var(--border)"],
+        ["Holiday",       "var(--st-client-bg)",  "var(--st-client-fg)"],
+        ["Leave",         "var(--st-leave-bg)",   "var(--st-leave-fg)"],
+        ["Hours missing", "var(--st-absent-bg)",  "var(--st-absent-fg)"],
+        ["Weekend",       "var(--bg-sec)",        "var(--border)"]
+      ].map(function (r) {
+        return '<span class="lg"><i style="background:' + r[1] + ";border-color:" + r[2] + '"></i>' + r[0] + "</span>";
+      }).join("");
+
+      var proj = (_data.projects || []).map(function (p) {
+        return '<span class="lg"><u style="background:' + slotColor(p.color_slot) + '"></u>' + esc(p.name) + "</span>";
+      }).join("");
+
+      document.getElementById("legend").innerHTML =
+        day + (proj ? '<span class="lg-sep"></span>' + proj : "");
+    }
+
+    function renderRail() {
+      var side = document.getElementById("side");
+      side.innerHTML = _sel ? dayDetailHtml() : summaryHtml();
+    }
+
+    function summaryHtml() {
+      var t = _data.totals;
+      var pct = t.capacity_hours > 0 ? Math.min(100, Math.round(t.logged_hours / t.capacity_hours * 100)) : 0;
+      var html = "<h4>" + esc(_data.label) + " at a glance</h4>" +
+        '<div class="hero"><div class="hv">' + fmt(t.logged_hours) +
+        "<small> / " + fmt(t.capacity_hours) + ' h</small></div>' +
+        '<div class="hl">Logged across ' + t.days_logged + " of " + t.days_expected + " working days</div>" +
+        '<div class="track"><i style="width:' + pct + '%"></i></div>' +
+        (t.days_missing > 0
+          ? '<span class="warn">' + t.days_missing + (t.days_missing === 1 ? " day" : " days") + " with no hours</span>"
+          : "") +
+        "</div>";
+
+      html += '<div class="stack">' + (_data.by_project || []).map(function (r) {
+        var c = railColor(r);
+        var share = t.logged_hours > 0 ? Math.round(r.hours / t.logged_hours * 100) : 0;
+        return '<div class="rcard"><i class="r-dot" style="background:' + c + '"></i>' +
+               '<div class="r-mid"><div class="r-lbl">' + esc(r.name) + "</div>" +
+               '<div class="r-bar"><i style="width:' + share + "%;background:" + c + '"></i></div></div>' +
+               '<div class="r-val" style="color:' + c + '">' + fmt(r.hours) + "</div></div>";
+      }).join("") + "</div>";
+
+      if (!(_data.by_project || []).length) {
+        html += '<p class="emptymsg">Nothing logged this month yet.</p>';
+      }
+      html += assignedHtml();
+      html += '<p class="readonly">Select a date to see its detail. Logging hours from this tab is not enabled yet.</p>';
+      return html;
+    }
+
+    var MON_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    /* Format from the ISO string directly. new Date('2026-04-01') parses as UTC and
+       shifts a day for anyone west of Greenwich. */
+    function shortDate(iso) {
+      if (!iso) return "";
+      var p = String(iso).slice(0, 10).split("-");
+      return Number(p[2]) + " " + MON_SHORT[Number(p[1]) - 1] + " " + p[0];
+    }
+
+    /* The employee's own project assignments, straight from `projects[]`. Every
+       assignment shows, including one with no hours this month — that absence is
+       information, not a reason to hide the row. */
+    function assignedHtml() {
+      var list = _data.projects || [];
+      if (!list.length) return "";
+
+      var rows = list.map(function (p) {
+        var a = p.allocation || {};
+        var c = slotColor(p.color_slot);
+        var idle = p.has_hours_this_month === false;
+
+        var meta = [];
+        if (a.billing_role) meta.push(esc(a.billing_role));
+        if (a.from_date || a.to_date) {
+          meta.push(a.to_date
+            ? shortDate(a.from_date) + " – " + shortDate(a.to_date)
+            : "from " + shortDate(a.from_date));
+        }
+        if (!meta.length) meta.push("Assignment detail unavailable");
+
+        var tags = [];
+        if (a.is_shadow) {
+          tags.push('<span class="a-tag" style="background:var(--st-wfh-bg);color:var(--st-wfh-fg)">Shadow</span>');
+        }
+        if (p.is_billable === false) {
+          tags.push('<span class="a-tag" style="background:var(--st-pending-bg);color:var(--st-pending-fg)">Non-billable</span>');
+        }
+        if (idle) {
+          tags.push('<span class="a-tag" style="background:var(--st-pending-bg);color:var(--st-pending-fg)">No hours yet</span>');
+        }
+
+        return '<div class="acard' + (idle ? " idle" : "") + '">' +
+          '<div class="a-top"><i style="background:' + c + '"></i>' +
+          '<span class="a-name">' + esc(p.name) + (p.code ? " · " + esc(p.code) : "") + "</span>" +
+          (a.percentage != null ? '<span class="a-pct">' + a.percentage + "%</span>" : "") +
+          "</div>" +
+          '<div class="a-meta">' + meta.join(" · ") + "</div>" +
+          (tags.length ? '<div class="a-tags">' + tags.join("") + "</div>" : "") +
+          "</div>";
+      }).join("");
+
+      return '<div class="sect"><h4>Assigned projects</h4>' + rows + "</div>";
+    }
+
+    function dayDetailHtml() {
+      var d = dayByDate(_sel);
+      if (!d) return summaryHtml();
+
+      var chip, sub;
+      if (d.day_type === "holiday") {
+        chip = { t: "Holiday", bg: "var(--st-client-bg)", fg: "var(--st-client-fg)" };
+        sub  = d.annotation ? d.annotation.label : "Public holiday";
+      } else if (d.day_type === "leave") {
+        chip = { t: "Leave", bg: "var(--st-leave-bg)", fg: "var(--st-leave-fg)" };
+        sub  = (d.annotation ? d.annotation.label : "Leave") + " · approved";
+      } else if (d.day_type === "half_leave") {
+        chip = { t: "½ day leave", bg: "var(--st-leave-bg)", fg: "var(--st-leave-fg)" };
+        sub  = (d.annotation ? d.annotation.label : "Leave") +
+               (d.annotation && d.annotation.detail ? " · " + d.annotation.detail : "") +
+               " · cap " + fmt(d.capacity_hours) + " h";
+      } else if (d.status === "missing") {
+        chip = { t: "Hours missing", bg: "var(--st-absent-bg)", fg: "var(--st-absent-fg)" };
+        sub  = "Working day";
+      } else if (d.status === "complete") {
+        chip = { t: "Complete", bg: "var(--st-office-bg)", fg: "var(--st-office-fg)" };
+        sub  = d.is_today ? "Today" : "Working day";
+      } else if (d.status === "partial") {
+        chip = { t: "In progress", bg: "var(--st-wfh-bg)", fg: "var(--st-wfh-fg)" };
+        sub  = d.is_today ? "Today" : "Working day";
+      } else {
+        chip = { t: "Not started", bg: "var(--st-pending-bg)", fg: "var(--st-pending-fg)" };
+        sub  = d.is_today ? "Today" : "Working day";
+      }
+
+      var html = '<button class="backlink" onclick="clearSel()">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>' +
+        esc(_data.label) + " at a glance</button>" +
+        '<div class="ehead"><div><div class="edate">' + esc(dayTitle(d)) + "</div>" +
+        '<div class="esub">' + esc(sub) + "</div></div>" +
+        '<span class="chip" style="background:' + chip.bg + ";color:" + chip.fg + '">' + esc(chip.t) + "</span></div>";
+
+      var rows = "";
+      if (d.annotation && d.annotation.hours > 0 && d.day_type !== "half_leave"
+          && d.day_type !== "working") {
+        rows += '<div class="drow"><div class="drow-top">' +
+          '<i style="background:' + annFg(d) + '"></i>' +
+          "<label>" + esc(d.annotation.label) + "</label>" +
+          '<b style="color:' + annFg(d) + '">' + fmt(d.annotation.hours) + " h</b>" +
+          "</div></div>";
+      }
+      rows += d.entries.map(function (e) {
+        return '<div class="drow"><div class="drow-top">' +
+          '<i style="background:' + slotColor(e.color_slot) + '"></i>' +
+          "<label>" + esc(e.project_name) + "</label>" +
+          "<b>" + fmt(e.hours) + " h</b></div>" +
+          (e.comment ? '<div class="drow-cmt">' + esc(e.comment) + "</div>" : "") +
+          "</div>";
+      }).join("");
+      html += rows || '<p class="emptymsg">No hours logged against this day.</p>';
+
+      if (d.capacity_hours === 0 && d.annotation) {
+        html += '<div class="locknote">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2M9 6a3 3 0 0 1 6 0v2H9zm3 12a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg>' +
+          "<span>" + esc(dayNote(d)) + "</span></div>";
+      }
+
+      if (d.capacity_hours > 0) {
+        var left = d.capacity_hours - d.logged_hours;
+        var rBg  = left <= 0.001 ? "var(--st-office-bg)" : "var(--st-pending-bg)";
+        var rFg  = left <= 0.001 ? "var(--st-office-fg)" : "var(--st-pending-fg)";
+        html += '<div class="etot"><div><div class="etot-l">Day total</div>' +
+          '<div class="etot-v" style="color:' + (STATUS_FG[d.status] || "var(--text)") + '">' +
+          fmt(d.logged_hours) + ' <span style="color:var(--text3);font-size:0.8rem;font-weight:600">/ ' +
+          fmt(d.capacity_hours) + " h</span></div></div>" +
+          '<span class="remain" style="background:' + rBg + ";color:" + rFg + '">' +
+          (left <= 0.001 ? "Day full" : fmt(left) + " h left") + "</span></div>";
+      }
+      return html;
+    }
+
+    /* ── Auto refresh ───────────────────────────────────────────────────────── */
+    function startAutoRefresh() {
+      if (_mode === "test") return;          /* a fixture never changes */
+      if (_timer) clearInterval(_timer);
+      _timer = setInterval(function () {
+        if (document.hidden) return;      /* don't burn upstream quota on a hidden tab */
+        loadMonth(_month, false);
+      }, 60000);
+    }
+
+    /* ── Boot ───────────────────────────────────────────────────────────────── */
+    function boot(email, inTeams) {
+      _email = email || "";
+      if (!_mode) _mode = inTeams ? "live" : "test";
+      loadMonth(monthOfToday(), true);
+      startAutoRefresh();
+    }
+
+    if (typeof microsoftTeams !== "undefined") {
+      microsoftTeams.app.initialize()
+        .then(function () {
+          microsoftTeams.app.notifyAppLoaded();
+          return microsoftTeams.app.getContext();
+        })
+        .then(function (ctx) {
+          var email = ((ctx.user && ctx.user.userPrincipalName) || "").toLowerCase();
+          var theme = (ctx.app && ctx.app.theme) || ctx.theme || "default";
+          applyTheme(theme);
+          try { microsoftTeams.app.registerOnThemeChangeHandler(applyTheme); } catch (_) {}
+          if (!email || PILOT.has(email)) { boot(email, true); } else { show("gate"); }
+        })
+        .catch(function () { boot("", false); });
+    } else {
+      boot("", false);
+    }
+  </script>
+</body>
+</html>

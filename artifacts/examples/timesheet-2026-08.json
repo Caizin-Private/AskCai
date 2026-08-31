@@ -1,0 +1,835 @@
+{
+  "month": "2026-08",
+  "label": "August 2026",
+  "today": "2026-08-27",
+  "employee": {
+    "id": "33ac26908946bb7cb7cd66b36f586bf3",
+    "name": "Swinal Kamble"
+  },
+  "policy": {
+    "daily_cap_hours": 8.0,
+    "working_days": [
+      "mon",
+      "tue",
+      "wed",
+      "thu",
+      "fri"
+    ],
+    "week_starts_on": "mon",
+    "timezone": "Asia/Kolkata"
+  },
+  "totals": {
+    "capacity_hours": 168.0,
+    "logged_hours": 143.5,
+    "working_days": 21,
+    "days_expected": 18,
+    "days_logged": 16,
+    "days_missing": 1
+  },
+  "projects": [
+    {
+      "id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+      "name": "Cyber",
+      "code": "CYB",
+      "is_billable": true,
+      "color_slot": 1,
+      "allocation": {
+        "from_date": "2026-04-01",
+        "to_date": "2026-12-31",
+        "percentage": 50,
+        "billing_role": "Tech Lead",
+        "is_shadow": false
+      },
+      "has_hours_this_month": true
+    },
+    {
+      "id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+      "name": "Internal",
+      "code": "INT",
+      "is_billable": false,
+      "color_slot": 2,
+      "allocation": {
+        "from_date": "2026-04-01",
+        "to_date": null,
+        "percentage": 100,
+        "billing_role": "Engineer",
+        "is_shadow": false
+      },
+      "has_hours_this_month": true
+    }
+  ],
+  "by_project": [
+    {
+      "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+      "name": "Internal",
+      "color_slot": 2,
+      "kind": "project",
+      "hours": 80.5
+    },
+    {
+      "project_id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+      "name": "Cyber",
+      "color_slot": 1,
+      "kind": "project",
+      "hours": 35.0
+    },
+    {
+      "project_id": null,
+      "name": "Approved leave",
+      "color_slot": null,
+      "kind": "leave",
+      "hours": 20.0
+    },
+    {
+      "project_id": null,
+      "name": "Public holiday",
+      "color_slot": null,
+      "kind": "holiday",
+      "hours": 8.0
+    }
+  ],
+  "days": [
+    {
+      "date": "2026-07-27",
+      "weekday": "mon",
+      "day_of_month": 27,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-07-28",
+      "weekday": "tue",
+      "day_of_month": 28,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-07-29",
+      "weekday": "wed",
+      "day_of_month": 29,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-07-30",
+      "weekday": "thu",
+      "day_of_month": 30,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-07-31",
+      "weekday": "fri",
+      "day_of_month": 31,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-01",
+      "weekday": "sat",
+      "day_of_month": 1,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-02",
+      "weekday": "sun",
+      "day_of_month": 2,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-03",
+      "weekday": "mon",
+      "day_of_month": 3,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 6.5,
+      "status": "partial",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 6.5,
+          "comment": "Interview panel"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-04",
+      "weekday": "tue",
+      "day_of_month": 4,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 8.0,
+          "comment": null
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-05",
+      "weekday": "wed",
+      "day_of_month": 5,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 3.5,
+          "comment": "Interview panel"
+        },
+        {
+          "project_id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+          "project_name": "Cyber",
+          "color_slot": 1,
+          "hours": 4.5,
+          "comment": null
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-06",
+      "weekday": "thu",
+      "day_of_month": 6,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 3.5,
+          "comment": "Onboarding docs"
+        },
+        {
+          "project_id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+          "project_name": "Cyber",
+          "color_slot": 1,
+          "hours": 4.5,
+          "comment": "Pen-test findings triage"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-07",
+      "weekday": "fri",
+      "day_of_month": 7,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 8.0,
+          "comment": "Interview panel"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-08",
+      "weekday": "sat",
+      "day_of_month": 8,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-09",
+      "weekday": "sun",
+      "day_of_month": 9,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-10",
+      "weekday": "mon",
+      "day_of_month": 10,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 7.0,
+      "status": "partial",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 4.5,
+          "comment": "Onboarding docs"
+        },
+        {
+          "project_id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+          "project_name": "Cyber",
+          "color_slot": 1,
+          "hours": 2.5,
+          "comment": "Vulnerability scan baseline"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-11",
+      "weekday": "tue",
+      "day_of_month": 11,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 8.0,
+          "comment": "Onboarding docs"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-12",
+      "weekday": "wed",
+      "day_of_month": 12,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "half_leave",
+      "capacity_hours": 4.0,
+      "logged_hours": 4.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+          "project_name": "Cyber",
+          "color_slot": 1,
+          "hours": 4.0,
+          "comment": "Segmentation testing"
+        }
+      ],
+      "annotation": {
+        "label": "Sick Leave",
+        "detail": "First half",
+        "kind": "leave",
+        "hours": 4.0
+      }
+    },
+    {
+      "date": "2026-08-13",
+      "weekday": "thu",
+      "day_of_month": 13,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 8.0,
+          "comment": "Onboarding docs"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-14",
+      "weekday": "fri",
+      "day_of_month": 14,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 8.0,
+          "comment": "Sprint planning"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-15",
+      "weekday": "sat",
+      "day_of_month": 15,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "holiday",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": {
+        "label": "Independence Day",
+        "detail": null,
+        "kind": "holiday",
+        "hours": 0.0
+      }
+    },
+    {
+      "date": "2026-08-16",
+      "weekday": "sun",
+      "day_of_month": 16,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-17",
+      "weekday": "mon",
+      "day_of_month": 17,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "leave",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": {
+        "label": "Casual Leave",
+        "detail": null,
+        "kind": "leave",
+        "hours": 8.0
+      }
+    },
+    {
+      "date": "2026-08-18",
+      "weekday": "tue",
+      "day_of_month": 18,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "leave",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": {
+        "label": "Casual Leave",
+        "detail": null,
+        "kind": "leave",
+        "hours": 8.0
+      }
+    },
+    {
+      "date": "2026-08-19",
+      "weekday": "wed",
+      "day_of_month": 19,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 4.5,
+          "comment": "Sprint planning"
+        },
+        {
+          "project_id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+          "project_name": "Cyber",
+          "color_slot": 1,
+          "hours": 3.5,
+          "comment": "SIEM rule tuning \u2014 false positive sweep"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-20",
+      "weekday": "thu",
+      "day_of_month": 20,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 6.5,
+      "status": "partial",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 6.5,
+          "comment": "Onboarding docs"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-21",
+      "weekday": "fri",
+      "day_of_month": 21,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 0.0,
+      "status": "missing",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-22",
+      "weekday": "sat",
+      "day_of_month": 22,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-23",
+      "weekday": "sun",
+      "day_of_month": 23,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-24",
+      "weekday": "mon",
+      "day_of_month": 24,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+          "project_name": "Cyber",
+          "color_slot": 1,
+          "hours": 3.0,
+          "comment": "Vulnerability scan baseline"
+        },
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 5.0,
+          "comment": "Onboarding docs"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-25",
+      "weekday": "tue",
+      "day_of_month": 25,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+          "project_name": "Cyber",
+          "color_slot": 1,
+          "hours": 8.0,
+          "comment": "Threat model review for the ingress gateway"
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-26",
+      "weekday": "wed",
+      "day_of_month": 26,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 8.0,
+      "status": "complete",
+      "entries": [
+        {
+          "project_id": "9f2c1e64-0f1a-4a7e-9a1b-2c3d4e5f6a7b",
+          "project_name": "Cyber",
+          "color_slot": 1,
+          "hours": 5.0,
+          "comment": "Threat model review for the ingress gateway"
+        },
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 3.0,
+          "comment": null
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-27",
+      "weekday": "thu",
+      "day_of_month": 27,
+      "in_month": true,
+      "is_today": true,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 3.5,
+      "status": "partial",
+      "entries": [
+        {
+          "project_id": "7c1a5b39-88de-4f01-a2b7-3d4e5f60718a",
+          "project_name": "Internal",
+          "color_slot": 2,
+          "hours": 3.5,
+          "comment": null
+        }
+      ],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-28",
+      "weekday": "fri",
+      "day_of_month": 28,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "holiday",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": {
+        "label": "Raksha Bandhan",
+        "detail": null,
+        "kind": "holiday",
+        "hours": 8.0
+      }
+    },
+    {
+      "date": "2026-08-29",
+      "weekday": "sat",
+      "day_of_month": 29,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-30",
+      "weekday": "sun",
+      "day_of_month": 30,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-08-31",
+      "weekday": "mon",
+      "day_of_month": 31,
+      "in_month": true,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 8.0,
+      "logged_hours": 0.0,
+      "status": "empty",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-09-01",
+      "weekday": "tue",
+      "day_of_month": 1,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-09-02",
+      "weekday": "wed",
+      "day_of_month": 2,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-09-03",
+      "weekday": "thu",
+      "day_of_month": 3,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-09-04",
+      "weekday": "fri",
+      "day_of_month": 4,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "working",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-09-05",
+      "weekday": "sat",
+      "day_of_month": 5,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    },
+    {
+      "date": "2026-09-06",
+      "weekday": "sun",
+      "day_of_month": 6,
+      "in_month": false,
+      "is_today": false,
+      "day_type": "weekend",
+      "capacity_hours": 0.0,
+      "logged_hours": 0.0,
+      "status": "not_applicable",
+      "entries": [],
+      "annotation": null
+    }
+  ],
+  "generated_at": "2026-08-27T11:42:08+05:30"
+}

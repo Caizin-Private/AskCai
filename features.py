@@ -18,6 +18,7 @@ _FLAGS = {
     "askcai_tab":       True,
     "leave_management": True,   # gates apply-leave and get-balance; set FEATURE_LEAVE_MANAGEMENT=0 to disable
     "dashboard":        True,   # gates the Insync Overview tab; set FEATURE_DASHBOARD=0 to disable
+    "timesheet":        True,   # gates the Timesheet tab; set FEATURE_TIMESHEET=0 to disable
 }
 
 # Maps each compose-extension command to its surface flag.

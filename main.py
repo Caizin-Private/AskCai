@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from botbuilder.core import (
@@ -30,6 +30,11 @@ from insync_db import (
     get_work_status_by_email,
     get_work_status_by_name,
 )
+import timesheet_mock
+from keka import client as keka_client
+from keka import timesheet_service
+from keka.dao._http import KekaRateLimited
+from keka.models import EmployeeNotFoundError, KekaServiceError
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1178,6 +1183,26 @@ async def ask(req: Request):
 
 _TAB_CSP = "frame-ancestors teams.microsoft.com *.teams.microsoft.com *.skype.com"
 
+_FEATURE_OFF_HTML = """<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Not available</title><style>
+ html,body{height:100%;margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:14px;background:#fff;color:#1b1d21}
+ @media (prefers-color-scheme:dark){html,body{background:#1b1b1d;color:#e7e8ea}}
+ .s{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:8px;padding:24px}
+ h1{font-size:1.1rem;font-weight:650}p{color:#8a909e;font-size:.875rem;max-width:42ch}
+</style></head><body><div class="s">
+<h1>Not available yet</h1>
+<p>This tab is switched off for your account. It will appear here once the feature is released.</p>
+</div></body></html>"""
+
+
+def _feature_off_page() -> HTMLResponse:
+    """Shown when a tab's feature flag is off."""
+    return HTMLResponse(content=_FEATURE_OFF_HTML, headers={"Content-Security-Policy": _TAB_CSP})
+
 
 @app.get("/icon.png")
 async def app_icon():
@@ -1193,6 +1218,15 @@ async def tab_askcai():
 
 @app.get("/tabs/dashboard")
 async def tab_dashboard():
+    if os.getenv("FEATURE_DASHBOARD", "1") == "0":
+        return _feature_off_page()
+    r = FileResponse(os.path.join("static", "dashboard.html"))
+    r.headers["Content-Security-Policy"] = _TAB_CSP
+    return r
+
+
+@app.get("/tabs/people-pulse")
+async def tab_people_pulse():
     dashboard_on = os.getenv("FEATURE_DASHBOARD", "1") != "0"
     filename = "dashboard.html" if dashboard_on else "coming_soon.html"
     r = FileResponse(os.path.join("static", filename))
@@ -1204,6 +1238,136 @@ async def tab_dashboard():
 async def dashboard_data():
     records, date = get_latest_records()
     return {"date": date, "records": records}
+
+
+# ── Timesheet tab ─────────────────────────────────────────────────────────────
+
+def _timesheet_on() -> bool:
+    return os.getenv("FEATURE_TIMESHEET", "1") != "0"
+
+
+def _contract_error(status: int, code: str, message: str, retry_after: int = None) -> JSONResponse:
+    """Error body shaped by artifacts/timesheet-ui-contract.yaml."""
+    body = {"error": {"code": code, "message": message}}
+    if retry_after is not None:
+        body["error"]["retry_after_seconds"] = retry_after
+    headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
+    return JSONResponse(status_code=status, content=body, headers=headers)
+
+
+@app.get("/tabs/timesheet")
+async def tab_timesheet():
+    if not _timesheet_on():
+        return _feature_off_page()
+    r = FileResponse(os.path.join("static", "timesheet-dashboard.html"))
+    r.headers["Content-Security-Policy"] = _TAB_CSP
+    return r
+
+
+_TEST_FIXTURE = os.path.join("artifacts", "examples", "timesheet-2026-08.json")
+
+
+@app.get("/tabs/timesheet-testdata")
+async def timesheet_testdata():
+    """
+    The checked-in fixture, so the tab renders with no API and no Keka.
+
+    The tab requests this only in test mode — a browser session outside Teams, or
+    an explicit ?data=test. A live Teams session goes to the contract endpoint.
+    Same shape as GET /api/timesheet/months/{month}; it is validated against
+    artifacts/timesheet-ui-contract.yaml.
+    """
+    if not os.path.isfile(_TEST_FIXTURE):
+        return _contract_error(
+            502, "upstream_unavailable",
+            "Test data is missing. Expected artifacts/examples/timesheet-2026-08.json.",
+        )
+    return FileResponse(_TEST_FIXTURE, media_type="application/json")
+
+
+def _timesheet_source() -> str:
+    """
+    'keka'  read live from Keka (keka/timesheet_service.py)
+    'mock'  synthesise it (timesheet_mock.py)
+
+    TIMESHEET_SOURCE forces either; otherwise Keka is used when KEKA_CLIENT_ID,
+    KEKA_CLIENT_SECRET and KEKA_API_KEY are all set in the environment, and the mock
+    covers local dev without them.
+    """
+    forced = (os.getenv("TIMESHEET_SOURCE") or "").strip().lower()
+    if forced in ("keka", "mock"):
+        return forced
+    return "keka" if keka_client.is_configured() else "mock"
+
+
+@app.get("/api/timesheet/months/{month}")
+async def timesheet_month(month: str, request: Request):
+    """
+    Contract: artifacts/timesheet-ui-contract.yaml (GET /api/timesheet/months/{month})
+    Upstreams: artifacts/keka-timesheet-apis.md
+
+    Reads Keka when configured, else the mock. Either way the response shape is the
+    contract — the tab is written against that, not against this handler.
+    """
+    if not _timesheet_on():
+        return _contract_error(403, "not_entitled", "Timesheet is not enabled for your account yet.")
+
+    source = _timesheet_source()
+
+    # X-Mock-Employee is a stand-in for the Teams SSO token, which is what will
+    # identify the employee once auth lands. Remove both together.
+    email = (request.headers.get("X-Mock-Employee") or "").strip().lower()
+    if source == "keka" and not email:
+        return _contract_error(
+            403, "not_entitled",
+            "Could not identify your account. Please reopen the tab from Teams.",
+        )
+
+    if source == "keka" and not keka_client.is_configured():
+        # Overwhelmingly the cause when TIMESHEET_SOURCE=keka is forced on a box with
+        # no credentials. Worth naming, rather than reporting it as a transient outage.
+        logger.error("[timesheet] source=keka but these env vars are unset: %s",
+                     ", ".join(keka_client.missing_secrets()))
+        return _contract_error(
+            502, "upstream_unavailable",
+            "Timesheet is not connected to the HR system yet. Please contact IT.",
+        )
+
+    builder = timesheet_service.build_month if source == "keka" else timesheet_mock.build_month
+
+    try:
+        payload = await asyncio.get_event_loop().run_in_executor(
+            None, builder, month, email, ""
+        )
+    except ValueError:
+        return _contract_error(400, "invalid_month", "Month must be in YYYY-MM format.")
+    except EmployeeNotFoundError:
+        logger.warning("[timesheet] no Keka employee for %s", email)
+        return _contract_error(
+            403, "not_entitled",
+            "No employee record was found for your account. Please contact HR.",
+        )
+    except KekaRateLimited as exc:
+        return _contract_error(
+            429, "rate_limited",
+            "Too many requests to the HR system right now. Please retry shortly.",
+            retry_after=getattr(exc, "retry_after", 60),
+        )
+    except KekaServiceError as exc:
+        logger.error("[timesheet] upstream failed month=%s: %s", month, exc)
+        return _contract_error(
+            502, "upstream_unavailable",
+            "Timesheet data is temporarily unavailable. Try again in a minute.",
+        )
+    except Exception as exc:
+        logger.error("[timesheet] build failed month=%s: %s", month, exc, exc_info=True)
+        return _contract_error(
+            502, "upstream_unavailable",
+            "Timesheet data is temporarily unavailable. Try again in a minute.",
+        )
+
+    # Which side produced this, without touching the contract body.
+    return JSONResponse(content=payload, headers={"X-Timesheet-Source": source})
 
 
 if __name__ == "__main__":

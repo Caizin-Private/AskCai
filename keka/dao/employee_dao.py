@@ -8,6 +8,7 @@ import logging
 import requests
 
 from keka.client import get_access_token, KEKA_BASE_URL
+from keka.dao._http import cached, get_all
 from keka.models import KekaServiceError
 
 logger = logging.getLogger(__name__)
@@ -46,3 +47,37 @@ def find_by_email(email: str) -> dict | None:
         if page >= (body.get("totalPages") or 1):
             return None
         page += 1
+
+
+def find_by_email_indexed(email: str) -> dict | None:
+    """
+    Resolve an employee from an email using Keka's own search, then verify the match
+    exactly.
+
+    /hris/employees has no email filter, but it does take `searchKey` (minimum 3
+    characters), which is far cheaper than find_by_email()'s walk through every page
+    of the directory. searchKey is a fuzzy text match, so the exact email comparison
+    below is what actually decides — searchKey only narrows the page.
+
+    Returns the raw employee dict (id, email, displayName, holidayCalendarId,
+    weeklyOffPolicyInfo, shiftPolicyInfo, ...) or None.
+    """
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+
+    def _lookup():
+        rows = get_all(
+            "/hris/employees",
+            {"searchKey": email, "employmentStatus": "Working"},
+            what="GET /hris/employees",
+        )
+        for emp in rows:
+            if (emp.get("email") or "").strip().lower() == email:
+                return emp
+        # searchKey did not surface it (aliases, formatting). Fall back to the
+        # exhaustive walk rather than reporting the employee as missing.
+        logger.info("[employee_dao] searchKey missed %s — falling back to full scan", email)
+        return find_by_email(email)
+
+    return cached("employee", email, _lookup)

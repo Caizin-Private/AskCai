@@ -1,0 +1,454 @@
+openapi: 3.1.0
+
+info:
+  title: Caizin InSync — Timesheet calendar, UI contract
+  version: 0.2.0-draft
+  summary: One GET that fills the timesheet calendar. Read-only.
+  description: |
+    The contract between the **Timesheet calendar UI** and its backing API.
+
+    Scope is deliberately one endpoint. The UI renders a month; this returns that
+    month. Writing hours is phase 2 and is not specified here.
+
+    ## Keka does not appear in this contract
+
+    The API composes this response from several upstream systems — projects and
+    logged time, the holiday calendar, approved leave, the employee record. Which
+    systems those are, how many calls it takes, and how they are cached are the API's
+    private business. Nothing upstream leaks into the payload: no vendor ids, no
+    vendor field names, no vendor error codes. The UI can be built against this
+    document alone, and the upstream can be replaced without the UI changing.
+
+    ## Who owns what
+
+    | | Owns |
+    |---|---|
+    | **API** | dates, hours, day classification, capacity, completion status, names, comments |
+    | **UI** | colours, copy, layout, tooltip phrasing, the calendar grid |
+
+    One exception in each direction, both deliberate:
+
+    - `annotation.label` is **data, not copy** — "Raksha Bandhan" and "Casual Leave"
+      come from upstream records and the UI cannot invent them.
+    - `color_slot` is **assigned by the API** even though colour is a UI concern,
+      because a slot must stay stable for a project across months. If the UI assigned
+      slots by position, a project absent in July and present in August would shift
+      every other project's colour.
+
+    ## The response is a grid, not a list of records
+
+    `days` is always **42 entries** — six weeks, in display order, starting on the
+    weekday that begins the week containing the 1st. Days outside the month carry
+    `in_month: false`.
+
+    Two reasons it is shaped this way. The UI does no calendar arithmetic, which is
+    where timezone bugs breed: `new Date("2026-08-27")` parses as UTC in JavaScript and
+    silently shifts a day for anyone west of Greenwich. And a fixed 42 means the grid
+    never changes height between months.
+
+    For the same reason `is_today` and `weekday` are server-supplied. The organisation
+    runs on IST; the browser does not necessarily.
+
+  contact:
+    name: Caizin Engineering
+
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: insync.caizin.com
+
+security:
+  - teamsSso: []
+
+paths:
+
+  /api/timesheet/months/{month}:
+    get:
+      operationId: getTimesheetMonth
+      summary: Everything the calendar needs to draw one month.
+      description: |
+        A single call fills the whole view: the header totals, all 42 cells, the
+        per-cell hover detail, the right-rail roll-up, and the legend.
+
+        Deliberately not split into several endpoints. The calendar has no partial
+        state worth rendering — a month with hours but no leave would paint approved
+        leave days as "hours missing", which is worse than a spinner.
+      parameters:
+        - name: month
+          in: path
+          required: true
+          description: Calendar month, `YYYY-MM`.
+          schema:
+            type: string
+            pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+          example: '2026-08'
+      responses:
+        '200':
+          description: The month, resolved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimesheetMonth' }
+        '400':
+          description: '`invalid_month` — the path segment is not `YYYY-MM`.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '401':
+          description: '`unauthenticated` — missing, expired or invalid token.'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '403':
+          description: |
+            `not_entitled` — the timesheet feature is off for this account, or the
+            caller has no employee record. The UI shows its access-restricted state.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '429':
+          description: |
+            `rate_limited` — an upstream quota was hit. Passed through rather than
+            absorbed so the UI can back off visibly instead of hanging.
+          headers:
+            Retry-After:
+              schema: { type: integer }
+              description: Seconds to wait.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '502':
+          description: |
+            `upstream_unavailable` — a source the month depends on could not be read.
+
+            **The whole request fails; it never degrades to a partial month.** If leave
+            data is missing, an approved-leave day renders as an unfilled working day
+            and the employee is told to log hours they cannot log. A visible error is
+            correct; a plausible wrong calendar is not.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+components:
+
+  securitySchemes:
+    teamsSso:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Microsoft Teams SSO token. The employee is derived from its verified claims —
+        never from a query parameter or request body, so one employee cannot read
+        another's timesheet by editing a URL.
+
+  schemas:
+
+    TimesheetMonth:
+      type: object
+      required: [month, label, today, employee, policy, totals, projects, by_project, days]
+      properties:
+        month: { type: string, example: '2026-08' }
+        label:
+          type: string
+          example: August 2026
+          description: Ready to display in the header. Saves the UI a month-name table.
+        today:
+          type: string
+          format: date
+          example: '2026-08-31'
+          description: |
+            Today in the organisation's timezone. The UI must use this rather than the
+            browser's clock, so "missing hours" agrees with the server.
+        employee: { $ref: '#/components/schemas/Employee' }
+        policy: { $ref: '#/components/schemas/Policy' }
+        totals: { $ref: '#/components/schemas/MonthTotals' }
+        projects:
+          type: array
+          description: |
+            Every project **this employee** is assigned to for this month, whether or not
+            hours were logged against it, each with its assignment detail. Drives the
+            legend and the rail's assigned-projects list.
+
+            Membership is per employee and per month: an assignment whose date range does
+            not overlap the month is dropped, unless hours were logged against it that
+            month — in which case it is kept so those hours are attributable.
+          items: { $ref: '#/components/schemas/Project' }
+        by_project:
+          type: array
+          description: |
+            Right-rail roll-up, descending by hours. Includes synthetic rows for holiday
+            and leave time (`project_id: null`) so the rows sum **exactly** to
+            `totals.logged_hours` — a rail whose parts do not add up to its own header
+            is a bug users spot immediately.
+          items: { $ref: '#/components/schemas/ProjectRollup' }
+        days:
+          type: array
+          minItems: 42
+          maxItems: 42
+          description: Six weeks in display order. See the description at the top.
+          items: { $ref: '#/components/schemas/Day' }
+        generated_at:
+          type: string
+          format: date-time
+          description: When the API composed this. The UI shows it as "Last synced".
+
+    Employee:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string, example: Swinal Kamble }
+
+    Policy:
+      type: object
+      required: [daily_cap_hours, working_days, week_starts_on, timezone]
+      properties:
+        daily_cap_hours:
+          type: number
+          format: float
+          example: 8
+          description: Full-day capacity. The UI shows it in the header and sizes each day's bar track against the day's own capacity.
+        working_days:
+          type: array
+          items: { type: string, enum: [mon, tue, wed, thu, fri, sat, sun] }
+          example: [mon, tue, wed, thu, fri]
+          description: Which weekday columns are working days. The UI uses this to style the weekend columns, not to classify days — `day_type` does that.
+        week_starts_on:
+          type: string
+          enum: [mon, sun]
+          example: mon
+          description: Which column comes first. `days` is already ordered to match.
+        timezone: { type: string, example: Asia/Kolkata }
+
+    MonthTotals:
+      type: object
+      required: [capacity_hours, logged_hours, working_days, days_expected, days_logged, days_missing]
+      properties:
+        capacity_hours: { type: number, format: float, example: 168 }
+        logged_hours:
+          type: number
+          format: float
+          example: 145
+          description: Project hours plus prefilled holiday and leave hours.
+        working_days:
+          type: integer
+          example: 21
+          description: Weekdays in the month, per `policy.working_days`. Holidays and leave included.
+        days_expected:
+          type: integer
+          example: 18
+          description: |
+            Days work was actually expected — `working_days` less holidays and full-day
+            leave. The rail reads "Logged across 16 of 18 working days"; without this the
+            UI would have to recount the array to say it.
+        days_logged:
+          type: integer
+          example: 16
+          description: Days with at least one project entry.
+        days_missing:
+          type: integer
+          example: 1
+          description: Past working days with nothing logged. The count behind the "needs attention" treatment.
+
+    Project:
+      type: object
+      required: [id, name, color_slot]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Cyber }
+        code: { type: string, nullable: true, example: CYB }
+        is_billable: { type: boolean, nullable: true }
+        color_slot:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 3
+          description: |
+            Stable palette slot for this project. `null` means the UI's neutral "Other"
+            treatment: the calendar palette is validated for colour-vision deficiency at
+            exactly three categorical hues, so a fourth allocation does not get a colour.
+
+            Slots are assigned from the employee's **full** allocation list and only then
+            filtered to the month, so a project dropping out of one month never shifts
+            another project's colour.
+        has_hours_this_month:
+          type: boolean
+          description: |
+            False for a project the employee is assigned to but has logged nothing
+            against this month. Such a project still appears — its absence would read
+            as "not on this project".
+        allocation:
+          $ref: '#/components/schemas/Allocation'
+
+    Allocation:
+      type: object
+      nullable: true
+      description: |
+        How this employee is assigned to this project. `null` when the assignment could
+        not be read — the project still carries its name, colour and hours, because
+        assignment detail is enrichment rather than the point of the screen.
+      properties:
+        from_date:
+          type: string
+          format: date
+          nullable: true
+          description: When the assignment starts.
+        to_date:
+          type: string
+          format: date
+          nullable: true
+          description: When it ends. `null` means open-ended.
+        percentage:
+          type: integer
+          nullable: true
+          example: 50
+          description: |
+            Share of the employee's capacity assigned to this project. Informational —
+            it does NOT cap what may be logged against the project on a day, which is
+            governed by `capacity_hours` alone.
+        billing_role:
+          type: string
+          nullable: true
+          example: Senior Engineer
+        is_shadow:
+          type: boolean
+          nullable: true
+          description: A shadow assignment — on the project to learn, typically non-billing.
+
+    ProjectRollup:
+      type: object
+      required: [project_id, name, kind, hours]
+      properties:
+        project_id: { type: string, format: uuid, nullable: true }
+        name: { type: string, example: Cyber }
+        color_slot: { type: integer, nullable: true }
+        kind:
+          type: string
+          enum: [project, holiday, leave]
+          description: '`holiday` and `leave` rows carry `project_id: null` and take the UI''s day-type colour rather than a project colour.'
+        hours: { type: number, format: float, example: 70.5 }
+
+    Day:
+      type: object
+      required: [date, weekday, in_month, is_today, day_type, capacity_hours, logged_hours, status, entries]
+      properties:
+        date: { type: string, format: date, example: '2026-08-27' }
+        weekday:
+          type: string
+          enum: [mon, tue, wed, thu, fri, sat, sun]
+          description: Supplied so the UI never parses the date string.
+        day_of_month:
+          type: integer
+          example: 27
+          description: The number printed in the cell.
+        in_month:
+          type: boolean
+          description: |
+            False for the leading/trailing days completing the grid. The UI fades these
+            and makes them inert.
+
+            A day with `in_month: false` is always reported as `capacity_hours: 0`,
+            `status: not_applicable`, `entries: []` and `annotation: null`, whatever it
+            may be in its own month. Otherwise 30 July would arrive as `missing`, paint
+            red inside the August grid, and be counted in an attention list for a month
+            it does not belong to.
+        is_today: { type: boolean }
+        day_type:
+          type: string
+          enum: [working, weekend, holiday, leave, half_leave]
+          description: |
+            The cell's classification, and what its tint encodes.
+            `half_leave` is a working day whose capacity is reduced — hours are still
+            expected against the remainder.
+        capacity_hours:
+          type: number
+          format: float
+          example: 8
+          description: |
+            Hours expected on this date. `0` for weekends, holidays and full-day leave;
+            reduced on `half_leave`; otherwise `policy.daily_cap_hours`.
+
+            The UI sizes the cell's bar track against **this**, not the policy cap, so a
+            half-day fills its track at 4 h.
+        logged_hours:
+          type: number
+          format: float
+          example: 3.5
+          description: Sum of `entries`. Excludes prefilled holiday and leave hours, which are in `annotation.hours`.
+        status:
+          type: string
+          enum: [complete, partial, empty, missing, not_applicable]
+          description: |
+            Computed by the API, not derived by the UI, because it encodes policy:
+
+            - `complete` — logged equals capacity
+            - `partial` — some hours, under capacity
+            - `empty` — a working day, nothing logged, not yet past
+            - `missing` — a **past** working day with nothing logged
+            - `not_applicable` — weekend, holiday, full-day leave
+
+            `missing` is the distinction that matters and the one the UI cannot safely
+            make: it depends on the server's `today`, not the browser's.
+        entries:
+          type: array
+          description: |
+            One per project, in the order logged. Empty on days with no hours. Drives
+            both the cell's segmented bar and the rows in the hover card.
+          items: { $ref: '#/components/schemas/Entry' }
+        annotation:
+          $ref: '#/components/schemas/DayAnnotation'
+
+    Entry:
+      type: object
+      required: [project_id, project_name, hours]
+      properties:
+        project_id: { type: string, format: uuid }
+        project_name:
+          type: string
+          example: Cyber
+          description: Denormalised so the UI need not join against `projects` to draw a cell.
+        color_slot: { type: integer, nullable: true }
+        hours: { type: number, format: float, example: 3.5 }
+        comment:
+          type: string
+          nullable: true
+          example: Standup + backlog grooming
+          description: Shown under its project row in the hover card. Frequently absent — the UI omits the line rather than showing an empty one.
+
+    DayAnnotation:
+      type: object
+      nullable: true
+      description: |
+        Present only when a day is classified by something other than ordinary work —
+        a holiday or approved leave. `null` on a plain working day or weekend.
+
+        Supplies the cell's chip text and the hover card's explanation.
+      required: [label, kind, hours]
+      properties:
+        label:
+          type: string
+          example: Raksha Bandhan
+          description: The holiday's name, or the leave type. Data from the source record — the UI cannot invent it.
+        detail:
+          type: string
+          nullable: true
+          example: First half
+          description: Qualifier for a partial day.
+        kind:
+          type: string
+          enum: [holiday, leave]
+        hours:
+          type: number
+          format: float
+          example: 8
+          description: |
+            Hours this annotation accounts for. `8` for a full-day holiday or leave,
+            half the cap for a half-day, `0` for a holiday landing on a weekend —
+            which is annotated for display but expects nothing.
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [invalid_month, unauthenticated, not_entitled, rate_limited, upstream_unavailable]
+            message:
+              type: string
+              description: Shown to the employee as written. Says what happened and what to do next.
+              example: Timesheet data is temporarily unavailable. Try again in a minute.
+            retry_after_seconds: { type: integer, nullable: true }

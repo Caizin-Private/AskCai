@@ -1,0 +1,66 @@
+# Timesheet policy and cache tuning.
+#
+# Committed on purpose: this file holds NO credentials and no connection settings.
+#
+# ── NOTHING ABOUT CONNECTING TO KEKA BELONGS HERE ────────────────────────────
+#
+# All of it comes from the environment, read in keka/client.py:
+#
+#   KEKA_CLIENT_ID       KEKA_BASE_URL
+#   KEKA_CLIENT_SECRET   KEKA_TOKEN_URL
+#   KEKA_API_KEY
+#
+# Anything named client_id / client_secret / api_key in this file is dropped and
+# logged as a warning. Locally put credentials in `.env` (already gitignored, and
+# loaded by keka/client.py); in production use the platform's app settings.
+#
+#   # .env
+#   KEKA_CLIENT_ID=...
+#   KEKA_CLIENT_SECRET=...
+#   KEKA_API_KEY=...
+#
+# The values below can also be set as environment variables, which win over this
+# file. The env name is shown against each key.
+# ─────────────────────────────────────────────────────────────────────────────
+
+keka:
+  # Scopes are set on the API KEY in Keka Admin, not per request. The timesheet
+  # dashboard needs all four; reissue the key if any is missing.
+  #   Employee & Org Information  -> /hris/employees
+  #   Timesheet                   -> /psa/*
+  #   Attendance                  -> /time/holidayscalendar/*
+  #   Leave                       -> /time/leaverequests
+  required_scopes:
+    - Employee & Org Information
+    - Timesheet
+    - Attendance
+    - Leave
+
+  # Seconds. Keka's limit is 50 requests/minute across every consumer of the API
+  # key, so these caches are load-bearing, not an optimisation.
+  # Override one with e.g. KEKA_CACHE_TTL_TIME_ENTRIES.
+  cache_ttl:
+    employee: 3600      # email -> employee id, name, holiday calendar
+    projects: 900       # project names and codes
+    allocations: 900    # assignments, cached per project
+    holidays: 86400     # holiday calendar for a year
+    leave: 300          # approved leave for a month
+    time_entries: 60    # logged hours for a month
+
+timesheet:
+  # TIMESHEET_DAILY_CAP_HOURS — full-day capacity, and the month's denominator.
+  daily_cap_hours: 8.0
+  # TIMESHEET_WORKING_DAYS — comma-separated in the env form.
+  # Keka exposes weeklyOffPolicyInfo per employee; until that is read, this
+  # org-wide list applies.
+  working_days: [mon, tue, wed, thu, fri]
+  # TIMESHEET_WEEK_STARTS_ON — which calendar column comes first: mon or sun.
+  week_starts_on: mon
+  # TIMESHEET_TIMEZONE — decides what "today" means, so which days read as missing.
+  timezone: Asia/Kolkata
+
+  # TIMESHEET_FLOATERS_CLOSED
+  # A floater holiday is optional — the employee chooses whether to take it — so by
+  # default it is labelled but the day still expects hours. Set true only if your
+  # org treats floaters as company-wide closures.
+  treat_floater_holidays_as_closed: false
