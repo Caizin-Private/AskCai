@@ -167,6 +167,69 @@ def get_latest_records() -> tuple[list, str]:
         return [], today
 
 
+def _check_in_hhmm(value) -> Optional[str]:
+    """
+    'HH:MM' in IST for a stored response_time, or None when there is nothing to show.
+
+    The tracker writes the response time in UTC (see record_attendance_response), and
+    the column comes back as either a datetime or that ISO string depending on its
+    type — so both are handled. A clock-in has to read 09:18, not 03:48.
+    """
+    if not value:
+        return None
+    dt = value
+    if not isinstance(dt, datetime):
+        try:
+            dt = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(IST).strftime("%H:%M")
+
+
+def get_attendance_range(email: str, from_date: str, to_date: str) -> dict:
+    """
+    One employee's attendance over a date range, keyed by ISO date.
+
+    Same table and same _bucket() logic as get_latest_records() — that one reads a single
+    date for every employee (People Pulse), this one reads a month's grid for one.
+
+    Returns: {'YYYY-MM-DD': {'bucket': str, 'check_in': 'HH:MM' | None}}
+
+    Empty dict when the email is unknown or the read fails. A clock-in mark is
+    enrichment on the timesheet calendar, so its absence is a blank cell rather than
+    an error for the caller to handle.
+    """
+    if not email:
+        return {}
+    try:
+        conn = _get_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT a.date, a.status, a.employee_response, a.response_time
+                  FROM attendance a
+                  JOIN employees e ON a.employee_id = e.employee_id
+                 WHERE lower(e.email) = %s
+                   AND a.date >= %s AND a.date <= %s
+                """,
+                (email.strip().lower(), from_date, to_date),
+            )
+            rows = cur.fetchall()
+    except Exception as exc:
+        logger.error("[InSyncDB] get_attendance_range: %s", exc)
+        return {}
+
+    return {
+        str(row["date"])[:10]: {
+            "bucket":   _bucket(row["status"], row["employee_response"]),
+            "check_in": _check_in_hhmm(row["response_time"]),
+        }
+        for row in rows
+    }
+
+
 def get_employee_by_email(email: str) -> dict | None:
     """Look up active employee by email. Returns {employee_id, name} or None."""
     try:

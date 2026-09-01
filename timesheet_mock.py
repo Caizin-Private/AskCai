@@ -4,6 +4,9 @@ timesheet_mock.py — stand-in for the timesheet read API.
 Serves the contract in artifacts/timesheet-ui-contract.yaml with synthetic data, so
 static/timesheet-dashboard can be built and reviewed before Keka PSA is wired up.
 
+`attendance` is synthesised here too, but its real source is the attendance tracker
+rather than Keka — see timesheet_attendance.py.
+
 Replace with a real timesheet_service.py that reads Keka:
   projects + logged time  -> GET /psa/project/resources, GET /psa/timeentries
   holidays                -> GET /time/holidayscalendar/{id}/holidays
@@ -250,6 +253,36 @@ def _entries(seed: str, iso: str, capacity: float, is_past: bool, is_today: bool
     return entries
 
 
+# Where a mock employee worked from. Weighted toward the office, the way the real
+# tracker data is.
+_ATT_STATUSES = ["office", "office", "wfh", "office", "client", "wfh"]
+
+
+def _attendance(seed: str, iso: str, day_type: str, today_iso: str) -> dict | None:
+    """
+    Stand-in for the tracker's attendance row, deterministic per (employee, date).
+
+    Real clock-ins come from timesheet_attendance.py; this only has to produce the same
+    shape so the calendar's mark can be reviewed with no database.
+    """
+    if day_type in ("weekend", "holiday"):
+        return None
+    if day_type == "leave":
+        return {"status": "leave", "check_in_time": None, "detail": None}
+    if iso > today_iso:
+        return None                          # nobody has clocked in for a future day
+    if iso == today_iso:
+        return {"status": "pending", "check_in_time": None, "detail": None}
+    if _roll(seed, iso + ":absent", 22) == 0:
+        return {"status": "absent", "check_in_time": None, "detail": None}
+    at = 9 * 60 + 5 + _roll(seed, iso + ":checkin", 70)      # 09:05 – 10:14
+    return {
+        "status": _ATT_STATUSES[_roll(seed, iso + ":att", len(_ATT_STATUSES))],
+        "check_in_time": f"{at // 60:02d}:{at % 60:02d}",
+        "detail": None,
+    }
+
+
 def _status(capacity: float, logged: float, iso: str, today_iso: str) -> str:
     if capacity <= 0:
         return "not_applicable"
@@ -300,12 +333,14 @@ def build_month(month: str, employee_email: str = "", employee_name: str = "") -
         annotation = _annotation(iso, day_type, weekday)
         entries = _entries(seed, iso, capacity, iso < today_iso, iso == today_iso, projects)
         logged = _half(sum(e["hours"] for e in entries))
+        attendance = _attendance(seed, iso, day_type, today_iso)
 
         if in_month:
             status = _status(capacity, logged, iso, today_iso)
         else:
             # A day outside this month is inert: it belongs to another month's totals.
             capacity, entries, annotation, logged, status = 0.0, [], None, 0.0, "not_applicable"
+            attendance = None
 
         if in_month:
             if weekday in WORKING_DAYS:
@@ -339,6 +374,7 @@ def build_month(month: str, employee_email: str = "", employee_name: str = "") -
             "status": status,
             "entries": entries,
             "annotation": annotation,
+            "attendance": attendance,
         })
 
     by_project = [

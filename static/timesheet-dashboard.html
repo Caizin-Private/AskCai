@@ -193,7 +193,7 @@
 
     /* ── Split ───────────────────────────────────────────────────────────────── */
     .main { display: flex; flex: 1; min-height: 0; border-top: 1px solid var(--border); }
-    .cal-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .cal-pane { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 
     .cal-head {
       display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 7px; padding: 0 14px;
@@ -205,10 +205,16 @@
     }
     .cal-head span.we { opacity: .72; }
 
+    /* Six rows at their natural height. In a tall tab `1fr` stretches them to fill; in a
+       short one they hold their floor and the grid scrolls, so the last week is never
+       hidden behind the legend. */
     .grid {
       display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); grid-auto-rows: 1fr;
       gap: 7px; padding: 12px 14px 14px; flex: 1; min-height: 0;
+      overflow-y: auto; overscroll-behavior: contain;
     }
+    .grid::-webkit-scrollbar { width: 6px; }
+    .grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 
     /* ── Date tile ───────────────────────────────────────────────────────────── */
     .cell {
@@ -232,7 +238,41 @@
       font-weight: 700; font-size: 0.76rem; margin: -2px 0;
     }
     [data-theme="contrast"] .dnum.today { color: #000; }
-    .dh { font-size: 0.78rem; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+    .day-total {
+      display: block; margin-top: 5px; font-size: 0.76rem; font-weight: 650;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+
+    /* ── Attendance mark ─────────────────────────────────────────────────────── */
+    /* Where the employee worked from. Icon-only inside a date tile — there is no room
+       for a word next to the hours — with the label carried by title/aria-label. The
+       rail uses the same component with its label showing. */
+    .attendance-mark {
+      display: inline-flex; align-items: center; gap: 4px; align-self: flex-start;
+      max-width: 100%; padding: 2px 6px 2px 5px; border-radius: 5px;
+      font-size: 0.64rem; font-weight: 650; line-height: 1.25;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .attendance-mark::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; flex-shrink: 0;
+    }
+    .attendance-mark span { overflow: hidden; text-overflow: ellipsis; }
+    .attendance-mark.icon-only {
+      width: 26px; height: 26px; justify-content: center; padding: 5px; border-radius: 6px;
+    }
+    .attendance-mark.icon-only::before { display: none; }
+    .attendance-mark.icon-only svg { width: 16px; height: 16px; }
+    .attendance-mark.icon-only span { display: none; }
+    .ctop .attendance-mark { margin-left: auto; flex-shrink: 0; }
+
+    .attendance-office  { color: var(--st-office-fg);  background: var(--st-office-bg); }
+    .attendance-wfh     { color: var(--st-wfh-fg);     background: var(--st-wfh-bg); }
+    .attendance-client  { color: var(--st-client-fg);  background: var(--st-client-bg); }
+    .attendance-leave   { color: var(--st-leave-fg);   background: var(--st-leave-bg); }
+    .attendance-absent  { color: var(--st-absent-fg);  background: var(--st-absent-bg); }
+    .attendance-pending { color: var(--st-pending-fg); background: var(--st-pending-bg); border: 1px dashed currentColor; }
+    .attendance-none    { color: var(--text3);         background: var(--bg-sec); }
 
     .dchip {
       align-self: flex-start; display: inline-flex; align-items: center; gap: 5px;
@@ -246,9 +286,6 @@
     .segs { display: flex; gap: 2px; height: 5px; background: var(--track); border-radius: 3px; overflow: hidden; }
     .segs i { display: block; border-radius: 2px; min-width: 0; }
     .segs.dashed { background: transparent; border: 1px dashed var(--border); }
-    .plabels { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-    .plab { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--text3); font-variant-numeric: tabular-nums; }
-    .plab i { width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; }
 
     /* ── Hover detail ────────────────────────────────────────────────────────── */
     .tip {
@@ -288,6 +325,11 @@
     .lg i { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; border: 1px solid var(--border); }
     .lg u { width: 14px; height: 4px; border-radius: 2px; flex-shrink: 0; text-decoration: none; }
     .lg-sep { width: 1px; height: 15px; background: var(--border); flex-shrink: 0; }
+    .lg i.lg-status {
+      width: 20px; height: 20px; display: inline-flex; align-items: center;
+      justify-content: center; padding: 3px; border: none; border-radius: 6px;
+    }
+    .lg-status svg { width: 13px; height: 13px; }
 
     /* ── Right rail ──────────────────────────────────────────────────────────── */
     .side {
@@ -353,6 +395,12 @@
     .esub { font-size: 0.74rem; color: var(--text3); margin-top: 2px; }
     .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px 4px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; flex-shrink: 0; }
     .chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .attendance-detail {
+      display: flex; align-items: center; gap: 8px; margin: 12px 0 2px;
+      padding: 8px 10px; border: 1px solid var(--border-s); border-radius: 8px;
+      background: var(--bg-sec); color: var(--text3); font-size: 0.72rem;
+    }
+    .attendance-detail .attendance-mark { flex-shrink: 0; }
     .drow { display: flex; flex-direction: column; gap: 4px; padding: 11px 0; border-bottom: 1px solid var(--border-s); }
     .drow-top { display: flex; align-items: center; gap: 9px; }
     .drow-top i { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
@@ -386,8 +434,8 @@
         border-bottom: 1px solid var(--border); overflow: visible;
       }
       .cal-pane { overflow: visible; }
-      .grid { grid-auto-rows: minmax(84px, auto); }
-      .cell { min-height: 84px; }
+      .grid { grid-auto-rows: minmax(92px, auto); overflow: visible; }
+      .cell { min-height: 92px; }
       .tip { width: 200px; }
     }
   </style>
@@ -424,8 +472,6 @@
         </div>
         <div class="info-right">
           <span class="testbadge" id="test-badge" title="Fixture data from artifacts/examples — not this employee's real timesheet">Test data</span>
-          <span class="pill" id="pill-logged"></span>
-          <span class="pill" id="pill-cap"></span>
           <span class="last-synced" id="last-synced"></span>
         </div>
       </div>
@@ -521,6 +567,85 @@
       missing:  "var(--st-absent-fg)",
       empty:    "var(--text3)"
     };
+
+    /* ── Attendance (clock-in) ──────────────────────────────────────────────────
+       The API supplies `status`, `check_in_time` and an optional `detail`; every word
+       and colour below is this tab's. Same tracker record People Pulse renders for
+       today, read here for one employee across the month. */
+    var ATT_LABEL = {
+      office:  "Office",
+      wfh:     "WFH",
+      client:  "Client location",
+      leave:   "Leave",
+      absent:  "Absent",
+      pending: "Yet to check in"
+    };
+    var ATT_CLASS = {
+      office:  "attendance-office",
+      wfh:     "attendance-wfh",
+      client:  "attendance-client",
+      leave:   "attendance-leave",
+      absent:  "attendance-absent",
+      pending: "attendance-pending"
+    };
+    var ATT_FG = {
+      office:  "var(--st-office-fg)",
+      wfh:     "var(--st-wfh-fg)",
+      client:  "var(--st-client-fg)",
+      leave:   "var(--st-leave-fg)",
+      absent:  "var(--st-absent-fg)",
+      pending: "var(--st-pending-fg)",
+      none:    "var(--text3)"
+    };
+    var ATT_ICON = {
+      office:  '<path d="M4 21h16M6 21V5h8v16M14 9h4v12M9 8h2m-2 4h2m-2 4h2m5-2h1m-1 4h1"/>',
+      wfh:     '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM9 21v-6h6v6"/>',
+      client:  '<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
+      leave:   '<path d="M4 8h11v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M15 9h2.5a2.5 2.5 0 0 1 0 5H15"/><path d="M3 21h13"/>',
+      absent:  '<path d="M12 4 3.5 20h17zM12 9v5m0 3v.1"/>',
+      pending: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>',
+      none:    '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4m8-4v4M4 10h16"/>'
+    };
+    function attIcon(status) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+             'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+             (ATT_ICON[status] || "") + "</svg>";
+    }
+
+    /* `attendance: null` means three different things and `day_type` is what tells them
+       apart — the contract leaves the wording here for that reason. "Not applicable" on a
+       day nobody clocks in for; "No attendance record" on a working day the tracker has
+       nothing for, which is a real gap and should not read as a rest day. */
+    function attOf(d) {
+      var a = d.in_month ? d.attendance : null;
+      if (!a || !ATT_LABEL[a.status]) {
+        var na = !d.in_month || d.day_type === "weekend" || d.day_type === "holiday";
+        return {
+          known:   false,
+          status:  "none",
+          label:   na ? "Not applicable" : "No attendance record",
+          cls:     "attendance-none",
+          fg:      ATT_FG.none,
+          checkIn: ""
+        };
+      }
+      return {
+        known:   true,
+        status:  a.status,
+        label:   a.detail || ATT_LABEL[a.status],
+        cls:     ATT_CLASS[a.status],
+        fg:      ATT_FG[a.status],
+        checkIn: a.check_in_time || ""
+      };
+    }
+    /* Why a mark has no time against it. */
+    function attNote(status) {
+      return status === "leave"   ? "Not applicable on leave"
+           : status === "pending" ? "No check-in recorded yet"
+           : status === "absent"  ? "No check-in recorded"
+           : "No check-in time recorded";
+    }
+
     var WD_LABEL = { mon:"Mon", tue:"Tue", wed:"Wed", thu:"Thu", fri:"Fri", sat:"Sat", sun:"Sun" };
     var WD_LONG  = { mon:"Monday", tue:"Tuesday", wed:"Wednesday", thu:"Thursday",
                      fri:"Friday", sat:"Saturday", sun:"Sunday" };
@@ -576,14 +701,16 @@
       return { text: half + d.annotation.label + detail, bg: annBg(d), fg: annFg(d) };
     }
     function hoursLabel(d) {
-      if (!d.in_month) return null;
+      if (!d.in_month || d.day_type === "weekend") return null;
       if (d.day_type === "holiday" || d.day_type === "leave") {
         var a = d.annotation;
         return (a && a.hours > 0) ? { text: fmt(a.hours) + "h", color: annFg(d) } : null;
       }
       if (d.logged_hours > 0) return { text: fmt(d.logged_hours) + "h", color: STATUS_FG[d.status] || "var(--text3)" };
       if (d.status === "missing") return { text: "0h", color: "var(--st-absent-fg)" };
-      return null;
+      /* A working day still ahead of itself reads its own zero, in grey. Blank would be
+         indistinguishable from a day the tab had no data for. */
+      return { text: fmt(0) + "h", color: "var(--text3)" };
     }
     function dayTitle(d) {
       return WD_LONG[d.weekday] + " " + d.day_of_month + " " + MONTH_SHORT[Number(d.date.slice(5, 7)) - 1];
@@ -673,12 +800,7 @@
 
     /* ── Render ─────────────────────────────────────────────────────────────── */
     function render() {
-      var t = _data.totals;
       document.getElementById("month-label").textContent = _data.label;
-      document.getElementById("pill-logged").innerHTML =
-        "Logged <b>" + fmt(t.logged_hours) + "</b> of <b>" + fmt(t.capacity_hours) + "</b> h";
-      document.getElementById("pill-cap").innerHTML =
-        "Cap <b>" + fmt(_data.policy.daily_cap_hours) + "</b> h / day";
       document.getElementById("last-synced").textContent = _mode === "test"
         ? "Fixture · " + _data.month
         : "Synced " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -716,10 +838,13 @@
         var selected = d.date === _sel;
         if (selected) cls.push("sel");
 
-        var h = hoursLabel(d);
+        var at = attOf(d);
         var out = '<div class="ctop"><span class="dnum' + (d.is_today ? " today" : "") + '">' +
                   d.day_of_month + "</span>" +
-                  (h ? '<span class="dh" style="color:' + h.color + '">' + esc(h.text) + "</span>" : "") +
+                  (d.in_month
+                    ? '<span class="attendance-mark icon-only ' + at.cls + '" title="' + esc(at.label) +
+                      '" aria-label="' + esc(at.label) + '">' + attIcon(at.status) + "</span>"
+                    : "") +
                   "</div>";
 
         var chip = d.in_month ? chipFor(d) : null;
@@ -741,12 +866,9 @@
         } else if (d.in_month && d.status === "empty") {
           seg = '<div class="segs dashed"></div>';
         }
-        var labels = (d.in_month && d.entries.length > 1)
-          ? '<div class="plabels">' + d.entries.map(function (e) {
-              return '<span class="plab"><i style="background:' + slotColor(e.color_slot) + '"></i>' + fmt(e.hours) + "</span>";
-            }).join("") + "</div>"
-          : "";
-        out += '<div class="segwrap">' + seg + labels + "</div>";
+        var h = hoursLabel(d);
+        out += '<div class="segwrap">' + seg + "</div>" +
+               (h ? '<span class="day-total" style="color:' + h.color + '">' + esc(h.text) + "</span>" : "");
 
         out += tipHtml(d, i);
 
@@ -761,10 +883,23 @@
     function tipHtml(d, i) {
       if (!d.in_month) return "";
       var cls = [];
-      if (i % 7 >= 5) cls.push("r");
-      if (i >= 28) cls.push("up");
+      /* Right-anchor from Friday on. A left-anchored card is 234px wide and would reach
+         past the grid, which now clips and scrolls. */
+      if (i % 7 >= 4) cls.push("r");
+      /* Bottom three rows open upward: a downward card there would need space the grid
+         may have scrolled past. */
+      if (i >= 21) cls.push("up");
 
       var rows = [];
+      var at = attOf(d);
+      if (at.known) {
+        rows.push({
+          color: at.fg,
+          name:  at.label,
+          h:     at.checkIn ? "In " + at.checkIn : "",
+          note:  null
+        });
+      }
       if (d.annotation) {
         rows.push({
           color: annFg(d),
@@ -808,12 +943,18 @@
         return '<span class="lg"><i style="background:' + r[1] + ";border-color:" + r[2] + '"></i>' + r[0] + "</span>";
       }).join("");
 
+      var att = ["office", "wfh", "client", "leave", "pending", "absent"].map(function (k) {
+        return '<span class="lg"><i class="lg-status ' + ATT_CLASS[k] + '">' + attIcon(k) + "</i>" +
+               ATT_LABEL[k] + "</span>";
+      }).join("");
+
       var proj = (_data.projects || []).map(function (p) {
         return '<span class="lg"><u style="background:' + slotColor(p.color_slot) + '"></u>' + esc(p.name) + "</span>";
       }).join("");
 
       document.getElementById("legend").innerHTML =
-        day + (proj ? '<span class="lg-sep"></span>' + proj : "");
+        day + '<span class="lg-sep"></span>' + att +
+        (proj ? '<span class="lg-sep"></span>' + proj : "");
     }
 
     function renderRail() {
@@ -941,6 +1082,15 @@
         '<div class="ehead"><div><div class="edate">' + esc(dayTitle(d)) + "</div>" +
         '<div class="esub">' + esc(sub) + "</div></div>" +
         '<span class="chip" style="background:' + chip.bg + ";color:" + chip.fg + '">' + esc(chip.t) + "</span></div>";
+
+      var at = attOf(d);
+      if (at.known) {
+        html += '<div class="attendance-detail">' +
+          '<span class="attendance-mark ' + at.cls + '"><span>' + esc(at.label) + "</span></span>" +
+          (at.checkIn ? "<span>Checked in " + esc(at.checkIn) + "</span>"
+                      : "<span>" + esc(attNote(at.status)) + "</span>") +
+          "</div>";
+      }
 
       var rows = "";
       if (d.annotation && d.annotation.hours > 0 && d.day_type !== "half_leave"

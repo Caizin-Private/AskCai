@@ -30,6 +30,7 @@ from insync_db import (
     get_work_status_by_email,
     get_work_status_by_name,
 )
+import timesheet_attendance
 import timesheet_mock
 from keka import client as keka_client
 from keka import timesheet_service
@@ -1306,8 +1307,9 @@ async def timesheet_month(month: str, request: Request):
     Contract: artifacts/timesheet-ui-contract.yaml (GET /api/timesheet/months/{month})
     Upstreams: artifacts/keka-timesheet-apis.md
 
-    Reads Keka when configured, else the mock. Either way the response shape is the
-    contract — the tab is written against that, not against this handler.
+    Reads Keka when configured, else the mock, then layers the employee's clock-in
+    status over the result from the attendance tracker. Either way the response shape is
+    the contract — the tab is written against that, not against this handler.
     """
     if not _timesheet_on():
         return _contract_error(403, "not_entitled", "Timesheet is not enabled for your account yet.")
@@ -1365,6 +1367,18 @@ async def timesheet_month(month: str, request: Request):
             502, "upstream_unavailable",
             "Timesheet data is temporarily unavailable. Try again in a minute.",
         )
+
+    # Clock-in marks are not a Keka read — they come from the attendance tracker, the
+    # same row the People Pulse tab renders. Enrichment, so a tracker outage leaves the
+    # month rendering with unmarked days rather than failing it; the mock keeps the
+    # attendance it synthesised.
+    if source == "keka":
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None, timesheet_attendance.attach, payload, email
+            )
+        except Exception as exc:
+            logger.warning("[timesheet] attendance unavailable for %s: %s", email, exc)
 
     # Which side produced this, without touching the contract body.
     return JSONResponse(content=payload, headers={"X-Timesheet-Source": source})

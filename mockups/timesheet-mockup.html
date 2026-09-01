@@ -19,7 +19,7 @@
   validated for colour-vision deficiency) and --track.
 
   Sample data is August 2026 for one employee. Nothing persists — reloading
-  resets it. Holidays and leave stand in for Keka data.
+  resets it. Holidays, leave, and attendance stand in for Keka data.
 -->
 <style>
 
@@ -154,6 +154,25 @@
     }
     .tsroot[data-theme="contrast"] .dnum.today { color: #000; }
     .dh { font-size: 0.78rem; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+    .day-total { display: block; margin-top: 5px; font-size: 0.76rem; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .attendance-mark { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start;
+      max-width: 100%; padding: 2px 6px 2px 5px; border-radius: 5px; font-size: 0.64rem;
+      font-weight: 650; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .attendance-mark::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .attendance-mark span { overflow: hidden; text-overflow: ellipsis; }
+    .attendance-mark.icon-only::before { display: none; }
+    .attendance-mark.icon-only { width: 26px; height: 26px; justify-content: center; padding: 5px; border-radius: 6px; }
+    .attendance-mark.icon-only svg { width: 16px; height: 16px; }
+    .attendance-mark.icon-only span { display: none; }
+    .ctop .attendance-mark { margin-left: auto; flex-shrink: 0; }
+    .attendance-office { color: var(--st-office-fg); background: var(--st-office-bg); }
+    .attendance-wfh { color: var(--st-wfh-fg); background: var(--st-wfh-bg); }
+    .attendance-leave { color: var(--st-leave-fg); background: var(--st-leave-bg); }
+    .attendance-client { color: var(--st-client-fg); background: var(--st-client-bg); }
+    .attendance-pending { color: var(--st-pending-fg); background: var(--st-pending-bg); border: 1px dashed currentColor; }
+    .attendance-absent { color: var(--st-absent-fg); background: var(--st-absent-bg); }
+    .attendance-none { color: var(--text3); background: var(--bg-sec); }
 
     .dchip {
       align-self: flex-start; display: inline-flex; align-items: center; gap: 5px;
@@ -201,6 +220,8 @@
     .lg i { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; border: 1px solid var(--border); }
     .lg u { width: 14px; height: 4px; border-radius: 2px; flex-shrink: 0; text-decoration: none; }
     .lg-sep { width: 1px; height: 15px; background: var(--border); flex-shrink: 0; }
+    .lg i.lg-status { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; padding: 3px; border: none; border-radius: 6px; }
+    .lg-status svg { width: 13px; height: 13px; }
 
     /* ── right rail ───────────────────────────────────────── */
     .side { width: 300px; flex-shrink: 0; background: var(--header-bg); border-left: 1px solid var(--border); padding: 18px 18px 22px; overflow-y: auto; }
@@ -230,6 +251,8 @@
     .esub { font-size: 0.74rem; color: var(--text3); margin-top: 2px; }
     .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px 4px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; flex-shrink: 0; }
     .chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .attendance-detail { display: flex; align-items: center; gap: 8px; margin: 12px 0 2px; padding: 8px 10px; border: 1px solid var(--border-s); border-radius: 8px; background: var(--bg-sec); color: var(--text3); font-size: 0.72rem; }
+    .attendance-detail .attendance-mark { flex-shrink: 0; }
 
     .erow { display: flex; align-items: center; gap: 9px; padding: 9px 0; border-bottom: 1px solid var(--border-s); }
 
@@ -489,6 +512,26 @@ class Component extends DCLogicBase {
       '2026-08-17': { name: 'Casual Leave', portion: 1 },
       '2026-08-18': { name: 'Casual Leave', portion: 1 }
     };
+    this.ATTENDANCE = {
+      '2026-08-03': { status: 'office', checkIn: '09:18' },
+      '2026-08-04': { status: 'wfh', checkIn: '09:42' },
+      '2026-08-05': { status: 'client', checkIn: '10:02' },
+      '2026-08-06': { status: 'office', checkIn: '09:27' },
+      '2026-08-07': { status: 'wfh', checkIn: '09:51' },
+      '2026-08-11': { status: 'office', checkIn: '09:13' },
+      '2026-08-12': { status: 'leave', checkIn: '' },
+      '2026-08-13': { status: 'office', checkIn: '09:21' },
+      '2026-08-14': { status: 'client', checkIn: '09:56' },
+      '2026-08-17': { status: 'leave', checkIn: '' },
+      '2026-08-18': { status: 'leave', checkIn: '' },
+      '2026-08-19': { status: 'wfh', checkIn: '09:38' },
+      '2026-08-20': { status: 'office', checkIn: '09:16' },
+      '2026-08-21': { status: 'absent', checkIn: '' },
+      '2026-08-24': { status: 'office', checkIn: '09:11' },
+      '2026-08-25': { status: 'wfh', checkIn: '09:47' },
+      '2026-08-26': { status: 'client', checkIn: '10:08' },
+      '2026-08-27': { status: 'pending', checkIn: '' }
+    };
     this.MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     this.DAYNAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
     this.state = {
@@ -543,6 +586,30 @@ class Component extends DCLogicBase {
     var lv = this.LEAVE[k];
     if (lv) return lv.portion >= 1 ? 'leave' : 'halfleave';
     return 'working';
+  }
+
+  attendanceFor(k, type) {
+    if (type === 'weekend' || type === 'holiday') return { status: 'none', label: 'Not applicable', checkIn: '' };
+    if (this.LEAVE[k]) return { status: 'leave', label: 'Leave', checkIn: '' };
+    var a = this.ATTENDANCE[k] || { status: 'office', checkIn: '' };
+    var labels = { office: 'Office', wfh: 'WFH', client: 'Client location', leave: 'Leave', pending: 'Yet to check in', absent: 'Absent' };
+    return { status: a.status, label: labels[a.status], checkIn: a.checkIn || '' };
+  }
+
+  attendanceStyle(status) {
+    return { office: 'attendance-office', wfh: 'attendance-wfh', client: 'attendance-client', leave: 'attendance-leave', pending: 'attendance-pending', absent: 'attendance-absent' }[status] || '';
+  }
+
+  attendanceIcon(status) {
+    var paths = {
+      office: '<path d="M4 21h16M6 21V5h8v16M14 9h4v12M9 8h2m-2 4h2m-2 4h2m5-2h1m-1 4h1"/>',
+      wfh: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM9 21v-6h6v6"/>',
+      client: '<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
+      pending: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>',
+      absent: '<path d="M12 4 3.5 20h17zM12 9v5m0 3v.1"/>',
+      none: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4m8-4v4M4 10h16"/>'
+    };
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[status] || '') + '</svg>';
   }
 
   rowsFor(k) {
@@ -615,7 +682,6 @@ class Component extends DCLogicBase {
       halfleave: 'var(--st-leave-bg)',
       missing:   'var(--st-absent-bg)'
     };
-
     /* ---- build the 6x7 grid ---- */
     var first = this.dow(y, m, 1);
     var dim = new Date(y, m + 1, 0).getDate();
@@ -635,6 +701,7 @@ class Component extends DCLogicBase {
       var k = this.iso(dy, dm, dd);
       var dw = i % 7;
       var type = this.dayType(k, dw);
+      var attendance = this.attendanceFor(k, type);
       var dcap = this.dayCap(k);
       var rows = this.rowsFor(k);
       var logged = this.loggedFor(k);
@@ -700,6 +767,10 @@ class Component extends DCLogicBase {
         tipNote = 'Weekend — not a working day.';
       }
 
+      if (attendance.status !== 'none') {
+        tipRows.unshift({ color: 'var(--' + (attendance.status === 'client' ? 'st-client' : attendance.status === 'pending' ? 'st-pending' : attendance.status === 'absent' ? 'st-absent' : attendance.status === 'wfh' ? 'st-wfh' : attendance.status === 'leave' ? 'st-leave' : 'st-office') + '-fg)', name: attendance.label, h: attendance.checkIn ? 'In ' + attendance.checkIn : '' });
+      }
+
       /* project segments for anything that can carry hours */
       if (type === 'working' || type === 'halfleave') {
         rows.forEach(function (r) {
@@ -730,6 +801,9 @@ class Component extends DCLogicBase {
           tipTotalLabel = 'Total (half day)';
           if (!tipTotal) tipTotal = this.fmt(logged) + ' / ' + this.fmt(dcap) + ' h';
         }
+        if (!hLabel) {
+          hLabel = this.fmt(logged) + 'h';
+        }
       }
 
       var tinted = (eff === 'holiday' || eff === 'leave' || eff === 'halfleave' || eff === 'missing');
@@ -750,6 +824,7 @@ class Component extends DCLogicBase {
 
       cells.push({
         key: k,
+        inMonth: inMonth,
         dnum: dd,
         numCls: isToday ? 'today' : '',
         cls: clsParts.join(' '),
@@ -761,6 +836,10 @@ class Component extends DCLogicBase {
         chipText: chip ? chip.text : '',
         chipBg: chip ? chip.bg : 'transparent',
         chipFg: chip ? chip.fg : 'inherit',
+        attendanceLabel: inMonth ? attendance.label : '',
+        attendanceStatus: inMonth ? attendance.status : 'none',
+        attendanceClass: this.attendanceStyle(attendance.status),
+        attendanceIcon: this.attendanceIcon(attendance.status),
         hasSegs: !!(inMonth && (segs.length || eff === 'missing')),
         segs: segs,
         hasDash: !!(inMonth && !segs.length && type === 'working' && !past),
@@ -821,6 +900,7 @@ class Component extends DCLogicBase {
       selLocked: false, lockText: '', canAdd: false, saveDisabled: true, showPickHint: false,
       remainText: '', remainBg: 'var(--st-pending-bg)', remainFg: 'var(--st-pending-fg)',
       totColor: 'var(--text)',
+      selAttendanceLabel: '', selAttendanceClass: '', selCheckIn: '', selAttendanceNote: '',
       hasFlash: !!st.flash, flash: st.flash
     };
 
@@ -828,11 +908,16 @@ class Component extends DCLogicBase {
       var sdd = Number(sel.slice(8));
       var sdw = this.dow(y, m, sdd);
       var stype = this.dayType(sel, sdw);
+      var satt = this.attendanceFor(sel, stype);
       var scap = this.dayCap(sel);
       var draft = st.draft || this.rowsFor(sel);
 
       vals.selTitle = this.DAYNAMES[sdw] + ' ' + sdd + ' ' + this.MONTHS[m];
       vals.selCap = this.fmt(scap);
+      vals.selAttendanceLabel = satt.status === 'none' ? '' : satt.label;
+      vals.selAttendanceClass = this.attendanceStyle(satt.status);
+      vals.selCheckIn = satt.checkIn;
+      vals.selAttendanceNote = satt.status === 'leave' ? 'Not applicable on leave' : satt.status === 'pending' ? 'No check-in recorded yet' : satt.status === 'absent' ? 'No check-in recorded' : 'No check-in time supplied';
 
       if (stype === 'holiday') {
         vals.selChipText = 'Holiday';
@@ -945,7 +1030,8 @@ class Component extends DCLogicBase {
 
   function cellHtml(d, i) {
     var h = '<div class="ctop"><span class="dnum ' + d.numCls + '">' + d.dnum + '</span>'
-          + '<span class="dh" style="color: ' + d.hColor + '">' + esc(d.hLabel) + '</span></div>';
+        + (d.inMonth ? '<span class="attendance-mark icon-only ' + (d.attendanceStatus === 'none' ? 'attendance-none' : d.attendanceClass) + '" title="' + esc(d.attendanceLabel) + '" aria-label="' + esc(d.attendanceLabel) + '">' + d.attendanceIcon + '<span>' + esc(d.attendanceLabel) + '</span></span>' : '')
+        + '</div>';
     if (d.hasChip) {
       h += '<span class="dchip" style="background: ' + d.chipBg + '; color: ' + d.chipFg + '">'
          + '<span>' + esc(d.chipText) + '</span></span>';
@@ -958,10 +1044,8 @@ class Component extends DCLogicBase {
     } else if (d.hasDash) {
       seg = '<div class="segs dashed"></div>';
     }
-    var lab = d.hasLabels ? '<div class="plabels">' + d.labels.map(function (l) {
-      return '<span class="plab"><i style="background: ' + l.color + '"></i>' + l.h + '</span>';
-    }).join('') + '</div>' : '';
-    h += '<div class="segwrap">' + seg + lab + '</div>';
+    h += '<div class="segwrap">' + seg + '</div>'
+      + (d.hLabel ? '<span class="day-total" style="color: ' + d.hColor + '">' + esc(d.hLabel) + '</span>' : '');
 
     var tr = d.tipRows.map(function (t) {
       return '<div class="tip-item"><div class="tip-row"><i style="background: ' + t.color + '"></i>'
@@ -1017,6 +1101,7 @@ class Component extends DCLogicBase {
       + '<div class="ehead"><div><div class="edate">' + esc(V.selTitle) + '</div>'
       + '<div class="esub">' + esc(V.selSub) + '</div></div>'
       + '<span class="chip" style="background: ' + V.selChipBg + '; color: ' + V.selChipFg + '">' + esc(V.selChipText) + '</span></div>'
+      + (V.selAttendanceLabel ? '<div class="attendance-detail"><span class="attendance-mark ' + V.selAttendanceClass + '"><span>' + esc(V.selAttendanceLabel) + '</span></span>' + (V.selCheckIn ? '<span>Checked in ' + esc(V.selCheckIn) + '</span>' : '<span>' + esc(V.selAttendanceNote) + '</span>') + '</div>' : '')
       + '<div class="plist">' + rows
       + (V.showPickHint ? '<div class="hint">Pick a project to enable its hours and comment.</div>' : '') + '</div>'
       + (V.canAdd ? '<button class="addbtn" data-act="add">' + PLUS + ' Add project</button>' : '')
@@ -1054,6 +1139,13 @@ class Component extends DCLogicBase {
       +     '<span class="lg"><i style="background: var(--st-leave-bg); border-color: var(--st-leave-fg)"></i>Leave</span>'
       +     '<span class="lg"><i style="background: var(--st-absent-bg); border-color: var(--st-absent-fg)"></i>Hours missing</span>'
       +     '<span class="lg"><i style="background: var(--bg-sec); border-color: var(--border)"></i>Weekend</span>'
+      +     '<span class="lg-sep"></span>'
+      +     '<span class="lg"><i class="lg-status attendance-office">' + inst.attendanceIcon('office') + '</i>Office</span>'
+      +     '<span class="lg"><i class="lg-status attendance-wfh">' + inst.attendanceIcon('wfh') + '</i>WFH</span>'
+      +     '<span class="lg"><i class="lg-status attendance-client">' + inst.attendanceIcon('client') + '</i>Client location</span>'
+      +     '<span class="lg"><i class="lg-status attendance-leave">' + inst.attendanceIcon('leave') + '</i>Leave</span>'
+      +     '<span class="lg"><i class="lg-status attendance-pending">' + inst.attendanceIcon('pending') + '</i>Yet to check in</span>'
+      +     '<span class="lg"><i class="lg-status attendance-absent">' + inst.attendanceIcon('absent') + '</i>Absent</span>'
       +     '<span class="lg-sep"></span>'
       +     '<span class="lg"><u style="background: var(--p1)"></u>Cyber</span>'
       +     '<span class="lg"><u style="background: var(--p2)"></u>Conduct</span>'

@@ -100,7 +100,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-07-28",
@@ -113,7 +114,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-07-29",
@@ -126,7 +128,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-07-30",
@@ -139,7 +142,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-07-31",
@@ -152,7 +156,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-01",
@@ -165,7 +170,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-02",
@@ -178,7 +184,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-03",
@@ -199,7 +206,12 @@
           "comment": "Interview panel"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "office",
+        "check_in_time": "09:18",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-04",
@@ -220,7 +232,12 @@
           "comment": null
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "wfh",
+        "check_in_time": "09:42",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-05",
@@ -248,7 +265,12 @@
           "comment": null
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "client",
+        "check_in_time": "10:02",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-06",
@@ -276,7 +298,12 @@
           "comment": "Pen-test findings triage"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "office",
+        "check_in_time": "09:27",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-07",
@@ -297,7 +324,12 @@
           "comment": "Interview panel"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "wfh",
+        "check_in_time": "09:51",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-08",
@@ -310,7 +342,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-09",
@@ -323,7 +356,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-10",
@@ -351,7 +385,12 @@
           "comment": "Vulnerability scan baseline"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "office",
+        "check_in_time": "09:34",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-11",
@@ -372,7 +411,12 @@
           "comment": "Onboarding docs"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "office",
+        "check_in_time": "09:13",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-12",
@@ -398,6 +442,11 @@
         "detail": "First half",
         "kind": "leave",
         "hours": 4.0
+      },
+      "attendance": {
+        "status": "leave",
+        "check_in_time": null,
+        "detail": null
       }
     },
     {
@@ -419,7 +468,12 @@
           "comment": "Onboarding docs"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "office",
+        "check_in_time": "09:21",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-14",
@@ -440,7 +494,12 @@
           "comment": "Sprint planning"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "client",
+        "check_in_time": "09:56",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-15",
@@ -458,7 +517,8 @@
         "detail": null,
         "kind": "holiday",
         "hours": 0.0
-      }
+      },
+      "attendance": null
     },
     {
       "date": "2026-08-16",
@@ -471,7 +531,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-17",
@@ -489,6 +550,11 @@
         "detail": null,
         "kind": "leave",
         "hours": 8.0
+      },
+      "attendance": {
+        "status": "leave",
+        "check_in_time": null,
+        "detail": null
       }
     },
     {
@@ -507,6 +573,11 @@
         "detail": null,
         "kind": "leave",
         "hours": 8.0
+      },
+      "attendance": {
+        "status": "leave",
+        "check_in_time": null,
+        "detail": null
       }
     },
     {
@@ -532,10 +603,15 @@
           "project_name": "Cyber",
           "color_slot": 1,
           "hours": 3.5,
-          "comment": "SIEM rule tuning \u2014 false positive sweep"
+          "comment": "SIEM rule tuning — false positive sweep"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "wfh",
+        "check_in_time": "09:38",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-20",
@@ -556,7 +632,12 @@
           "comment": "Onboarding docs"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "office",
+        "check_in_time": "09:16",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-21",
@@ -569,7 +650,12 @@
       "logged_hours": 0.0,
       "status": "missing",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "absent",
+        "check_in_time": null,
+        "detail": null
+      }
     },
     {
       "date": "2026-08-22",
@@ -582,7 +668,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-23",
@@ -595,7 +682,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-24",
@@ -623,7 +711,12 @@
           "comment": "Onboarding docs"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "office",
+        "check_in_time": "09:11",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-25",
@@ -644,7 +737,12 @@
           "comment": "Threat model review for the ingress gateway"
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "wfh",
+        "check_in_time": "09:47",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-26",
@@ -672,7 +770,12 @@
           "comment": null
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "client",
+        "check_in_time": "10:08",
+        "detail": null
+      }
     },
     {
       "date": "2026-08-27",
@@ -693,7 +796,12 @@
           "comment": null
         }
       ],
-      "annotation": null
+      "annotation": null,
+      "attendance": {
+        "status": "pending",
+        "check_in_time": null,
+        "detail": null
+      }
     },
     {
       "date": "2026-08-28",
@@ -711,7 +819,8 @@
         "detail": null,
         "kind": "holiday",
         "hours": 8.0
-      }
+      },
+      "attendance": null
     },
     {
       "date": "2026-08-29",
@@ -724,7 +833,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-30",
@@ -737,7 +847,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-08-31",
@@ -750,7 +861,8 @@
       "logged_hours": 0.0,
       "status": "empty",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-09-01",
@@ -763,7 +875,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-09-02",
@@ -776,7 +889,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-09-03",
@@ -789,7 +903,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-09-04",
@@ -802,7 +917,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-09-05",
@@ -815,7 +931,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     },
     {
       "date": "2026-09-06",
@@ -828,7 +945,8 @@
       "logged_hours": 0.0,
       "status": "not_applicable",
       "entries": [],
-      "annotation": null
+      "annotation": null,
+      "attendance": null
     }
   ],
   "generated_at": "2026-08-27T11:42:08+05:30"

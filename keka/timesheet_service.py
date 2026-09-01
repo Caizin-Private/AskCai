@@ -428,6 +428,9 @@ def build_month(month: str, employee_email: str, employee_name: str = "") -> dic
             "status": status,
             "entries": entries,
             "annotation": annotation,
+            # Filled by timesheet_attendance.attach(): clock-ins come from the
+            # attendance tracker, not from Keka.
+            "attendance": None,
         })
 
     by_project = [{
