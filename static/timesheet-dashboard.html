@@ -442,10 +442,6 @@
 </head>
 <body>
 
-  <div id="gate-view" class="center-state" style="display:none">
-    <h1>Access restricted</h1>
-    <p>Timesheet is currently in pilot. Contact HR to request access.</p>
-  </div>
 
   <div id="loading-view" class="center-state">
     <p>Loading your timesheet&hellip;</p>
@@ -1160,7 +1156,7 @@
           var theme = (ctx.app && ctx.app.theme) || ctx.theme || "default";
           applyTheme(theme);
           try { microsoftTeams.app.registerOnThemeChangeHandler(applyTheme); } catch (_) {}
-          if (!email || PILOT.has(email)) { boot(email, true); } else { show("gate"); }
+          boot(email, true);
         })
         .catch(function () { boot("", false); });
     } else {
