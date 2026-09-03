@@ -3,7 +3,7 @@ name: Deploy to Dev EC2
 on:
   push:
     branches:
-      - develop
+      - timesheet-dashboard
 
 jobs:
   deploy:
