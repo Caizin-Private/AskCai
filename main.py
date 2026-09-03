@@ -120,7 +120,14 @@ def _first_name(full_name: str) -> str:
     return parts[0] if parts else "there"
 
 
-def _build_ack_card(name: str, status_verb: str, today: str, employee_id: str = "") -> dict:
+def _build_ack_card(name: str, status_verb: str, today: str, employee_id: str = "",
+                    saved: bool = True) -> dict:
+    """
+    `saved=False` must never read as a confirmation. The write can find no row to
+    update (see insync_db.record_attendance_response), and an employee told their
+    attendance was recorded has no reason to check again — the response is simply
+    lost, and it surfaces weeks later as a gap on their timesheet.
+    """
     label = _RESPONSE_LABEL.get(status_verb, status_verb.replace("_", " ").title())
     color = _RESPONSE_COLOR.get(status_verb, "Default")
     try:
@@ -132,12 +139,14 @@ def _build_ack_card(name: str, status_verb: str, today: str, employee_id: str = 
             "type": "TextBlock",
             "text": f"{date_display} : {label}",
             "weight": "Bolder",
-            "color": color,
+            "color": color if saved else "Attention",
             "wrap": True,
         },
         {
             "type": "TextBlock",
-            "text": f"Thanks, {name}! Your attendance has been recorded.",
+            "text": (f"Thanks, {name}! Your attendance has been recorded." if saved else
+                     "This could not be saved — there is no attendance record open for "
+                     "today. Please try again shortly, and tell IT if it keeps failing."),
             "wrap": True,
             "isSubtle": True,
         },
@@ -628,13 +637,18 @@ async def _handle_submit_status(turn_context, data: dict) -> dict:
         if turn_context.activity.from_property else ""
     )
 
+    saved = False
     if employee_id:
         saved = record_attendance_response(employee_id, status_verb)
         if not saved:
             logger.warning("[bot] submit_status: DB write failed emp=%s verb=%s", employee_id, status_verb)
+    else:
+        logger.warning("[bot] submit_status: no employee_id on the card payload")
 
     today = datetime.now(IST).strftime("%Y-%m-%d")
-    return _card_action_response(_build_ack_card(name, status_verb, today, employee_id))
+    return _card_action_response(
+        _build_ack_card(name, status_verb, today, employee_id, saved=saved)
+    )
 
 
 async def _handle_show_options(turn_context, data: dict) -> dict:

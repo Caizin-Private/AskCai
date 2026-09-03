@@ -695,7 +695,9 @@
        day nobody clocks in for; "No attendance record" on a working day the tracker has
        nothing for, which is a real gap and should not read as a rest day. */
     function attOf(d) {
-      var a = d.in_month ? d.attendance : null;
+      /* Spill-over days carry a mark too — the tracker row for 31 August is no less
+         true because September is on screen. See timesheet_attendance._for_day. */
+      var a = d.attendance;
       if (!a || !ATT_LABEL[a.status]) {
         var na = !d.in_month || d.day_type === "weekend" || d.day_type === "holiday";
         return {
