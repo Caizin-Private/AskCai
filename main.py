@@ -1356,6 +1356,8 @@ async def timesheet_month(month: str, request: Request):
             retry_after=getattr(exc, "retry_after", 60),
         )
     except KekaServiceError as exc:
+        # build_month degrades each upstream read on its own now, so reaching here
+        # means the failure was outside any single read. Kept as a backstop.
         logger.error("[timesheet] upstream failed month=%s: %s", month, exc)
         return _contract_error(
             502, "upstream_unavailable",
@@ -1369,9 +1371,9 @@ async def timesheet_month(month: str, request: Request):
         )
 
     # Clock-in marks are not a Keka read — they come from the attendance tracker, the
-    # same row the People Pulse tab renders. Enrichment, so a tracker outage leaves the
-    # month rendering with unmarked days rather than failing it; the mock keeps the
-    # attendance it synthesised.
+    # same row the People Pulse tab renders. That independence is the point: a Keka
+    # outage degrades the month it cannot fill, and the employee still sees where they
+    # worked each day. The mock keeps the attendance it synthesised.
     if source == "keka":
         try:
             await asyncio.get_event_loop().run_in_executor(
@@ -1379,6 +1381,15 @@ async def timesheet_month(month: str, request: Request):
             )
         except Exception as exc:
             logger.warning("[timesheet] attendance unavailable for %s: %s", email, exc)
+            # Named alongside the Keka reads that failed, so the UI can say which
+            # part of the calendar is blank rather than leaving it unexplained.
+            unavailable = payload.setdefault("unavailable", [])
+            if "attendance" not in unavailable:
+                unavailable.append("attendance")
+
+    if payload.get("unavailable"):
+        logger.warning("[timesheet] degraded month=%s email=%s missing=%s",
+                       month, email, ",".join(payload["unavailable"]))
 
     # Which side produced this, without touching the contract body.
     return JSONResponse(content=payload, headers={"X-Timesheet-Source": source})

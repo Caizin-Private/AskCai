@@ -119,16 +119,20 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '502':
           description: |
-            `upstream_unavailable` — a source the month depends on could not be read.
+            `upstream_unavailable` — the month could not be composed at all.
 
-            **The whole request fails; it never degrades to a partial month.** If leave
-            data is missing, an approved-leave day renders as an unfilled working day
-            and the employee is told to log hours they cannot log. A visible error is
-            correct; a plausible wrong calendar is not.
+            **Rare, because a single unreadable source degrades the month rather than
+            failing it.** Each source is read independently and what the others supplied
+            is still returned, with a `200` naming the gap in `unavailable`. The day
+            grid, `policy` and `totals.working_days` are calendar arithmetic over
+            configuration, and `day.attendance` comes from the attendance tracker rather
+            than the HR platform, so an HR outage still leaves a useful month on screen.
 
-            `day.attendance` is the single exception: it is enrichment, an unreadable
-            attendance source leaves it `null` and the month is still returned. See
-            `DayAttendance`.
+            What degradation must never do is let a gap read as a measurement. A missing
+            leave read would otherwise paint an approved-leave day as an unfilled working
+            day and tell the employee to log hours they cannot log. So a value that was
+            not read is `null`, never `0`, and any day whose classification or hours are
+            unknown reports `status: unknown` rather than `missing`. See `unavailable`.
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 
 components:
@@ -189,6 +193,32 @@ components:
           maxItems: 42
           description: Six weeks in display order. See the description at the top.
           items: { $ref: '#/components/schemas/Day' }
+        unavailable:
+          type: array
+          description: |
+            Sources that could not be read for this month. **Absent or empty means the
+            month is complete**; anything listed means the fields that source feeds are
+            `null` or empty rather than measured, and the UI is expected to say so.
+
+            Names only — how each is worded to the employee is the UI's business, the
+            same division as everywhere else in this contract.
+
+            | name | what is unavailable |
+            |---|---|
+            | `employee` | the employee record; `employee.name` falls back to the email's local part and `employee.id` is `null` |
+            | `holidays` | holiday classification and holiday annotations |
+            | `leave` | approved-leave classification and leave annotations |
+            | `projects` | `projects` is `[]` and `entries[].color_slot` is `null` |
+            | `logged_hours` | `day.logged_hours`, `day.entries` and completion `status` |
+            | `attendance` | `day.attendance` on every day |
+
+            `holidays` and `leave` both determine capacity, so losing either makes
+            `capacity_hours` and every completion status unknown. `logged_hours` alone
+            leaves the day classification intact.
+          items:
+            type: string
+            enum: [employee, holidays, leave, projects, logged_hours, attendance]
+          example: []
         generated_at:
           type: string
           format: date-time
@@ -225,32 +255,45 @@ components:
     MonthTotals:
       type: object
       required: [capacity_hours, logged_hours, working_days, days_expected, days_logged, days_missing]
+      description: |
+        Every field except `working_days` is a roll-up of an upstream read and is `null`
+        when that read is in `unavailable`. `working_days` is weekday arithmetic over
+        `policy`, so it survives any outage and is what the UI falls back to.
       properties:
-        capacity_hours: { type: number, format: float, example: 168 }
+        capacity_hours:
+          type: [number, 'null']
+          format: float
+          example: 168
+          description: '`null` when `holidays` or `leave` is unavailable.'
         logged_hours:
-          type: number
+          type: [number, 'null']
           format: float
           example: 145
-          description: Project hours plus prefilled holiday and leave hours.
+          description: |
+            Project hours plus prefilled holiday and leave hours. `null` when
+            `logged_hours`, `holidays` or `leave` is unavailable.
         working_days:
           type: integer
           example: 21
           description: Weekdays in the month, per `policy.working_days`. Holidays and leave included.
         days_expected:
-          type: integer
+          type: [integer, 'null']
           example: 18
           description: |
             Days work was actually expected — `working_days` less holidays and full-day
             leave. The rail reads "Logged across 16 of 18 working days"; without this the
             UI would have to recount the array to say it.
         days_logged:
-          type: integer
+          type: [integer, 'null']
           example: 16
           description: Days with at least one project entry.
         days_missing:
-          type: integer
+          type: [integer, 'null']
           example: 1
-          description: Past working days with nothing logged. The count behind the "needs attention" treatment.
+          description: |
+            Past working days with nothing logged. The count behind the "needs attention"
+            treatment — and therefore `null`, never `0`, whenever the reads it is derived
+            from are unavailable.
 
     Project:
       type: object
@@ -363,7 +406,7 @@ components:
             `half_leave` is a working day whose capacity is reduced — hours are still
             expected against the remainder.
         capacity_hours:
-          type: number
+          type: [number, 'null']
           format: float
           example: 8
           description: |
@@ -372,14 +415,31 @@ components:
 
             The UI sizes the cell's bar track against **this**, not the policy cap, so a
             half-day fills its track at 4 h.
+
+            `null` when `holidays` or `leave` is in `unavailable`: whether this date is a
+            closure cannot be established, so no expectation is asserted. Weekends stay
+            `0` — that comes from `policy.working_days`, not from upstream.
         logged_hours:
-          type: number
+          type: [number, 'null']
           format: float
           example: 3.5
-          description: Sum of `entries`. Excludes prefilled holiday and leave hours, which are in `annotation.hours`.
+          description: |
+            Sum of `entries`. Excludes prefilled holiday and leave hours, which are in
+            `annotation.hours`.
+
+            `null` when `logged_hours` is in `unavailable` — distinct from `0`, which is
+            a measurement meaning nothing was logged. Only one of the two means the
+            employee has work to do, so they must not share a representation.
         status:
           type: string
-          enum: [complete, partial, empty, missing, not_applicable]
+          enum: [complete, partial, empty, missing, not_applicable, unknown]
+          description: |
+            Completion of this date, derived by the API.
+
+            `unknown` means a source this depends on is in `unavailable` — the day is
+            rendered, but nothing is claimed about whether hours are owed. It exists so
+            that a gap can never surface as `missing`, which the UI paints as needing
+            attention and the employee would act on.
           description: |
             Computed by the API, not derived by the UI, because it encodes policy:
 

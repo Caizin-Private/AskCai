@@ -63,8 +63,62 @@ def _today() -> date:
 
 # ── upstream reads, mapped to plain dicts keyed by date ───────────────────────
 
-def _resolve_employee(email: str) -> dict:
-    emp = employee_dao.find_by_email_indexed(email)
+class Sources:
+    """
+    Which upstream reads succeeded, so one failure degrades the month instead of
+    failing it.
+
+    The day grid, the policy and the clock-in marks do not come from the HR platform
+    at all, so a Keka outage is no reason to show the employee nothing. What it *is*
+    a reason for is refusing to compute anything that depends on the missing read:
+    see `hours_known` and `types_known` in build_month. A day whose classification is
+    unknown reports `status: "unknown"`, never "missing" — telling somebody to log
+    hours on a public holiday because the holiday calendar was unreachable is worse
+    than telling them the calendar was unreachable.
+    """
+
+    #  read name        -> what the UI loses
+    #  employee            display name (and, transitively, the reads keyed on its id)
+    #  holidays / leave    day classification and annotations
+    #  projects            the assigned-project list and colour slots
+    #  logged_hours        hours, entries, completion status
+    #  attendance          clock-in marks (attached in main.py, not here)
+
+    def __init__(self):
+        self.missing: set = set()
+
+    def read(self, name: str, fn, default):
+        """Run one upstream read; on any failure record it and hand back `default`."""
+        try:
+            return fn()
+        except Exception as exc:
+            logger.warning("[timesheet] %s unavailable: %s", name, exc)
+            self.missing.add(name)
+            return default
+
+    def lost(self, *names) -> bool:
+        return bool(self.missing.intersection(names))
+
+    def as_list(self) -> list:
+        """Sorted for a stable payload; the UI owns the wording for each name."""
+        return sorted(self.missing)
+
+
+def _resolve_employee(email: str, src: "Sources") -> dict:
+    """
+    A missing record and an unreadable one are different answers.
+
+    `find_by_email_indexed` returns None when the directory genuinely has no such
+    employee — that is a definitive answer and stays a hard error, because a calendar
+    for somebody with no HR record would be fiction. It raises when the read itself
+    failed, and that degrades like any other source.
+    """
+    try:
+        emp = employee_dao.find_by_email_indexed(email)
+    except Exception as exc:
+        logger.warning("[timesheet] employee record unavailable: %s", exc)
+        src.missing.add("employee")
+        return {}
     if not emp:
         raise EmployeeNotFoundError(f"No Keka employee found for {email}")
     return emp
@@ -285,8 +339,9 @@ def build_month(month: str, employee_email: str, employee_name: str = "") -> dic
     starts_on = config.week_starts_on()
     floaters_closed = config.floaters_are_closed()
 
-    emp = _resolve_employee(employee_email)
-    emp_id = emp.get("id")
+    src = Sources()
+    emp = _resolve_employee(employee_email, src)
+    emp_id = emp.get("id")   # None when the record could not be read
     display = (employee_name or emp.get("displayName")
                or " ".join(x for x in [emp.get("firstName"), emp.get("lastName")] if x)
                or (employee_email or "").split("@")[0])
@@ -302,10 +357,37 @@ def build_month(month: str, employee_email: str, employee_name: str = "") -> dic
     # still be correct if we ever chose to report them. Well inside Keka's 90-day cap.
     span_from, span_to = grid_start.isoformat(), grid_end.isoformat()
 
-    catalogue = _project_catalogue()
-    holidays = _holiday_map(emp.get("holidayCalendarId"), {grid_start.year, grid_end.year})
-    leave = _leave_map(emp_id, span_from, span_to)
-    entries_by_date = _entry_map(emp_id, span_from, span_to, {k: v["name"] for k, v in catalogue.items()})
+    catalogue = src.read("projects", _project_catalogue, {})
+    holidays = src.read(
+        "holidays",
+        lambda: _holiday_map(emp.get("holidayCalendarId"), {grid_start.year, grid_end.year}),
+        {},
+    )
+
+    # Both of these are keyed on the Keka employee id, so without one there is nothing
+    # to ask for — recorded as unavailable rather than queried with an empty id.
+    if emp_id:
+        leave = src.read("leave", lambda: _leave_map(emp_id, span_from, span_to), {})
+        entries_by_date = src.read(
+            "logged_hours",
+            lambda: _entry_map(emp_id, span_from, span_to,
+                               {k: v["name"] for k, v in catalogue.items()}),
+            {},
+        )
+    else:
+        src.missing.update({"leave", "logged_hours"})
+        leave, entries_by_date = {}, {}
+
+    # No employee record means no holiday calendar id to ask with, so holidays are
+    # unknown for the same reason — not simply absent.
+    if "employee" in src.missing:
+        src.missing.add("holidays")
+
+    # What the grid may assert. Capacity depends on whether a day is a holiday or
+    # leave; completion depends on hours. Missing either makes the derived status a
+    # guess, and a wrong "log your hours" is the failure mode worth avoiding.
+    types_known = not src.lost("holidays", "leave")
+    hours_known = not src.lost("logged_hours")
 
     # Projects are resolved after the entries so a project with hours this month is
     # kept even when its allocation has since ended.
@@ -317,7 +399,11 @@ def build_month(month: str, employee_email: str, employee_name: str = "") -> dic
         if month_start.isoformat() <= iso <= month_end.isoformat()
         for e in rows
     }
-    projects = _allocated_projects(emp_id, catalogue, month_start, month_end, logged_pids)
+    projects = src.read(
+        "projects",
+        lambda: _allocated_projects(emp_id, catalogue, month_start, month_end, logged_pids),
+        [],
+    ) if emp_id else []
     slot_of = {p["id"]: p["color_slot"] for p in projects}
 
     today_iso = _today().isoformat()
@@ -383,8 +469,12 @@ def build_month(month: str, employee_email: str, employee_name: str = "") -> dic
                 "hours": _r1(cap * lv["portion"]),
             }
 
-        if capacity <= 0:
+        # A weekend is a weekend whatever the HR platform is doing — that comes from
+        # policy, not upstream. Everything else needs the reads that failed.
+        if capacity <= 0 and (types_known or not is_working_weekday):
             status = "not_applicable"
+        elif not (types_known and hours_known):
+            status = "unknown"
         elif logged >= capacity - 1e-9:
             status = "complete"
         elif logged > 0:
@@ -400,7 +490,7 @@ def build_month(month: str, employee_email: str, employee_name: str = "") -> dic
             if is_working_weekday:
                 working_days_count += 1
                 capacity_total += cap
-            if capacity > 0:
+            if capacity > 0 and types_known and hours_known:
                 days_expected += 1
                 if logged > 0:
                     days_logged += 1
@@ -423,8 +513,10 @@ def build_month(month: str, employee_email: str, employee_name: str = "") -> dic
             "in_month": in_month,
             "is_today": iso == today_iso,
             "day_type": day_type,
-            "capacity_hours": capacity,
-            "logged_hours": logged,
+            "capacity_hours": capacity if types_known else None,
+            # Null, never 0.0 — "no hours logged" and "hours not read" look identical
+            # as a zero, and only one of them means the employee has work to do.
+            "logged_hours": logged if hours_known else None,
             "status": status,
             "entries": entries,
             "annotation": annotation,
@@ -460,15 +552,19 @@ def build_month(month: str, employee_email: str, employee_name: str = "") -> dic
             "timezone": config.timezone_name(),
         },
         "totals": {
-            "capacity_hours": _r1(capacity_total),
-            "logged_hours": _r1(logged_total),
+            # working_days is weekday arithmetic over the policy, so it survives any
+            # outage. The rest are roll-ups of reads that may not have happened.
+            "capacity_hours": _r1(capacity_total) if types_known else None,
+            "logged_hours": _r1(logged_total) if (types_known and hours_known) else None,
             "working_days": working_days_count,
-            "days_expected": days_expected,
-            "days_logged": days_logged,
-            "days_missing": days_missing,
+            "days_expected": days_expected if types_known else None,
+            "days_logged": days_logged if (types_known and hours_known) else None,
+            "days_missing": days_missing if (types_known and hours_known) else None,
         },
         "projects": projects,
         "by_project": by_project,
         "days": days,
+        # Empty on a healthy month. Names only — the UI owns how each is worded.
+        "unavailable": src.as_list(),
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
     }

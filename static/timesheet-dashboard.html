@@ -166,6 +166,12 @@
     }
     .nretry:hover { background: var(--bg-hover); }
 
+    .rail-note {
+      margin: 10px 0 0; padding: 8px 10px; border-radius: 7px;
+      background: var(--bg-sec); color: var(--text3);
+      font-size: 0.72rem; line-height: 1.5;
+    }
+
     /* ── Skeleton ────────────────────────────────────────────────────────────
        Blank tiles only. Dates, weekday order and week start are all server-supplied,
        so the skeleton asserts none of them. */
@@ -615,8 +621,30 @@
       complete: "var(--st-office-fg)",
       partial:  "var(--brand)",
       missing:  "var(--st-absent-fg)",
-      empty:    "var(--text3)"
+      empty:    "var(--text3)",
+      /* The API could not read what this day needs. Neutral on purpose: nothing about
+         the day is being asserted. */
+      unknown:  "var(--text3)"
     };
+
+    /* What each name in `unavailable` costs the employee, in this tab's words.
+       The API sends names only; the wording is the UI's. */
+    var LOST_LABEL = {
+      employee:     "your employee record",
+      holidays:     "public holidays",
+      leave:        "approved leave",
+      projects:     "your project list",
+      logged_hours: "logged hours",
+      attendance:   "check-in records"
+    };
+    function lostNames() {
+      var names = (_data && _data.unavailable) || [];
+      return names.map(function (k) { return LOST_LABEL[k] || k; });
+    }
+    function lostSentence(names) {
+      if (names.length === 1) return names[0];
+      return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+    }
 
     /* ── Attendance (clock-in) ──────────────────────────────────────────────────
        The API supplies `status`, `check_in_time` and an optional `detail`; every word
@@ -758,6 +786,9 @@
         var a = d.annotation;
         return (a && a.hours > 0) ? { text: fmt(a.hours) + "h", color: annFg(d) } : null;
       }
+      /* null means the hours were never read. Printing 0h here would be a claim the
+         API did not make, and the one the employee would act on. */
+      if (d.logged_hours == null) return null;
       if (d.logged_hours > 0) return { text: fmt(d.logged_hours) + "h", color: STATUS_FG[d.status] || "var(--text3)" };
       if (d.status === "missing") return { text: "0h", color: "var(--st-absent-fg)" };
       /* A working day still ahead of itself reads its own zero, in grey. Blank would be
@@ -863,7 +894,15 @@
         if (_sel && _sel.slice(0, 7) !== _month) _sel = null;
         render();
         document.getElementById("grid").removeAttribute("aria-busy");
-        hideNotice();
+        /* A 200 can still be a partial month: what each source could supply is
+           rendered, and the bar names what none of them could. */
+        var lost = lostNames();
+        if (lost.length) {
+          showNotice("Part of this month could not be loaded.",
+                     "Showing everything else. Missing: " + lostSentence(lost) + ".", false);
+        } else {
+          hideNotice();
+        }
         show("ts");
       })
       .catch(function (err) {
@@ -1093,6 +1132,20 @@
 
     function summaryHtml() {
       var t = _data.totals;
+      var lost = lostNames();
+
+      /* A null total is a total the API could not compute. The roll-up shows the one
+         figure that always holds — working days, which is policy arithmetic — and says
+         plainly what is missing instead of rendering zeros as if they were measured. */
+      if (t.logged_hours == null || t.capacity_hours == null) {
+        return "<h4>" + esc(_data.label) + " at a glance</h4>" +
+          '<div class="hero"><div class="hv">&mdash;<small> h</small></div>' +
+          '<div class="hl">' + t.working_days + " working days this month</div></div>" +
+          '<p class="rail-note">Hours cannot be totalled while ' +
+          esc(lostSentence(lost.length ? lost : ["some data"])) +
+          " could not be loaded.</p>";
+      }
+
       var pct = t.capacity_hours > 0 ? Math.min(100, Math.round(t.logged_hours / t.capacity_hours * 100)) : 0;
       var html = "<h4>" + esc(_data.label) + " at a glance</h4>" +
         '<div class="hero"><div class="hv">' + fmt(t.logged_hours) +
