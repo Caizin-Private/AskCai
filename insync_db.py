@@ -94,35 +94,23 @@ _RESPONSE_LABELS = {
 
 
 def _bucket(status: str, employee_response: Optional[str]) -> str:
-    """
-    What the tracker actually holds for this employee on this date. No fallback.
-
-    The employee's own response decides it, and nothing substitutes for one. `status`
-    speaks only where it records something real in its own right: a location or leave
-    filed in advance, or an absence. With no response and no such status the answer is
-    "Pending" — they have not told us yet.
-
-    This deliberately stops mirroring the tracker's _status_bucket(), which reads
-    `status == 'present'` with no response as "Office". That default is why a month of
-    working-from-home days renders as a wall of Office: 'present' is written without
-    anyone stating where they worked, so it cannot answer that question. An absent
-    response is missing information, not a day in the office.
-    """
-    # An explicit response always wins, including over `absent` — editing your status
-    # after being marked absent has to actually change what is displayed.
-    if employee_response:
-        return _RESPONSE_LABELS.get(employee_response, employee_response)
-
-    # Filed ahead of the day: stored intent, not a guess.
+    """Mirrors _status_bucket() from tracker's teams_client.py."""
+    if status == "present":
+        if employee_response == "wfh":           return "WFH"
+        if employee_response == "client_site":   return "Client Location"
+        if employee_response == "leave":         return "Leave"
+        if employee_response == "floater_leave": return "Floater Holiday"
+        return "Office"
     if status == "pre_applied_wfh":
         return "WFH"
+    if status in ("pre_approved_leave", "pre_approved_floater_leave"):
+        return "Floater Holiday" if employee_response == "floater_leave" else "Leave"
     if status == "pre_applied_client_site":
         return "Client Location"
-    if status in ("pre_approved_leave", "pre_approved_floater_leave"):
-        return "Leave"
     if status == "absent":
         return "Absent"
-
+    if employee_response:
+        return _RESPONSE_LABELS.get(employee_response, employee_response)
     return "Pending"
 
 

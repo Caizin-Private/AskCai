@@ -39,15 +39,9 @@ _NO_ATTENDANCE_DAYS = ("weekend", "holiday")
 
 
 def _for_day(day: dict, row: dict | None) -> dict | None:
-    """
-    One day's `attendance`, or None when there is nothing to mark.
-
-    Spill-over days are marked too. They are drawn in the grid, and the tracker row for
-    31 August is just as true when the employee is looking at September — leaving that
-    Monday blank reads as "you did not come in" rather than "this belongs to August".
-    The rest of an out-of-month day stays inert; the contract blanks its capacity,
-    status, entries and annotation, and says nothing about this mark.
-    """
+    """One day's `attendance`, or None when there is nothing to mark."""
+    if not day.get("in_month"):
+        return None
     if day.get("day_type") in _NO_ATTENDANCE_DAYS:
         return None
 
