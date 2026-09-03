@@ -140,6 +140,46 @@
     }
     .retry:hover { background: var(--bg-hover); color: var(--text); }
 
+    /* ── Notice bar ──────────────────────────────────────────────────────────
+       Sits above the calendar rather than replacing it. A failed read is nearly
+       always transient, and the month's shape is worth keeping on screen. */
+    .notice {
+      display: flex; align-items: flex-start; gap: 10px; flex-shrink: 0;
+      margin: 10px 14px 0; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid var(--st-leave-fg); background: var(--st-leave-bg);
+      color: var(--st-leave-fg); font-size: 0.78rem; line-height: 1.45;
+    }
+    .notice[hidden] { display: none; }
+    .notice > svg { flex: none; margin-top: 1px; }
+    .ntext { flex: 1; min-width: 0; }
+    .ntitle { font-weight: 650; }
+    .nwhy { display: block; opacity: .82; }
+    /* A stale month is informational, not a warning — the data on screen is still
+       true as of its own sync time. */
+    .notice.soft {
+      border-color: var(--border); background: var(--bg-sec); color: var(--text2);
+    }
+    .nretry {
+      flex: none; padding: 5px 11px; border: 1px solid currentColor; border-radius: 6px;
+      background: transparent; color: inherit; font-family: inherit;
+      font-size: 0.74rem; font-weight: 650; cursor: pointer;
+    }
+    .nretry:hover { background: var(--bg-hover); }
+
+    /* ── Skeleton ────────────────────────────────────────────────────────────
+       Blank tiles only. Dates, weekday order and week start are all server-supplied,
+       so the skeleton asserts none of them. */
+    .cell.skel { cursor: default; background: var(--bg-sec); border-color: var(--border-s); }
+    .skb { display: block; border-radius: 4px; background: var(--track); }
+    .sk-num  { width: 15px; height: 11px; }
+    .sk-mark { width: 13px; height: 13px; border-radius: 50%; }
+    .sk-line { height: 7px; margin-top: auto; width: 70%; }
+    .sk-head { width: 26px; height: 9px; }
+    @media (prefers-reduced-motion: no-preference) {
+      .skb { animation: skpulse 1.5s ease-in-out infinite; }
+      @keyframes skpulse { 0%, 100% { opacity: 1 } 50% { opacity: .42 } }
+    }
+
     /* ── Shell ───────────────────────────────────────────────────────────────── */
     #ts-view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
     .shell {
@@ -447,10 +487,11 @@
     <p>Loading your timesheet&hellip;</p>
   </div>
 
+  <!-- Terminal states only (entitlement). Anything retryable keeps the calendar
+       on screen and explains itself in the notice bar instead. -->
   <div id="error-view" class="center-state" style="display:none">
-    <h1>Timesheet unavailable</h1>
+    <h1 id="error-title">Timesheet unavailable</h1>
     <p id="error-msg"></p>
-    <button class="retry" onclick="retry()">Try again</button>
   </div>
 
   <div id="ts-view">
@@ -470,6 +511,18 @@
           <span class="testbadge" id="test-badge" title="Fixture data from artifacts/examples — not this employee's real timesheet">Test data</span>
           <span class="last-synced" id="last-synced"></span>
         </div>
+      </div>
+
+      <div class="notice" id="notice" role="status" hidden>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/><path d="M12 8v4.5M12 16v.1"/>
+        </svg>
+        <span class="ntext">
+          <span class="ntitle" id="notice-title"></span>
+          <span class="nwhy" id="notice-why"></span>
+        </span>
+        <button class="nretry" onclick="retry()">Try again</button>
       </div>
 
       <div class="main">
@@ -513,6 +566,7 @@
     var _sel   = null;    /* selected ISO date, or null for the month summary */
     var _timer = null;
     var _busy  = false;
+    var _want  = null;    /* month last requested; survives a failed load, unlike _month */
 
     /* ── Theme ──────────────────────────────────────────────────────────────── */
     function applyTheme(t) {
@@ -646,6 +700,8 @@
     var WD_LONG  = { mon:"Monday", tue:"Tuesday", wed:"Wednesday", thu:"Thursday",
                      fri:"Friday", sat:"Saturday", sun:"Sunday" };
     var MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var MONTH_LONG  = ["January","February","March","April","May","June","July",
+                       "August","September","October","November","December"];
 
     function slotColor(slot) {
       return slot === 1 ? "var(--p1)" : slot === 2 ? "var(--p2)" : slot === 3 ? "var(--p3)"
@@ -712,11 +768,65 @@
       return WD_LONG[d.weekday] + " " + d.day_of_month + " " + MONTH_SHORT[Number(d.date.slice(5, 7)) - 1];
     }
 
+    /* ── Notice bar ─────────────────────────────────────────────────────────── */
+    function showNotice(title, why, soft) {
+      var el = document.getElementById("notice");
+      el.className = "notice" + (soft ? " soft" : "");
+      document.getElementById("notice-title").textContent = title;
+      document.getElementById("notice-why").textContent = why || "";
+      el.hidden = false;
+    }
+    function hideNotice() { document.getElementById("notice").hidden = true; }
+
+    function monthLabel(ym) {
+      var m = Number((ym || "").slice(5, 7));
+      return MONTH_LONG[m - 1] ? MONTH_LONG[m - 1] + " " + ym.slice(0, 4) : "";
+    }
+
+    /* ── Skeleton ───────────────────────────────────────────────────────────────
+       The calendar's shape with no data in it: seven blank headers and 42 blank
+       tiles. Deliberately label-free — weekday order, week start and every date come
+       from the payload, and inventing them here is the timezone bug the 42-day
+       contract exists to prevent. */
+    function renderSkeleton(ym) {
+      document.getElementById("month-label").textContent = monthLabel(ym);
+      document.getElementById("last-synced").textContent = "";
+      document.getElementById("test-badge").classList.remove("on");
+      ["prev-btn", "next-btn"].forEach(function (id) {
+        var b = document.getElementById(id);
+        b.disabled = false;
+        b.title = "";
+      });
+
+      var head = "";
+      for (var h = 0; h < 7; h++) head += '<span><i class="skb sk-head"></i></span>';
+      document.getElementById("cal-head").innerHTML = head;
+
+      var cells = "";
+      for (var i = 0; i < 42; i++) {
+        cells += '<div class="cell skel">' +
+                   '<div class="ctop"><i class="skb sk-num"></i><i class="skb sk-mark"></i></div>' +
+                   '<i class="skb sk-line"></i>' +
+                 '</div>';
+      }
+      var grid = document.getElementById("grid");
+      grid.innerHTML = cells;
+      grid.setAttribute("aria-busy", "true");
+      document.getElementById("legend").innerHTML = "";
+      document.getElementById("side").innerHTML = "";
+    }
+
     /* ── Fetch ──────────────────────────────────────────────────────────────── */
     function loadMonth(ym, showSpinner) {
       if (_busy) return;
       _busy = true;
-      if (showSpinner) show("loading");
+      _want = ym;
+      if (showSpinner) {
+        /* With no month on screen yet, show the calendar loading rather than a bare
+           centred line — the tab then reads as working, not empty. */
+        if (!_data) { renderSkeleton(ym); show("ts"); }
+        hideNotice();
+      }
 
       /* In test mode the fixture is one fixed month, so the requested month is
          ignored — nav is disabled to match.
@@ -732,15 +842,15 @@
         headers: { "Accept": "application/json", "X-Mock-Employee": _email }
       })
       .then(function (r) {
-        /* 403 carries its own explanation from the contract (not entitled, no employee
-           record, feature off), so it goes through the same path as every other error
-           and the server's message is what the employee reads. */
         if (!r.ok) {
           return r.json().catch(function () { return null; }).then(function (body) {
             var msg = body && body.error && body.error.message
               ? body.error.message
               : "The timesheet service returned an error (" + r.status + ").";
-            throw new Error(msg);
+            /* 403 is entitlement, not an outage: no amount of retrying changes it, so
+               it gets a terminal state instead of a skeleton that never fills. Every
+               other status is worth another attempt. */
+            throw { terminal: r.status === 403, message: msg };
           });
         }
         return r.json();
@@ -752,12 +862,32 @@
         if (_mode === "test") _testMonth = payload.month;
         if (_sel && _sel.slice(0, 7) !== _month) _sel = null;
         render();
+        document.getElementById("grid").removeAttribute("aria-busy");
+        hideNotice();
         show("ts");
       })
       .catch(function (err) {
-        document.getElementById("error-msg").textContent =
-          (err && err.message) || "Could not reach the timesheet service.";
-        show("error");
+        var why = (err && err.message) || "Could not reach the timesheet service.";
+
+        if (err && err.terminal) {
+          if (_timer) { clearInterval(_timer); _timer = null; }   /* polling cannot fix it */
+          document.getElementById("error-title").textContent = "Timesheet not available";
+          document.getElementById("error-msg").textContent = why;
+          show("error");
+          return;
+        }
+
+        if (_data) {
+          /* A month is already rendered and still true as of its own sync time.
+             Replacing it with an error would throw away good data over one failed
+             poll, so it stays and the bar says it is not fresh. */
+          showNotice("Showing the last data loaded" +
+                     (_month ? " for " + monthLabel(_month) + "." : "."), why, true);
+        } else {
+          renderSkeleton(_want || _month);
+          showNotice("We couldn't load your timesheet from the HR system.", why, false);
+        }
+        show("ts");
       })
       .finally(function () { _busy = false; });
     }
@@ -770,7 +900,7 @@
       });
     }
 
-    function retry()            { loadMonth(_month || monthOfToday(), true); }
+    function retry()            { loadMonth(_want || _month || monthOfToday(), true); }
     function monthOfToday()     { return (_data && _data.today ? _data.today : new Date().toISOString()).slice(0, 7); }
     function shiftMonth(delta) {
       if (_mode === "test") return;          /* one fixture month, nothing to page to */
