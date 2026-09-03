@@ -732,7 +732,9 @@
         headers: { "Accept": "application/json", "X-Mock-Employee": _email }
       })
       .then(function (r) {
-        if (r.status === 403) { show("gate"); return null; }
+        /* 403 carries its own explanation from the contract (not entitled, no employee
+           record, feature off), so it goes through the same path as every other error
+           and the server's message is what the employee reads. */
         if (!r.ok) {
           return r.json().catch(function () { return null; }).then(function (body) {
             var msg = body && body.error && body.error.message
@@ -761,9 +763,10 @@
     }
 
     function show(which) {
-      ["gate", "loading", "error", "ts"].forEach(function (k) {
+      ["loading", "error", "ts"].forEach(function (k) {
         var el = document.getElementById(k === "ts" ? "ts-view" : k + "-view");
-        el.style.display = (k === which) ? (k === "ts" ? "flex" : "flex") : "none";
+        if (!el) return;   /* a missing view must never abort the whole render */
+        el.style.display = (k === which) ? "flex" : "none";
       });
     }
 
